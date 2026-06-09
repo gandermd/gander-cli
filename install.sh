@@ -7,19 +7,41 @@ INSTALL_DIR=""
 BIN_NAME="mdp"
 
 # Detect OS
-if [[ "$OSTYPE" != "darwin"* ]]; then
-    echo "Error: mdp currently supports macOS only."
+OS_TYPE=""
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    OS_TYPE="darwin"
+elif [[ "$OSTYPE" == "linux"* ]]; then
+    OS_TYPE="linux"
+fi
+
+if [[ -z "$OS_TYPE" ]]; then
+    echo "Error: mdp currently supports macOS and Linux only."
     exit 1
 fi
 
 # Detect arch
 ARCH=$(uname -m)
-if [[ "$ARCH" == "arm64" ]]; then
-    BINARY="$DIST_DIR/mdp-darwin-arm64"
-else
-    echo "Error: unsupported architecture: $ARCH"
+PLATFORM=""
+if [[ "$OS_TYPE" == "darwin" ]]; then
+    if [[ "$ARCH" == "arm64" ]]; then
+        PLATFORM="darwin-arm64"
+    elif [[ "$ARCH" == "x86_64" ]]; then
+        PLATFORM="darwin-amd64"
+    fi
+elif [[ "$OS_TYPE" == "linux" ]]; then
+    if [[ "$ARCH" == "x86_64" ]]; then
+        PLATFORM="linux-amd64"
+    elif [[ "$ARCH" == "aarch64" ]]; then
+        PLATFORM="linux-arm64"
+    fi
+fi
+
+if [[ -z "$PLATFORM" ]]; then
+    echo "Error: unsupported architecture: $ARCH on $OS_TYPE"
     exit 1
 fi
+
+BINARY="$DIST_DIR/mdp-$PLATFORM"
 
 if [[ ! -f "$BINARY" ]]; then
     echo "Error: binary not found at $BINARY"
