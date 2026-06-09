@@ -1,23 +1,23 @@
 # mdp — Markdown Preview
 
-A simple CLI tool that renders a Markdown file in your web browser on macOS. The server auto-refreshes when you save changes to the file.
+A simple CLI tool that renders a Markdown file in your web browser on macOS and Linux. The server auto-refreshes when you save changes to the file.
 
 ## Installation
 
-### One-liner (macOS arm64)
+### One-liner
 
 ```bash
-git clone https://github.com/yourusername/mdp.git && cd mdp && ./install.sh
+git clone https://github.com/scott/mdp.git && cd mdp && ./install.sh
 ```
 
 The installer copies the binary to `~/go/bin/mdp` (no sudo needed) and reminds you to add it to your PATH if needed.
 
-### Other platforms
+### Build from source
 
 If you're on a different platform or arch, or prefer to build from source:
 
 ```bash
-git clone https://github.com/yourusername/mdp.git
+git clone https://github.com/scott/mdp.git
 cd mdp
 go mod tidy
 CGO_ENABLED=0 go build -o mdp .
