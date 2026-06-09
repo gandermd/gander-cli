@@ -1,6 +1,6 @@
 # mdp — Markdown Preview
 
-A simple CLI tool that renders a Markdown file in your web browser on macOS and Linux. The server auto-refreshes when you save changes to the file.
+A simple CLI tool that renders a Markdown file in your web browser on macOS and Linux.
 
 ## Installation
 
@@ -41,7 +41,7 @@ This will:
 1. Convert the Markdown to HTML
 2. Start a local server at `http://localhost:5052/content`
 3. Open the preview in your default browser
-4. Watch the file for changes — saving the file automatically refreshes the browser
+4. Watch the file for changes — reload the page to see updates
 
 ### Convert to HTML file (no server)
 
@@ -65,4 +65,3 @@ MIT License — see [LICENSE](LICENSE) for details.
 - **Markdown parsing**: uses [goldmark](https://github.com/yuin/goldmark) (CommonMark compliant)
 - **HTML sanitization**: uses [bluemonday](https://github.com/microcosm-cc/bluemonday) for security
 - **File watching**: uses [fsnotify](https://github.com/fsnotify/fsnotify) to detect changes
-- **Auto-refresh**: the browser polls the server every second; saving the file triggers an update via `fsnotify`

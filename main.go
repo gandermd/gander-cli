@@ -117,7 +117,7 @@ func watchFileChanges() {
 			if !ok {
 				return
 			}
-			if event.Has(fsnotify.Write) {
+			if event.Has(fsnotify.Write) || event.Has(fsnotify.Rename) || event.Has(fsnotify.Create) {
 				content, err := os.ReadFile(watchFile)
 				if err != nil {
 					log.Printf("Error reading file: %v", err)
@@ -416,46 +416,42 @@ func buildHTML(content string, headings []Heading) string {
 	var tocList = document.getElementById('toc-list');
 	if (!tocList || headings.length < 2) return;
 
-	headings.forEach(function(h) {
-		var li = document.createElement('li');
-		li.className = 'h' + h.level;
-		var a = document.createElement('a');
-		a.href = '#' + h.id;
-		a.textContent = h.text;
-		li.appendChild(a);
-		tocList.appendChild(li);
-	});
+	function buildTOC() {
+		tocList.innerHTML = '';
+		headings.forEach(function(h) {
+			var li = document.createElement('li');
+			li.className = 'h' + h.level;
+			var a = document.createElement('a');
+			a.href = '#' + h.id;
+			a.textContent = h.text;
+			li.appendChild(a);
+			tocList.appendChild(li);
+		});
+	}
 
-	var tocLinks = tocList.querySelectorAll('a');
-	headings.forEach(function(h, i) {
-		var el = document.getElementById(h.id);
-		if (!el) return;
-		var obs = new IntersectionObserver(function(entries) {
-			entries.forEach(function(entry) {
-				if (entry.isIntersecting) {
-					tocLinks.forEach(function(l) { l.classList.remove('active'); });
-					if (tocLinks[i]) tocLinks[i].classList.add('active');
-				}
-			});
-		}, { rootMargin: '-10% 0px -80% 0px' });
-		obs.observe(el);
-	});
-})();
-</script>
-<script>
-(function() {
-	var lastContent = '';
-	setInterval(async function() {
-		try {
-			var res = await fetch('/content');
-			var text = await res.text();
-			var match = text.match(/<main class="mdp-content"[^>]*>([\s\S]*?)<\/main>\s*<script>/);
-			if (match && match[1] !== lastContent) {
-				document.getElementById('content').innerHTML = match[1];
-				lastContent = match[1];
-			}
-		} catch (e) {}
-	}, 1000);
+	var observers = [];
+	function setupObservers() {
+		observers.forEach(function(o) { o.disconnect(); });
+		observers = [];
+		var tocLinks = tocList.querySelectorAll('a');
+		headings.forEach(function(h, i) {
+			var el = document.getElementById(h.id);
+			if (!el) return;
+			var obs = new IntersectionObserver(function(entries) {
+				entries.forEach(function(entry) {
+					if (entry.isIntersecting) {
+						tocLinks.forEach(function(l) { l.classList.remove('active'); });
+						if (tocLinks[i]) tocLinks[i].classList.add('active');
+					}
+				});
+			}, { threshold: 0 });
+			obs.observe(el);
+			observers.push(obs);
+		});
+	}
+
+	buildTOC();
+	setupObservers();
 })();
 </script>
 </body>
