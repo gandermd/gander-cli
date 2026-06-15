@@ -2,29 +2,22 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
-	"sync"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/text"
-)
-
-const (
-	addr       = "localhost:5052"
-	contentPath = "/content"
 )
 
 type Heading struct {
@@ -33,15 +26,8 @@ type Heading struct {
 	ID    string `json:"id"`
 }
 
-var (
-	mdContent   string
-	mdContentMu sync.RWMutex
-	watcher     *fsnotify.Watcher
-	watchFile   string
-)
-
 func main() {
-	outFile := flag.String("outfile", "", "Optional: write HTML output to file instead of serving")
+	outFile := flag.String("outfile", "", "Optional: write HTML output to file instead of opening in browser")
 	flag.Parse()
 
 	args := flag.Args()
@@ -57,82 +43,27 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to resolve file path: %v", err)
 	}
-	watchFile = absPath
 
 	content, err := os.ReadFile(absPath)
 	if err != nil {
 		log.Fatalf("Failed to read file: %v", err)
 	}
 
-	setMdContent(string(content))
-
 	if *outFile != "" {
-		if err := writeHTML(*outFile); err != nil {
+		if err := writeHTMLTo(*outFile, content); err != nil {
 			log.Fatalf("Failed to write HTML: %v", err)
 		}
 		fmt.Printf("HTML written to: %s\n", *outFile)
 		return
 	}
 
-	go watchFileChanges()
-
-	url := fmt.Sprintf("http://%s%s", addr, contentPath)
-	fmt.Printf("Server listening on %s\n", url)
-	openBrowser(url)
-
-	http.HandleFunc(contentPath, htmlHandler)
-	if err := http.ListenAndServe(addr, nil); err != nil {
-		log.Fatalf("Server error: %v", err)
-	}
-}
-
-func setMdContent(content string) {
-	mdContentMu.Lock()
-	mdContent = content
-	mdContentMu.Unlock()
-}
-
-func getMdContent() string {
-	mdContentMu.RLock()
-	defer mdContentMu.RUnlock()
-	return mdContent
-}
-
-func watchFileChanges() {
-	watcher, err := fsnotify.NewWatcher()
+	tmpPath, err := writeHTMLToTemp(content)
 	if err != nil {
-		log.Printf("Warning: could not start file watcher: %v", err)
-		return
+		log.Fatalf("Failed to write temp HTML: %v", err)
 	}
-	defer watcher.Close()
-
-	if err := watcher.Add(watchFile); err != nil {
-		log.Printf("Warning: could not watch file: %v", err)
-		return
-	}
-
-	for {
-		select {
-		case event, ok := <-watcher.Events:
-			if !ok {
-				return
-			}
-			if event.Has(fsnotify.Write) || event.Has(fsnotify.Rename) || event.Has(fsnotify.Create) {
-				content, err := os.ReadFile(watchFile)
-				if err != nil {
-					log.Printf("Error reading file: %v", err)
-					continue
-				}
-				setMdContent(string(content))
-				fmt.Printf("File updated: %s\n", watchFile)
-			}
-		case err, ok := <-watcher.Errors:
-			if !ok {
-				return
-			}
-			log.Printf("Watcher error: %v", err)
-		}
-	}
+	url := "file://" + tmpPath
+	fmt.Printf("Preview at: %s\n", url)
+	openBrowser(url)
 }
 
 func openBrowser(url string) {
@@ -231,22 +162,20 @@ func extractNodeText(n ast.Node, source []byte) string {
 	return strings.TrimSpace(buf.String())
 }
 
-func writeHTML(outPath string) error {
-	htmlContent, _ := renderMarkdownWithIDs(getMdContent())
-	page := buildHTML(htmlContent, nil)
+func writeHTMLTo(outPath string, content []byte) error {
+	html, headings := renderMarkdownWithIDs(string(content))
+	page := buildHTML(html, headings)
 	return os.WriteFile(outPath, []byte(page), 0644)
 }
 
-func htmlHandler(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != contentPath {
-		http.NotFound(w, r)
-		return
+func writeHTMLToTemp(content []byte) (string, error) {
+	sum := sha256.Sum256(content)
+	name := fmt.Sprintf("mdp-%x.html", sum[:8])
+	path := filepath.Join(os.TempDir(), name)
+	if err := writeHTMLTo(path, content); err != nil {
+		return "", err
 	}
-	content := getMdContent()
-	html, headings := renderMarkdownWithIDs(content)
-	page := buildHTML(html, headings)
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(page))
+	return path, nil
 }
 
 const cssStyle = `

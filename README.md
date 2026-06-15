@@ -39,21 +39,23 @@ mdp path/to/file.md
 
 This will:
 1. Convert the Markdown to HTML
-2. Start a local server at `http://localhost:5052/content`
-3. Open the preview in your default browser
-4. Watch the file for changes — reload the page to see updates
+2. Write the rendered preview to a temporary file (in your OS temp directory)
+3. Open it in your default browser via a `file://` URL
+4. Exit — the process does not keep running, no port is held open
 
-### Convert to HTML file (no server)
+### Convert to HTML file (no browser)
 
 ```bash
-mdp README.md -outfile readme.html
+mdp -outfile readme.html README.md
 ```
+
+> Flags must come **before** the markdown path, since Go's `flag` package stops parsing at the first positional argument.
 
 ### Options
 
 ```
 -outfile string
-    Optional: write HTML output to file instead of serving
+    Optional: write HTML output to a file instead of opening it in the browser
 ```
 
 ## License
@@ -64,4 +66,5 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 - **Markdown parsing**: uses [goldmark](https://github.com/yuin/goldmark) (CommonMark compliant)
 - **HTML sanitization**: uses [bluemonday](https://github.com/microcosm-cc/bluemonday) for security
-- **File watching**: uses [fsnotify](https://github.com/fsnotify/fsnotify) to detect changes
+
+The CLI is intentionally fire-and-forget: it renders once, opens the result in your browser, and exits. Re-run `mdp <file.md>` to see updates. If you want a persistent HTML file instead, use `-outfile` (see below).
