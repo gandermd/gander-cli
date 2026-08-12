@@ -24,6 +24,16 @@ CGO_ENABLED=0 go build -o mdp .
 mv mdp ~/go/bin/mdp  # or any directory in your PATH
 ```
 
+### Upgrading an existing install
+
+```bash
+mdp --upgrade
+```
+
+Downloads the latest release binary that matches your OS/arch, verifies its SHA256 checksum, and atomically replaces the running binary. Sets `GITHUB_TOKEN` in the environment to raise the API rate limit on shared networks.
+
+If you built from source, `git pull && CGO_ENABLED=0 go build -o ~/go/bin/mdp .` still works.
+
 ### Prerequisites
 
 - **macOS** (uses the `open` command to launch the browser)
@@ -90,7 +100,20 @@ CLI flags always override the config. Pass `--watch=false` (or any explicit valu
     Optional: write HTML output to a file instead of opening it in the browser
 -watch
     Watch the file for changes and live-reload the browser preview
+-upgrade
+    Download and install the latest release, then exit
 ```
+
+## Releasing
+
+To cut a new release, push a tag matching `v*`:
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+GitHub Actions builds matrix binaries (`mdp-{darwin,linux}-{amd64,arm64}`), generates a SHA256 sidecar for each, and attaches them to a GitHub Release with auto-generated notes. Existing users pick up the new version with `mdp --upgrade`.
 
 ## License
 
