@@ -93,3 +93,35 @@ func TestRenderMarkdownWithIDs(t *testing.T) {
 		t.Errorf("html missing rendered headings: %s", html)
 	}
 }
+
+func TestRenderMarkdownTable(t *testing.T) {
+	md := "| Col A | Col B |\n| ----- | ----- |\n| 1     | 2     |\n| 3     | 4     |\n"
+	html, headings := renderMarkdownWithIDs(md)
+
+	if len(headings) != 0 {
+		t.Errorf("table-only input should produce no headings, got %d", len(headings))
+	}
+	for _, want := range []string{"<table>", "<thead>", "<tbody>", "<th>Col A</th>", "<th>Col B</th>", "<td>1</td>", "<td>4</td>"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("html missing %q\n--- got ---\n%s", want, html)
+		}
+	}
+	if strings.Contains(html, "<p>|") {
+		t.Errorf("table was rendered as paragraph, not as <table>:\n%s", html)
+	}
+}
+
+func TestRenderMarkdownTableWithSurroundingText(t *testing.T) {
+	md := "# Stats\n\n| A | B |\n| - | - |\n| 1 | 2 |\n\nfin"
+	html, _ := renderMarkdownWithIDs(md)
+
+	if !strings.Contains(html, "<table>") {
+		t.Errorf("expected <table> in html, got:\n%s", html)
+	}
+	if !strings.Contains(html, "<h1") {
+		t.Errorf("expected heading to still render, got:\n%s", html)
+	}
+	if !strings.Contains(html, "<p>fin</p>") {
+		t.Errorf("expected trailing paragraph to still render, got:\n%s", html)
+	}
+}
