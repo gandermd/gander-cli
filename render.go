@@ -212,6 +212,7 @@ blockquote { margin: 0; padding: 0 1em; color: #6a737d; border-left: 0.25em soli
 table { border-collapse: collapse; width: 100%; margin: 1em 0; }
 table th, table td { border: 1px solid #dfe2e8; padding: 6px 13px; }
 table tr:nth-child(2n) { background-color: #f6f8fa; }
+.mermaid { text-align: center; margin: 1em 0; overflow-x: auto; }
 hr { border: 0; border-top: 1px solid #eaecef; margin: 1.5em 0; }
 img { max-width: 100%; }
 ul, ol { padding-left: 2em; }
@@ -298,6 +299,42 @@ const tocScript = `
 })();
 `
 
+const mermaidInitScript = `
+(function() {
+	function transform() {
+		var scope = document.getElementById('content') || document.body;
+		var blocks = scope.querySelectorAll('pre > code.language-mermaid');
+		blocks.forEach(function(code) {
+			var pre = code.parentElement;
+			if (!pre || pre.parentNode == null) return;
+			var div = document.createElement('div');
+			div.className = 'mermaid';
+			div.textContent = code.textContent;
+			pre.parentNode.replaceChild(div, pre);
+		});
+	}
+
+	function render() {
+		if (!window.mermaid) return;
+		var nodes = document.querySelectorAll('.mermaid');
+		if (nodes.length === 0) return;
+		try {
+			window.mermaid.run({ nodes: nodes });
+		} catch (err) {
+			console.error('mdp: mermaid render failed', err);
+		}
+	}
+
+	function run() {
+		transform();
+		render();
+	}
+
+	window.mdpRenderMermaid = run;
+	run();
+})();
+`
+
 const reloadScript = `
 (function() {
 	if (!window.EventSource) return;
@@ -311,6 +348,9 @@ const reloadScript = `
 		content.innerHTML = html;
 		if (typeof window.mdpRebuildTOC === 'function') {
 			window.mdpRebuildTOC();
+		}
+		if (typeof window.mdpRenderMermaid === 'function') {
+			window.mdpRenderMermaid();
 		}
 		window.scrollTo(0, y);
 	});
@@ -355,9 +395,13 @@ func buildHTML(content string, headings []Heading, withLiveReload bool) string {
 %s
 </main>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+%s
+</script>
 <script>
 %s
 </script>
 </body>
-</html>`, cssStyle, headingsJSON, tocHTML, content, script)
+</html>`, cssStyle, headingsJSON, tocHTML, content, mermaidInitScript, script)
 }

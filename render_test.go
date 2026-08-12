@@ -125,3 +125,53 @@ func TestRenderMarkdownTableWithSurroundingText(t *testing.T) {
 		t.Errorf("expected trailing paragraph to still render, got:\n%s", html)
 	}
 }
+
+func TestRenderMarkdownMermaidCodeBlock(t *testing.T) {
+	md := "```mermaid\ngraph TD\n  A --> B\n```"
+	html, _ := renderMarkdownWithIDs(md)
+
+	if !strings.Contains(html, "language-mermaid") {
+		t.Errorf("expected 'language-mermaid' class on code block, got:\n%s", html)
+	}
+	if !strings.Contains(html, "graph TD") {
+		t.Errorf("expected mermaid source in code block, got:\n%s", html)
+	}
+}
+
+func TestBuildHTMLIncludesMermaid(t *testing.T) {
+	_, _ = renderMarkdownWithIDs("hello")
+	page := buildHTML("<p>x</p>", nil, false)
+
+	if !strings.Contains(page, "mermaid.min.js") {
+		t.Error("buildHTML should load the Mermaid library from CDN")
+	}
+	if !strings.Contains(page, "mdpRenderMermaid") {
+		t.Error("buildHTML should expose mdpRenderMermaid")
+	}
+	if !strings.Contains(page, "code.language-mermaid") {
+		t.Error("buildHTML init script should target code.language-mermaid")
+	}
+	if !strings.Contains(page, "mermaid.run") {
+		t.Error("buildHTML init script should call mermaid.run")
+	}
+	if !strings.Contains(page, ".mermaid") {
+		t.Error("buildHTML should include CSS for .mermaid containers")
+	}
+}
+
+func TestBuildHTMLMermaidRunsAfterLiveReload(t *testing.T) {
+	_, _ = renderMarkdownWithIDs("hello")
+	page := buildHTML("<p>x</p>", nil, true)
+
+	idxReload := strings.Index(page, "EventSource")
+	if idxReload < 0 {
+		t.Fatal("live reload script not present")
+	}
+	lastMermaid := strings.LastIndex(page, "mdpRenderMermaid")
+	if lastMermaid < 0 {
+		t.Fatal("mdpRenderMermaid not present")
+	}
+	if lastMermaid < idxReload {
+		t.Error("mdpRenderMermaid should be called from the live-reload SSE handler (after content swaps)")
+	}
+}
