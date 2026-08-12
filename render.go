@@ -10,6 +10,7 @@ import (
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/text"
 )
@@ -36,6 +37,7 @@ func renderMarkdownWithIDs(md string) (string, []Heading) {
 	mdSrc := []byte(md)
 	mdParser := goldmark.New(
 		goldmark.WithParserOptions(parser.WithAutoHeadingID()),
+		goldmark.WithExtensions(extension.Table),
 	)
 
 	doc := mdParser.Parser().Parse(text.NewReader(mdSrc))
