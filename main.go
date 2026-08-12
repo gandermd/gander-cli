@@ -13,7 +13,19 @@ import (
 func main() {
 	outFile := flag.String("outfile", "", "Optional: write HTML output to file instead of opening in browser")
 	watch := flag.Bool("watch", false, "Watch the file for changes and live-reload the browser preview")
+	upgrade := flag.Bool("upgrade", false, "Download and install the latest release, then exit")
 	flag.Parse()
+
+	if *upgrade {
+		if flag.NArg() > 0 {
+			fmt.Fprintln(os.Stderr, "error: --upgrade takes no arguments")
+			os.Exit(1)
+		}
+		if err := runUpgrade(); err != nil {
+			log.Fatalf("upgrade: %v", err)
+		}
+		return
+	}
 
 	args := flag.Args()
 	if len(args) == 0 {
