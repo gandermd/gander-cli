@@ -22,7 +22,7 @@ self-updates from GitHub Releases.
   | `watch.go`            | HTTP server, SSE hub, fsnotify watcher, debounced reload |
   | `upgrade.go`          | `--upgrade` self-update via GitHub Releases API          |
   | `*_test.go`           | Unit tests                                               |
-  | `install.sh`          | Installer for fresh clones                               |
+  | `install.sh`          | Installer: downloads the latest release, source fallback |
   | `scripts/release.sh`  | Release automation (see below)                           |
   | `.github/workflows/`  | CI (currently just `release.yml`)                        |
 
