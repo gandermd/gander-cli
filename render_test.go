@@ -15,6 +15,9 @@ func TestBuildHTMLWithoutLiveReload(t *testing.T) {
 	if strings.Contains(page, "/events") {
 		t.Error("buildHTML(..., false) should not reference /events")
 	}
+	if !strings.Contains(page, "mdpRebuildTOC") {
+		t.Error("buildHTML(..., false) should include the TOC builder so the left column populates")
+	}
 	if !strings.Contains(page, "<h1") {
 		t.Error("buildHTML output missing rendered heading")
 	}
@@ -51,7 +54,7 @@ func TestBuildHTMLNoTOCWhenFewHeadings(t *testing.T) {
 	_, headings := renderMarkdownWithIDs("# Only one")
 	page := buildHTML("<p>x</p>", headings, false)
 
-	if strings.Contains(page, "toc-list") {
+	if strings.Contains(page, `<ul id="toc-list"`) {
 		t.Error("buildHTML with <2 headings should not render TOC nav")
 	}
 }

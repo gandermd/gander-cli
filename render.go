@@ -237,7 +237,7 @@ li + li { margin-top: 0.25em; }
 }
 `
 
-const tocAndReloadScript = `
+const tocScript = `
 (function() {
 	var headings = JSON.parse(document.getElementById('headings-data').textContent);
 	var tocList = document.getElementById('toc-list');
@@ -288,7 +288,9 @@ const tocAndReloadScript = `
 	setupObservers();
 	window.mdpRebuildTOC = rebuildTOC;
 })();
+`
 
+const reloadScript = `
 (function() {
 	if (!window.EventSource) return;
 	var es = new EventSource('/events');
@@ -322,9 +324,9 @@ func buildHTML(content string, headings []Heading, withLiveReload bool) string {
 </nav>`
 	}
 
-	script := ""
+	script := tocScript
 	if withLiveReload {
-		script = tocAndReloadScript
+		script = tocScript + reloadScript
 	}
 
 	return fmt.Sprintf(`<!DOCTYPE html>
