@@ -4,25 +4,45 @@ A simple CLI tool that renders a Markdown file in your web browser on macOS and 
 
 ## Installation
 
-### One-liner
+### One-liner (recommended)
 
 ```bash
-git clone https://github.com/scott/mdp.git && cd mdp && ./install.sh
+curl -fsSL https://raw.githubusercontent.com/scott/mdp/main/install.sh | bash
 ```
 
-The installer copies the binary to `~/go/bin/mdp` (no sudo needed) and reminds you to add it to your PATH if needed.
+Downloads the latest release binary for your OS/arch from GitHub Releases, verifies its SHA256 checksum, and installs to `~/go/bin/mdp` (or `/usr/local/bin/mdp` if `~/go/bin` doesn't exist). If the download fails (no network, no release for your platform), the script falls back to building from source.
 
-### Build from source
+Flags:
 
-If you're on a different platform or arch, or prefer to build from source:
+- `--version v0.2.1` — install a specific release instead of the latest.
+- `--source` — skip the download and always build from source.
+- `--dry-run` — print what would happen without doing it.
+
+The installer requires `curl` and `git` (only for the source fallback). Set `GITHUB_TOKEN` to raise the GitHub API rate limit on shared networks.
+
+### Clone + run
+
+If you prefer to look at the script before running it:
+
+```bash
+git clone https://github.com/scott/mdp.git
+cd mdp
+./install.sh
+```
+
+### Build from source manually
+
+If you're on a different platform, want to hack on the code, or `curl | bash` makes you nervous:
 
 ```bash
 git clone https://github.com/scott/mdp.git
 cd mdp
 go mod tidy
-CGO_ENABLED=0 go build -o mdp .
+CGO_ENABLED=0 go build -trimpath -ldflags "-X main.Version=v0.2.1" -o mdp .
 mv mdp ~/go/bin/mdp  # or any directory in your PATH
 ```
+
+`-ldflags "-X main.Version=..."` stamps the version so `mdp --upgrade` knows what it's running. Drop it and the build reports `dev`, which still works but `mdp --upgrade` will go through a redundant update on first run.
 
 ### Upgrading an existing install
 
@@ -32,12 +52,13 @@ mdp --upgrade
 
 Downloads the latest release binary that matches your OS/arch, verifies its SHA256 checksum, and atomically replaces the running binary. Sets `GITHUB_TOKEN` in the environment to raise the API rate limit on shared networks.
 
-If you built from source, `git pull && CGO_ENABLED=0 go build -o ~/go/bin/mdp .` still works.
+If you built from source the old-fashioned way, re-run `install.sh` (or `git pull && ./install.sh --source`).
 
 ### Prerequisites
 
-- **macOS** (uses the `open` command to launch the browser)
-- **Go** 1.22+ (only needed for source builds, not for the pre-built binary)
+- **macOS** or **Linux**
+- **Go 1.22+** only if you build from source or hit the source fallback
+- The macOS `open` command is used to launch the browser (issue #5 tracks Linux `xdg-open` support)
 
 ## Usage
 
