@@ -112,7 +112,8 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   echo "Would run:"
   echo "  git tag -a $TAG -m 'Release $TAG'"
   echo "  git push origin $TAG"
-  echo "  gh run watch --repo $REPO --workflow release --exit-status"
+  echo "  gh run list --workflow release --limit 1 --json databaseId,headBranch -q '...'"
+  echo "  gh run watch <run-id> --repo $REPO --exit-status"
   echo "  gh release view $TAG --repo $REPO --json url,name,assets"
   exit 0
 fi
@@ -121,8 +122,25 @@ git tag -a "$TAG" -m "Release $TAG"
 git push origin "$TAG"
 
 echo
-echo "Tag pushed. Watching the release workflow..."
-gh run watch --repo "$REPO" --workflow release --exit-status
+echo "Tag pushed. Waiting for the release workflow run to appear..."
+run_id=""
+for _ in $(seq 1 30); do
+  run_id=$(gh run list --repo "$REPO" --workflow release --limit 1 \
+              --json databaseId,headBranch -q '.[0] | select(.headBranch == "'"$TAG"'") | .databaseId' 2>/dev/null || true)
+  if [[ -n "$run_id" ]]; then
+    break
+  fi
+  sleep 2
+done
+
+if [[ -z "$run_id" ]]; then
+  echo "error: could not find a release workflow run for tag $TAG" >&2
+  echo "check https://github.com/$REPO/actions/workflows/release.yml" >&2
+  exit 1
+fi
+
+echo "Watching run $run_id..."
+gh run watch "$run_id" --repo "$REPO" --exit-status
 
 echo
 echo "Workflow finished. Fetching release info..."
