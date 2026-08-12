@@ -263,17 +263,23 @@ const tocScript = `
 		observers = [];
 		if (!hasTOC) return;
 		var tocLinks = tocList.querySelectorAll('a');
+		var intersecting = new Set();
 		headings.forEach(function(h, i) {
 			var el = document.getElementById(h.id);
 			if (!el) return;
 			var obs = new IntersectionObserver(function(entries) {
 				entries.forEach(function(entry) {
-					if (entry.isIntersecting) {
-						tocLinks.forEach(function(l) { l.classList.remove('active'); });
-						if (tocLinks[i]) tocLinks[i].classList.add('active');
-					}
+					var idx = headings.findIndex(function(x) { return x.id === entry.target.id; });
+					if (idx < 0) return;
+					if (entry.isIntersecting) intersecting.add(idx);
+					else intersecting.delete(idx);
 				});
-			}, { threshold: 0 });
+				if (intersecting.size > 0) {
+					var activeIdx = Math.max.apply(null, Array.from(intersecting));
+					tocLinks.forEach(function(l) { l.classList.remove('active'); });
+					if (tocLinks[activeIdx]) tocLinks[activeIdx].classList.add('active');
+				}
+			}, { rootMargin: '-80px 0px -70% 0px', threshold: 0 });
 			obs.observe(el);
 			observers.push(obs);
 		});
