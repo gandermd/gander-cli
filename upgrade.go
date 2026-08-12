@@ -111,7 +111,7 @@ func listAssetNames(assets []releaseAsset) string {
 }
 
 func httpClient() *http.Client {
-	return &http.Client{Timeout: 30 * time.Second}
+	return &http.Client{Timeout: 2 * time.Minute}
 }
 
 func fetchLatestRelease() (*releaseInfo, error) {
