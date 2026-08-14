@@ -5,7 +5,7 @@ usage() {
   cat <<'USAGE'
 Usage: scripts/release.sh <version> [--dry-run]
 
-Cuts a new release of mdp.
+Cuts a new release of gander.
 
 Arguments:
   <version>    Semver-style version, e.g. 0.2.0. Leading "v" is added if missing.
@@ -148,4 +148,4 @@ gh release view "$TAG" --repo "$REPO" --json url,name,assets \
   --jq '"URL:    \(.url)\nName:   \(.name)\nAssets:\n" + ([.assets[] | "  - \(.name)\n    \(.url)"] | join(""))'
 
 echo
-echo "Done. Users can now run: mdp --upgrade"
+echo "Done. Users can now run: gander --upgrade"

@@ -30,7 +30,7 @@ func main() {
 	args := flag.Args()
 	if len(args) == 0 {
 		flag.Usage()
-		fmt.Fprintf(flag.CommandLine.Output(), "\nUsage: mdp <file.md> [options]\n\nOptions:\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "\nUsage: gander <file.md> [options]\n\nOptions:\n")
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
@@ -111,7 +111,7 @@ func writeHTMLTo(outPath string, content []byte) error {
 
 func writeHTMLToTemp(content []byte) (string, error) {
 	sum := sha256.Sum256(content)
-	name := fmt.Sprintf("mdp-%x.html", sum[:8])
+	name := fmt.Sprintf("gander-%x.html", sum[:8])
 	path := filepath.Join(os.TempDir(), name)
 	if err := writeHTMLTo(path, content); err != nil {
 		return "", err

@@ -28,7 +28,16 @@ func LoadConfig() (Config, error) {
 	if err != nil {
 		return cfg, fmt.Errorf("could not determine home directory: %w", err)
 	}
-	path := filepath.Join(home, ".mdp")
+
+	primary := filepath.Join(home, ".gander")
+	path := primary
+	if _, statErr := os.Stat(primary); statErr != nil && os.IsNotExist(statErr) {
+		legacy := filepath.Join(home, ".mdp")
+		if lstat, lerr := os.Stat(legacy); lerr == nil && !lstat.IsDir() {
+			path = legacy
+			fmt.Fprintf(os.Stderr, "warning: reading legacy %s; rename to %s to silence this message\n", legacy, primary)
+		}
+	}
 
 	data, err := os.ReadFile(path)
 	if err != nil {

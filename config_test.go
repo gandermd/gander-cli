@@ -39,7 +39,7 @@ func TestLoadConfigValid(t *testing.T) {
 	t.Setenv("HOME", dir)
 	t.Setenv("USERPROFILE", dir)
 
-	path := filepath.Join(dir, ".mdp")
+	path := filepath.Join(dir, ".gander")
 	if err := os.WriteFile(path, []byte(`{"watch": true, "debounce_ms": 300, "port": 8123}`), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestLoadConfigPartial(t *testing.T) {
 	t.Setenv("HOME", dir)
 	t.Setenv("USERPROFILE", dir)
 
-	path := filepath.Join(dir, ".mdp")
+	path := filepath.Join(dir, ".gander")
 	if err := os.WriteFile(path, []byte(`{"watch": true}`), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestLoadConfigMalformed(t *testing.T) {
 	t.Setenv("HOME", dir)
 	t.Setenv("USERPROFILE", dir)
 
-	path := filepath.Join(dir, ".mdp")
+	path := filepath.Join(dir, ".gander")
 	if err := os.WriteFile(path, []byte(`{not json`), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func TestLoadConfigNegativeValues(t *testing.T) {
 	t.Setenv("HOME", dir)
 	t.Setenv("USERPROFILE", dir)
 
-	path := filepath.Join(dir, ".mdp")
+	path := filepath.Join(dir, ".gander")
 	if err := os.WriteFile(path, []byte(`{"debounce_ms": -50, "port": -1}`), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -122,5 +122,50 @@ func TestLoadConfigNegativeValues(t *testing.T) {
 	}
 	if cfg.Port != 0 {
 		t.Errorf("Port = %d, want 0 (clamped)", cfg.Port)
+	}
+}
+
+func TestLoadConfigFallsBackToLegacy(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+
+	legacy := filepath.Join(dir, ".mdp")
+	if err := os.WriteFile(legacy, []byte(`{"watch": true, "debounce_ms": 250}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if !cfg.Watch {
+		t.Error("Watch = false, want true (from legacy ~/.mdp)")
+	}
+	if cfg.DebounceMs != 250 {
+		t.Errorf("DebounceMs = %d, want 250 (from legacy)", cfg.DebounceMs)
+	}
+}
+
+func TestLoadConfigPrimaryWinsOverLegacy(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+
+	primary := filepath.Join(dir, ".gander")
+	if err := os.WriteFile(primary, []byte(`{"debounce_ms": 100}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	legacy := filepath.Join(dir, ".mdp")
+	if err := os.WriteFile(legacy, []byte(`{"debounce_ms": 999}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.DebounceMs != 100 {
+		t.Errorf("DebounceMs = %d, want 100 (primary should win)", cfg.DebounceMs)
 	}
 }
