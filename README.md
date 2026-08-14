@@ -94,6 +94,29 @@ A local HTTP server is started on a random free port (printed in the output) so 
 
 > `--watch` and `-outfile` cannot be combined.
 
+### Share on gander.md
+
+`gander.md` is the public hosting service for gander. Once you sign up,
+you can `share`, `list`, and `remove` markdown from your terminal — and
+viewers see the same live-reload preview you'd see locally.
+
+```bash
+gander signup --email you@example.com   # one-time, saves an API token
+gander share README.md                  # opens https://gander.md/s/xK7m2pQa
+gander share README.md --watch          # also live-updates the remote viewer on save
+gander list                             # table of active shares
+gander remove README.md                 # 404s the short link
+gander remove --all                     # remove every share in your account
+```
+
+These commands appear in `gander --help` only after a successful signup,
+since they require an API token stored in `~/.gander` (`api_token`,
+`api_url`, `email`, plus a `shares` map of local file paths to short IDs).
+The CLI ships with `https://gander.md` as the default endpoint; set
+`api_url` in your config to point at a self-hosted instance.
+
+> Token rotation is not supported yet — see gandermd issue #1.
+
 ### Configuration (`~/.gander`)
 
 Optional JSON config file at `~/.gander` lets you set defaults. Any field you omit falls back to its default.
@@ -102,15 +125,25 @@ Optional JSON config file at `~/.gander` lets you set defaults. Any field you om
 {
   "watch": true,
   "debounce_ms": 150,
-  "port": 0
+  "port": 0,
+  "api_url": "https://gander.md",
+  "email": "you@example.com",
+  "api_token": "gmd_…",
+  "shares": {
+    "/abs/path/to/README.md": "xK7m2pQa"
+  }
 }
 ```
 
-| Field         | Default | Description                                                                |
-| ------------- | ------- | -------------------------------------------------------------------------- |
-| `watch`       | `false` | Default to live-reload mode when the flag is not explicitly set.           |
-| `debounce_ms` | `150`   | Coalesce file-change events within this window before re-rendering.        |
-| `port`        | `0`     | HTTP port for the watch server (`0` = OS-assigned free port).              |
+| Field         | Default            | Description                                                                |
+| ------------- | ------------------ | -------------------------------------------------------------------------- |
+| `watch`       | `false`            | Default to live-reload mode when the flag is not explicitly set.           |
+| `debounce_ms` | `150`              | Coalesce file-change events within this window before re-rendering.        |
+| `port`        | `0`                | HTTP port for the watch server (`0` = OS-assigned free port).              |
+| `api_url`     | `https://gander.md` | gandermd endpoint; only used by `signup`, `share`, `remove`, `list`.       |
+| `email`       | _(empty)_          | Email address registered with gandermd.                                   |
+| `api_token`   | _(empty)_          | Bearer token. Set by `gander signup`. Treat as a password.                 |
+| `shares`      | `{}`               | Map of local file paths to short IDs, maintained by `gander share`.        |
 
 CLI flags always override the config. Pass `--watch=false` (or any explicit value) to override `~/.gander` for a single run.
 
@@ -124,6 +157,17 @@ CLI flags always override the config. Pass `--watch=false` (or any explicit valu
 -upgrade
     Download and install the latest release, then exit
 ```
+
+Subcommands:
+
+```
+gander signup --email <addr>      Register an account on gander.md
+gander share [--watch] <file>     Upload to gander.md and open the share link
+gander remove [--all] [<file>]    Delete a share from gander.md
+gander list                       List shares currently on gander.md
+```
+
+The subcommands appear in help only after a successful `gander signup`.
 
 ## Releasing
 
