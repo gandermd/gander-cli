@@ -123,15 +123,15 @@ body {
 	margin: 0;
 	padding: 0;
 }
-.mdp-layout {
+.gander-layout {
 	display: grid;
 	grid-template-columns: 1fr;
 	min-height: 100vh;
 }
-.mdp-layout.toc-visible {
+.gander-layout.toc-visible {
 	grid-template-columns: 250px 1fr;
 }
-.mdp-toc {
+.gander-toc {
 	display: none;
 	position: sticky;
 	top: 0;
@@ -141,10 +141,10 @@ body {
 	border-right: 1px solid #eaecef;
 	background: #fafbfc;
 }
-.mdp-layout.toc-visible .mdp-toc {
+.gander-layout.toc-visible .gander-toc {
 	display: block;
 }
-.mdp-toc-title {
+.gander-toc-title {
 	font-size: 0.75rem;
 	font-weight: 600;
 	text-transform: uppercase;
@@ -152,32 +152,32 @@ body {
 	color: #6a737d;
 	margin: 0 0 0.75rem 0;
 }
-.mdp-toc ul {
+.gander-toc ul {
 	list-style: none;
 	padding: 0;
 	margin: 0;
 }
-.mdp-toc li { margin: 0.2em 0; }
-.mdp-toc li.h2 { padding-left: 0.75em; }
-.mdp-toc li.h3 { padding-left: 1.5em; font-size: 0.9em; }
-.mdp-toc li.h4 { padding-left: 2.25em; font-size: 0.85em; }
-.mdp-toc a {
+.gander-toc li { margin: 0.2em 0; }
+.gander-toc li.h2 { padding-left: 0.75em; }
+.gander-toc li.h3 { padding-left: 1.5em; font-size: 0.9em; }
+.gander-toc li.h4 { padding-left: 2.25em; font-size: 0.85em; }
+.gander-toc a {
 	color: #586069;
 	text-decoration: none;
 	display: block;
 	padding: 0.15em 0.25em;
 	border-radius: 3px;
 }
-.mdp-toc a:hover {
+.gander-toc a:hover {
 	color: #0366d6;
 	background: #f0f3f6;
 }
-.mdp-toc a.active {
+.gander-toc a.active {
 	color: #0366d6;
 	font-weight: 500;
 	background: #e8f0fb;
 }
-.mdp-content {
+.gander-content {
 	max-width: 900px;
 	padding: 2rem 3rem;
 }
@@ -219,22 +219,22 @@ ul, ol { padding-left: 2em; }
 li + li { margin-top: 0.25em; }
 
 @media (min-width: 950px) {
-	.mdp-layout {
+	.gander-layout {
 		grid-template-columns: 250px 1fr;
 	}
-	.mdp-layout .mdp-toc {
+	.gander-layout .gander-toc {
 		display: block;
 	}
 }
 
 @media (max-width: 949px) {
-	.mdp-layout {
+	.gander-layout {
 		grid-template-columns: 1fr !important;
 	}
-	.mdp-layout .mdp-toc {
+	.gander-layout .gander-toc {
 		display: none !important;
 	}
-	.mdp-content {
+	.gander-content {
 		padding: 2rem 1.5rem;
 	}
 }
@@ -295,7 +295,7 @@ const tocScript = `
 
 	buildTOC();
 	setupObservers();
-	window.mdpRebuildTOC = rebuildTOC;
+	window.ganderRebuildTOC = rebuildTOC;
 })();
 `
 
@@ -321,7 +321,7 @@ const mermaidInitScript = `
 		try {
 			window.mermaid.run({ nodes: nodes });
 		} catch (err) {
-			console.error('mdp: mermaid render failed', err);
+			console.error('gander: mermaid render failed', err);
 		}
 	}
 
@@ -330,7 +330,7 @@ const mermaidInitScript = `
 		render();
 	}
 
-	window.mdpRenderMermaid = run;
+	window.ganderRenderMermaid = run;
 	run();
 })();
 `
@@ -346,11 +346,11 @@ const reloadScript = `
 		try { html = JSON.parse(e.data); } catch (err) { return; }
 		var y = window.scrollY;
 		content.innerHTML = html;
-		if (typeof window.mdpRebuildTOC === 'function') {
-			window.mdpRebuildTOC();
+		if (typeof window.ganderRebuildTOC === 'function') {
+			window.ganderRebuildTOC();
 		}
-		if (typeof window.mdpRenderMermaid === 'function') {
-			window.mdpRenderMermaid();
+		if (typeof window.ganderRenderMermaid === 'function') {
+			window.ganderRenderMermaid();
 		}
 		window.scrollTo(0, y);
 	});
@@ -366,8 +366,8 @@ func buildHTML(content string, headings []Heading, withLiveReload bool) string {
 
 	tocHTML := ""
 	if len(headings) >= 2 {
-		tocHTML = `<nav class="mdp-toc" id="toc">
-<div class="mdp-toc-title">On this page</div>
+		tocHTML = `<nav class="gander-toc" id="toc">
+<div class="gander-toc-title">On this page</div>
 <ul id="toc-list"></ul>
 </nav>`
 	}
@@ -382,16 +382,16 @@ func buildHTML(content string, headings []Heading, withLiveReload bool) string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>mdp preview</title>
+<title>gander preview</title>
 <style>
 %s
 </style>
 </head>
 <body>
 <script type="application/json" id="headings-data">%s</script>
-<div class="mdp-layout" id="mdp-layout">
+<div class="gander-layout" id="gander-layout">
 %s
-<main class="mdp-content" id="content">
+<main class="gander-content" id="content">
 %s
 </main>
 </div>

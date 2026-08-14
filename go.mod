@@ -1,4 +1,4 @@
-module mdp
+module gander
 
 go 1.23
 

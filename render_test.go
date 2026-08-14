@@ -15,7 +15,7 @@ func TestBuildHTMLWithoutLiveReload(t *testing.T) {
 	if strings.Contains(page, "/events") {
 		t.Error("buildHTML(..., false) should not reference /events")
 	}
-	if !strings.Contains(page, "mdpRebuildTOC") {
+	if !strings.Contains(page, "ganderRebuildTOC") {
 		t.Error("buildHTML(..., false) should include the TOC builder so the left column populates")
 	}
 	if !strings.Contains(page, "<h1") {
@@ -30,8 +30,8 @@ func TestBuildHTMLWithLiveReload(t *testing.T) {
 	if !strings.Contains(page, "EventSource('/events')") && !strings.Contains(page, `EventSource("/events")`) {
 		t.Error("buildHTML(..., true) should set up EventSource connection")
 	}
-	if !strings.Contains(page, "mdpRebuildTOC") {
-		t.Error("buildHTML(..., true) should expose mdpRebuildTOC for hot-swap")
+	if !strings.Contains(page, "ganderRebuildTOC") {
+		t.Error("buildHTML(..., true) should expose ganderRebuildTOC for hot-swap")
 	}
 	if !strings.Contains(page, "scrollTo") {
 		t.Error("buildHTML(..., true) should preserve scroll position")
@@ -145,8 +145,8 @@ func TestBuildHTMLIncludesMermaid(t *testing.T) {
 	if !strings.Contains(page, "mermaid.min.js") {
 		t.Error("buildHTML should load the Mermaid library from CDN")
 	}
-	if !strings.Contains(page, "mdpRenderMermaid") {
-		t.Error("buildHTML should expose mdpRenderMermaid")
+	if !strings.Contains(page, "ganderRenderMermaid") {
+		t.Error("buildHTML should expose ganderRenderMermaid")
 	}
 	if !strings.Contains(page, "code.language-mermaid") {
 		t.Error("buildHTML init script should target code.language-mermaid")
@@ -167,11 +167,11 @@ func TestBuildHTMLMermaidRunsAfterLiveReload(t *testing.T) {
 	if idxReload < 0 {
 		t.Fatal("live reload script not present")
 	}
-	lastMermaid := strings.LastIndex(page, "mdpRenderMermaid")
+	lastMermaid := strings.LastIndex(page, "ganderRenderMermaid")
 	if lastMermaid < 0 {
-		t.Fatal("mdpRenderMermaid not present")
+		t.Fatal("ganderRenderMermaid not present")
 	}
 	if lastMermaid < idxReload {
-		t.Error("mdpRenderMermaid should be called from the live-reload SSE handler (after content swaps)")
+		t.Error("ganderRenderMermaid should be called from the live-reload SSE handler (after content swaps)")
 	}
 }

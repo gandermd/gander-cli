@@ -1,4 +1,4 @@
-# mdp — Markdown Preview
+# gander — Markdown Preview
 
 A simple CLI tool that renders a Markdown file in your web browser on macOS and Linux.
 
@@ -7,10 +7,10 @@ A simple CLI tool that renders a Markdown file in your web browser on macOS and 
 ### One-liner (recommended)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/scott/mdp/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/scott/gander/main/install.sh | bash
 ```
 
-Downloads the latest release binary for your OS/arch from GitHub Releases, verifies its SHA256 checksum, and installs to `~/go/bin/mdp` (or `/usr/local/bin/mdp` if `~/go/bin` doesn't exist). If the download fails (no network, no release for your platform), the script falls back to building from source.
+Downloads the latest release binary for your OS/arch from GitHub Releases, verifies its SHA256 checksum, and installs to `~/go/bin/gander` (or `/usr/local/bin/gander` if `~/go/bin` doesn't exist). If the download fails (no network, no release for your platform), the script falls back to building from source.
 
 Flags:
 
@@ -25,8 +25,8 @@ The installer requires `curl` and `git` (only for the source fallback). Set `GIT
 If you prefer to look at the script before running it:
 
 ```bash
-git clone https://github.com/scott/mdp.git
-cd mdp
+git clone https://github.com/scott/gander.git
+cd gander
 ./install.sh
 ```
 
@@ -35,19 +35,19 @@ cd mdp
 If you're on a different platform, want to hack on the code, or `curl | bash` makes you nervous:
 
 ```bash
-git clone https://github.com/scott/mdp.git
-cd mdp
+git clone https://github.com/scott/gander.git
+cd gander
 go mod tidy
-CGO_ENABLED=0 go build -trimpath -ldflags "-X main.Version=v0.2.1" -o mdp .
-mv mdp ~/go/bin/mdp  # or any directory in your PATH
+CGO_ENABLED=0 go build -trimpath -ldflags "-X main.Version=v0.2.1" -o gander .
+mv gander ~/go/bin/gander  # or any directory in your PATH
 ```
 
-`-ldflags "-X main.Version=..."` stamps the version so `mdp --upgrade` knows what it's running. Drop it and the build reports `dev`, which still works but `mdp --upgrade` will go through a redundant update on first run.
+`-ldflags "-X main.Version=..."` stamps the version so `gander --upgrade` knows what it's running. Drop it and the build reports `dev`, which still works but `gander --upgrade` will go through a redundant update on first run.
 
 ### Upgrading an existing install
 
 ```bash
-mdp --upgrade
+gander --upgrade
 ```
 
 Downloads the latest release binary that matches your OS/arch, verifies its SHA256 checksum, and atomically replaces the running binary. Sets `GITHUB_TOKEN` in the environment to raise the API rate limit on shared networks.
@@ -65,7 +65,7 @@ If you built from source the old-fashioned way, re-run `install.sh` (or `git pul
 ### Preview a Markdown file in the browser
 
 ```bash
-mdp path/to/file.md
+gander path/to/file.md
 ```
 
 This will:
@@ -77,7 +77,7 @@ This will:
 ### Convert to HTML file (no browser)
 
 ```bash
-mdp -outfile readme.html README.md
+gander -outfile readme.html README.md
 ```
 
 > Flags must come **before** the markdown path, since Go's `flag` package stops parsing at the first positional argument.
@@ -85,7 +85,7 @@ mdp -outfile readme.html README.md
 ### Live-reload preview
 
 ```bash
-mdp --watch README.md
+gander --watch README.md
 ```
 
 Opens the preview in your browser and watches the file for changes. Each save hot-swaps the rendered HTML in place and rebuilds the TOC — scroll position is preserved. Press `Ctrl+C` to stop.
@@ -94,9 +94,9 @@ A local HTTP server is started on a random free port (printed in the output) so 
 
 > `--watch` and `-outfile` cannot be combined.
 
-### Configuration (`~/.mdp`)
+### Configuration (`~/.gander`)
 
-Optional JSON config file at `~/.mdp` lets you set defaults. Any field you omit falls back to its default.
+Optional JSON config file at `~/.gander` lets you set defaults. Any field you omit falls back to its default.
 
 ```json
 {
@@ -112,7 +112,7 @@ Optional JSON config file at `~/.mdp` lets you set defaults. Any field you omit 
 | `debounce_ms` | `150`   | Coalesce file-change events within this window before re-rendering.        |
 | `port`        | `0`     | HTTP port for the watch server (`0` = OS-assigned free port).              |
 
-CLI flags always override the config. Pass `--watch=false` (or any explicit value) to override `~/.mdp` for a single run.
+CLI flags always override the config. Pass `--watch=false` (or any explicit value) to override `~/.gander` for a single run.
 
 ### Options
 
@@ -134,7 +134,7 @@ git tag v0.2.0
 git push origin v0.2.0
 ```
 
-GitHub Actions builds matrix binaries (`mdp-{darwin,linux}-{amd64,arm64}`), generates a SHA256 sidecar for each, and attaches them to a GitHub Release with auto-generated notes. Existing users pick up the new version with `mdp --upgrade`.
+GitHub Actions builds matrix binaries (`gander-{darwin,linux}-{amd64,arm64}`), generates a SHA256 sidecar for each, and attaches them to a GitHub Release with auto-generated notes. Existing users pick up the new version with `gander --upgrade`.
 
 ## License
 

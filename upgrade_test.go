@@ -9,7 +9,7 @@ import (
 
 func TestAssetNameForRuntime(t *testing.T) {
 	got := assetNameForRuntime()
-	want := "mdp-" + runtime.GOOS + "-" + runtime.GOARCH
+	want := "gander-" + runtime.GOOS + "-" + runtime.GOARCH
 	if got != want {
 		t.Errorf("assetNameForRuntime() = %q, want %q", got, want)
 	}
@@ -17,17 +17,17 @@ func TestAssetNameForRuntime(t *testing.T) {
 
 func TestFindAsset(t *testing.T) {
 	assets := []releaseAsset{
-		{Name: "mdp-darwin-arm64", BrowserDownloadURL: "https://example.com/a"},
-		{Name: "mdp-linux-amd64", BrowserDownloadURL: "https://example.com/b"},
+		{Name: "gander-darwin-arm64", BrowserDownloadURL: "https://example.com/a"},
+		{Name: "gander-linux-amd64", BrowserDownloadURL: "https://example.com/b"},
 	}
-	got, ok := findAsset(assets, "mdp-linux-amd64")
+	got, ok := findAsset(assets, "gander-linux-amd64")
 	if !ok {
 		t.Fatal("findAsset: not found")
 	}
 	if got.BrowserDownloadURL != "https://example.com/b" {
 		t.Errorf("got URL %q", got.BrowserDownloadURL)
 	}
-	if _, ok := findAsset(assets, "mdp-windows-amd64"); ok {
+	if _, ok := findAsset(assets, "gander-windows-amd64"); ok {
 		t.Error("findAsset should not match missing platform")
 	}
 }
@@ -62,7 +62,7 @@ func TestVerifySha256(t *testing.T) {
 func TestInstallBinary(t *testing.T) {
 	dir := t.TempDir()
 	src := filepath.Join(dir, "src")
-	dst := filepath.Join(dir, "subdir", "mdp")
+	dst := filepath.Join(dir, "subdir", "gander")
 	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func TestInstallBinary(t *testing.T) {
 		t.Error("installed binary not executable")
 	}
 
-	matches, _ := filepath.Glob(filepath.Join(dir, "subdir", "mdp-upgrade-*.bin"))
+	matches, _ := filepath.Glob(filepath.Join(dir, "subdir", "gander-upgrade-*.bin"))
 	if len(matches) != 0 {
 		t.Errorf("temp files left behind: %v", matches)
 	}

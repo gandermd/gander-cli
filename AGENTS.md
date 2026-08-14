@@ -1,23 +1,23 @@
 # AGENTS.md
 
-Operating notes for AI coding agents (and humans) working on **mdp**.
+Operating notes for AI coding agents (and humans) working on **gander**.
 
 ## Project
 
-`mdp` is a Go CLI that renders a Markdown file to HTML and opens it in the
+`gander` is a Go CLI that renders a Markdown file to HTML and opens it in the
 browser. Optional `--watch` mode hot-reloads on save. Optional `--upgrade`
 self-updates from GitHub Releases.
 
 - **Language:** Go 1.23
-- **Module:** `mdp` (see `go.mod`)
+- **Module:** `gander` (see `go.mod`)
 - **Entry point:** `main.go`
 - **Distribution:** prebuilt binaries in `dist/` (for `install.sh`) and
-  GitHub Releases (for `mdp --upgrade`).
+  GitHub Releases (for `gander --upgrade`).
 - **Source layout:**
   | File                  | Purpose                                                  |
   | --------------------- | -------------------------------------------------------- |
   | `main.go`             | CLI parsing, flag dispatch, entrypoint glue              |
-  | `config.go`           | `~/.mdp` JSON loader and defaults                        |
+  | `config.go`           | `~/.gander` JSON loader and defaults                        |
   | `render.go`           | Markdown → HTML, page builder, CSS, TOC + reload JS      |
   | `watch.go`            | HTTP server, SSE hub, fsnotify watcher, debounced reload |
   | `upgrade.go`          | `--upgrade` self-update via GitHub Releases API          |
@@ -32,7 +32,7 @@ self-updates from GitHub Releases.
 go test ./...           # run all tests
 go vet ./...            # static checks (must be clean)
 go build ./...          # compile check
-CGO_ENABLED=0 go build -o mdp .   # produce a portable binary
+CGO_ENABLED=0 go build -o gander .   # produce a portable binary
 ```
 
 Run all three before committing. The project has no separate `lint` step —
@@ -64,13 +64,13 @@ does the rest.
 
 On every `v*` tag push:
 
-1. **Build** matrix of `mdp-{darwin,linux}-{amd64,arm64}` with
+1. **Build** matrix of `gander-{darwin,linux}-{amd64,arm64}` with
    `CGO_ENABLED=0`. Version is injected via `-ldflags -X main.Version`.
 2. **Checksums** generate a `.sha256` sidecar for each binary.
 3. **Release** job downloads all artifacts and publishes a GitHub Release
    (via `softprops/action-gh-release@v2`) with auto-generated notes.
 
-The asset naming `mdp-{goos}-{goarch}` is load-bearing — `mdp --upgrade`
+The asset naming `gander-{goos}-{goarch}` is load-bearing — `gander --upgrade`
 matches on it. Don't rename without updating `assetNameForRuntime` in
 `upgrade.go`.
 
@@ -106,15 +106,15 @@ git checkout main && git pull --ff-only
 # ensure clean tree, then:
 git tag -a v0.2.0 -m "Release v0.2.0"
 git push origin v0.2.0
-# then watch: https://github.com/scott/mdp/actions/workflows/release.yml
+# then watch: https://github.com/scott/gander/actions/workflows/release.yml
 ```
 
 ### After a release
 
-- Users pick it up with `mdp --upgrade` (rate-limited; set `GITHUB_TOKEN`
+- Users pick it up with `gander --upgrade` (rate-limited; set `GITHUB_TOKEN`
   to raise the limit).
-- Source-build users run `git pull && CGO_ENABLED=0 go build -o ~/go/bin/mdp .`.
-- The first `mdp --upgrade` after install is a chicken-and-egg: the binary
+- Source-build users run `git pull && CGO_ENABLED=0 go build -o ~/go/bin/gander .`.
+- The first `gander --upgrade` after install is a chicken-and-egg: the binary
   has to be a release build (i.e., built with `-ldflags -X main.Version=…`).
   Source builds print a clear error directing the user to rebuild or
   download manually.
@@ -126,7 +126,7 @@ Reproduce the release build locally:
 ```bash
 CGO_ENABLED=0 go build -trimpath \
   -ldflags "-X main.Version=v0.2.0" \
-  -o mdp .
+  -o gander .
 ```
 
 `-trimpath` strips local filesystem paths from the binary for reproducibility.

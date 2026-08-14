@@ -16,7 +16,7 @@ import (
 
 var Version = "dev"
 
-const releasesAPI = "https://api.github.com/repos/scott/mdp/releases/latest"
+const releasesAPI = "https://api.github.com/repos/scott/gander/releases/latest"
 
 type releaseAsset struct {
 	Name               string `json:"name"`
@@ -90,7 +90,7 @@ func runUpgrade() error {
 }
 
 func assetNameForRuntime() string {
-	return fmt.Sprintf("mdp-%s-%s", runtime.GOOS, runtime.GOARCH)
+	return fmt.Sprintf("gander-%s-%s", runtime.GOOS, runtime.GOARCH)
 }
 
 func findAsset(assets []releaseAsset, name string) (releaseAsset, bool) {
@@ -120,7 +120,7 @@ func fetchLatestRelease() (*releaseInfo, error) {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "mdp-upgrade/"+Version)
+	req.Header.Set("User-Agent", "gander-upgrade/"+Version)
 	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
@@ -143,7 +143,7 @@ func fetchLatestRelease() (*releaseInfo, error) {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
 	if rel.TagName == "" {
-		return nil, fmt.Errorf("no release published yet; check %s", "https://github.com/scott/mdp/releases")
+		return nil, fmt.Errorf("no release published yet; check %s", "https://github.com/scott/gander/releases")
 	}
 	return &rel, nil
 }
@@ -158,7 +158,7 @@ func downloadToTemp(url string) (string, error) {
 		return "", fmt.Errorf("HTTP %s", resp.Status)
 	}
 
-	tmp, err := os.CreateTemp("", "mdp-upgrade-*.bin")
+	tmp, err := os.CreateTemp("", "gander-upgrade-*.bin")
 	if err != nil {
 		return "", err
 	}
@@ -214,7 +214,7 @@ func verifySha256(path, want string) error {
 
 func installBinary(src, dst string) error {
 	dstDir := filepath.Dir(dst)
-	tmp, err := os.CreateTemp(dstDir, "mdp-upgrade-*.bin")
+	tmp, err := os.CreateTemp(dstDir, "gander-upgrade-*.bin")
 	if err != nil {
 		return err
 	}

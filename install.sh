@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="scott/mdp"
-ASSET_PREFIX="mdp"
+REPO="scott/gander"
+ASSET_PREFIX="gander"
 
 usage() {
   cat <<'USAGE'
 Usage: install.sh [options]
 
-Installs mdp to ~/go/bin (or /usr/local/bin if ~/go/bin is missing/unwritable).
+Installs gander to ~/go/bin (or /usr/local/bin if ~/go/bin is missing/unwritable).
 
 Options:
   --version <tag>    Install a specific release (default: latest). Example: v0.2.1
@@ -19,10 +19,10 @@ Options:
   -h, --help         Show this help and exit.
 
 Default behavior:
-  1. Detect OS/arch and pick the matching release asset (mdp-{goos}-{goarch}).
+  1. Detect OS/arch and pick the matching release asset (gander-{goos}-{goarch}).
   2. Download it from https://github.com/<repo>/releases/latest/download/...
   3. Verify SHA256 against the .sha256 sidecar.
-  4. Install atomically to ~/go/bin/mdp (or /usr/local/bin/mdp).
+  4. Install atomically to ~/go/bin/gander (or /usr/local/bin/gander).
 
 If the download fails and --source is not set, the script falls back to
 cloning the repo and building with Go (when go is available).
@@ -164,7 +164,7 @@ source_build_and_install() {
   fi
 
   log "would clone: https://github.com/$REPO.git (shallow)"
-  log "would run:   CGO_ENABLED=0 go build -trimpath -ldflags '$version_arg' -o $install_dir/mdp ."
+  log "would run:   CGO_ENABLED=0 go build -trimpath -ldflags '$version_arg' -o $install_dir/gander ."
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
     return 0
@@ -175,14 +175,14 @@ source_build_and_install() {
   trap "rm -rf '$workdir'" EXIT
 
   log "Cloning $REPO"
-  if ! git clone --depth 1 "https://github.com/$REPO.git" "$workdir/mdp"; then
+  if ! git clone --depth 1 "https://github.com/$REPO.git" "$workdir/gander"; then
     err "git clone failed"
     return 1
   fi
 
   local version_arg=""
   if [[ -n "$VERSION" && "$VERSION" != "latest" ]]; then
-    pushd "$workdir/mdp" >/dev/null
+    pushd "$workdir/gander" >/dev/null
     if git ls-remote --tags origin "$VERSION" | grep -q "$VERSION"; then
       git fetch --depth 1 origin "refs/tags/$VERSION:refs/tags/$VERSION" >/dev/null
       git checkout "$VERSION" >/dev/null
@@ -194,11 +194,11 @@ source_build_and_install() {
     version_arg="-X main.Version=dev"
   fi
 
-  pushd "$workdir/mdp" >/dev/null
+  pushd "$workdir/gander" >/dev/null
   log "Building with Go $(go version | awk '{print $3}')"
-  CGO_ENABLED=0 go build -trimpath -ldflags "$version_arg" -o "$install_dir/mdp" .
+  CGO_ENABLED=0 go build -trimpath -ldflags "$version_arg" -o "$install_dir/gander" .
   popd >/dev/null
-  log "built and installed to $install_dir/mdp"
+  log "built and installed to $install_dir/gander"
 }
 
 main() {

@@ -45,21 +45,21 @@ jobs:
           mkdir -p dist
           CGO_ENABLED=0 go build -trimpath \
             -ldflags "-X main.Version=${VERSION}" \
-            -o "dist/mdp-${{ matrix.target }}" \
+            -o "dist/gander-${{ matrix.target }}" \
             .
 
       - name: Checksum
         working-directory: dist
         run: |
-          sha256sum "mdp-${{ matrix.target }}" > "mdp-${{ matrix.target }}.sha256"
+          sha256sum "gander-${{ matrix.target }}" > "gander-${{ matrix.target }}.sha256"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mdp-${{ matrix.target }}
+          name: gander-${{ matrix.target }}
           path: |
-            dist/mdp-${{ matrix.target }}
-            dist/mdp-${{ matrix.target }}.sha256
+            dist/gander-${{ matrix.target }}
+            dist/gander-${{ matrix.target }}.sha256
 
   release:
     name: publish release
@@ -73,7 +73,7 @@ jobs:
       - name: Flatten artifacts
         run: |
           mkdir -p release-assets
-          find artifacts -type f -name 'mdp-*' -exec cp {} release-assets/ \;
+          find artifacts -type f -name 'gander-*' -exec cp {} release-assets/ \;
           ls -la release-assets
 
       - name: Create release
@@ -81,11 +81,11 @@ jobs:
         with:
           generate_release_notes: true
           files: |
-            release-assets/mdp-darwin-arm64
-            release-assets/mdp-darwin-arm64.sha256
-            release-assets/mdp-darwin-amd64
-            release-assets/mdp-darwin-amd64.sha256
-            release-assets/mdp-linux-amd64
-            release-assets/mdp-linux-amd64.sha256
-            release-assets/mdp-linux-arm64
-            release-assets/mdp-linux-arm64.sha256
+            release-assets/gander-darwin-arm64
+            release-assets/gander-darwin-arm64.sha256
+            release-assets/gander-darwin-amd64
+            release-assets/gander-darwin-amd64.sha256
+            release-assets/gander-linux-amd64
+            release-assets/gander-linux-amd64.sha256
+            release-assets/gander-linux-arm64
+            release-assets/gander-linux-arm64.sha256
