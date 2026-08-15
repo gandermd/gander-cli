@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -119,4 +120,26 @@ func (c *apiClient) ListShares() ([]shareResp, error) {
 		return nil, err
 	}
 	return out, nil
+}
+
+func (c *apiClient) ListSharesByFilename(filename string) ([]shareResp, error) {
+	var out []shareResp
+	path := "/api/shares?filename=" + url.QueryEscape(filename)
+	if err := c.do("GET", path, nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiClient) GetShareByShortID(shortID string) (*shareResp, error) {
+	all, err := c.ListShares()
+	if err != nil {
+		return nil, err
+	}
+	for i := range all {
+		if all[i].ShortID == shortID {
+			return &all[i], nil
+		}
+	}
+	return nil, fmt.Errorf("share %s not found in your account", shortID)
 }

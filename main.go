@@ -135,9 +135,10 @@ func printUsage(w *os.File) {
 	fmt.Fprintln(w, "  gander <file.md> [options]      Render and open locally")
 	fmt.Fprintln(w, "  gander signup --email <addr>    Create a gander.md account and save the API token")
 	if authed {
-		fmt.Fprintln(w, "  gander share [--watch] <file>   Upload to gander.md and open the share link")
-		fmt.Fprintln(w, "  gander remove [--all] [<file>]  Delete a share from gander.md")
-		fmt.Fprintln(w, "  gander list                     List shares currently on gander.md")
+		fmt.Fprintln(w, "  gander share [--watch] <file>                              Upload to gander.md and open the share link")
+		fmt.Fprintln(w, "  gander remove [--all|--pick <id>|--yes|--non-interactive] <file|short_id|url>")
+		fmt.Fprintln(w, "                                                              Delete a share from gander.md")
+		fmt.Fprintln(w, "  gander list                                                List shares currently on gander.md")
 	}
 	fmt.Fprintln(w, "  gander --upgrade                Download and install the latest release")
 	fmt.Fprintln(w)
