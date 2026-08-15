@@ -57,6 +57,18 @@ func TestBuildHTMLNoTOCWhenFewHeadings(t *testing.T) {
 	if strings.Contains(page, `<ul id="toc-list"`) {
 		t.Error("buildHTML with <2 headings should not render TOC nav")
 	}
+	if !strings.Contains(page, "gander-layout--no-toc") {
+		t.Error("buildHTML with <2 headings should mark the layout so the grid stays single-column on wide viewports")
+	}
+}
+
+func TestBuildHTMLLayoutClassWithTOC(t *testing.T) {
+	_, headings := renderMarkdownWithIDs("# A\n\n## B\n\nbody")
+	page := buildHTML("<p>x</p>", headings, false)
+
+	if strings.Contains(page, `id="gander-layout" class="gander-layout--no-toc"`) {
+		t.Error("buildHTML with >=2 headings should not mark the layout as no-toc")
+	}
 }
 
 func TestHeadingID(t *testing.T) {
