@@ -17,6 +17,37 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Port != 0 {
 		t.Errorf("default Port = %d, want 0", cfg.Port)
 	}
+	if cfg.APIURL != "https://gander.md" {
+		t.Errorf("default APIURL = %q, want https://gander.md", cfg.APIURL)
+	}
+	if cfg.Shares == nil {
+		t.Errorf("default Shares is nil")
+	}
+}
+
+func TestWriteConfigRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+
+	cfg := DefaultConfig()
+	cfg.Email = "alice@example.com"
+	cfg.APIToken = "gmd_abc"
+	cfg.Shares["/abs/path"] = "xK7m2pQa"
+
+	if err := WriteConfig(cfg); err != nil {
+		t.Fatalf("WriteConfig: %v", err)
+	}
+	got, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if got.Email != cfg.Email || got.APIToken != cfg.APIToken {
+		t.Errorf("round trip lost fields: %+v", got)
+	}
+	if got.Shares["/abs/path"] != "xK7m2pQa" {
+		t.Errorf("share mapping lost: %+v", got.Shares)
+	}
 }
 
 func TestLoadConfigMissing(t *testing.T) {
@@ -29,7 +60,7 @@ func TestLoadConfigMissing(t *testing.T) {
 		t.Fatalf("LoadConfig with missing file: %v", err)
 	}
 	want := DefaultConfig()
-	if cfg != want {
+	if cfg.Watch != want.Watch || cfg.DebounceMs != want.DebounceMs || cfg.Port != want.Port || cfg.APIURL != want.APIURL {
 		t.Errorf("LoadConfig missing = %+v, want %+v", cfg, want)
 	}
 }
@@ -98,7 +129,8 @@ func TestLoadConfigMalformed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadConfig should not error on malformed JSON: %v", err)
 	}
-	if cfg != DefaultConfig() {
+	want := DefaultConfig()
+	if cfg.Watch != want.Watch || cfg.DebounceMs != want.DebounceMs || cfg.Port != want.Port || cfg.APIURL != want.APIURL {
 		t.Errorf("malformed config = %+v, want defaults %+v", cfg, DefaultConfig())
 	}
 }

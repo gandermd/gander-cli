@@ -11,13 +11,42 @@ import (
 )
 
 func main() {
-	outFile := flag.String("outfile", "", "Optional: write HTML output to file instead of opening in browser")
-	watch := flag.Bool("watch", false, "Watch the file for changes and live-reload the browser preview")
-	upgrade := flag.Bool("upgrade", false, "Download and install the latest release, then exit")
-	flag.Parse()
+	log.SetFlags(0)
 
-	if *upgrade {
-		if flag.NArg() > 0 {
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "signup":
+			if err := runSignup(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "signup: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		case "share":
+			if err := runShare(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "share: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		case "remove":
+			if err := runRemove(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "remove: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		case "list":
+			if err := runList(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "list: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		case "--help", "-h", "help":
+			printUsage(os.Stdout)
+			return
+		}
+	}
+
+	if len(os.Args) > 1 && (os.Args[1] == "--upgrade" || os.Args[1] == "upgrade") {
+		if len(os.Args) > 2 {
 			fmt.Fprintln(os.Stderr, "error: --upgrade takes no arguments")
 			os.Exit(1)
 		}
@@ -27,11 +56,21 @@ func main() {
 		return
 	}
 
+	outFile := flag.String("outfile", "", "Optional: write HTML output to file instead of opening in browser")
+	watch := flag.Bool("watch", false, "Watch the file for changes and live-reload the browser preview")
+	upgrade := flag.Bool("upgrade", false, "Download and install the latest release, then exit")
+	flag.Parse()
+
+	if *upgrade {
+		if err := runUpgrade(); err != nil {
+			log.Fatalf("upgrade: %v", err)
+		}
+		return
+	}
+
 	args := flag.Args()
 	if len(args) == 0 {
-		flag.Usage()
-		fmt.Fprintf(flag.CommandLine.Output(), "\nUsage: gander <file.md> [options]\n\nOptions:\n")
-		flag.PrintDefaults()
+		printUsage(os.Stderr)
 		os.Exit(1)
 	}
 
@@ -83,7 +122,32 @@ func main() {
 	}
 	url := "file://" + tmpPath
 	fmt.Printf("Preview at: %s\n", url)
-	openBrowser(url)
+	openBrowserLocal(url)
+}
+
+func printUsage(w *os.File) {
+	cfg, _ := LoadConfig()
+	authed := cfg.APIToken != ""
+
+	fmt.Fprintln(w, "gander — render Markdown, optionally share it on gander.md")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Usage:")
+	fmt.Fprintln(w, "  gander <file.md> [options]      Render and open locally")
+	fmt.Fprintln(w, "  gander signup --email <addr>    Create a gander.md account and save the API token")
+	if authed {
+		fmt.Fprintln(w, "  gander share [--watch] <file>   Upload to gander.md and open the share link")
+		fmt.Fprintln(w, "  gander remove [--all] [<file>]  Delete a share from gander.md")
+		fmt.Fprintln(w, "  gander list                     List shares currently on gander.md")
+	}
+	fmt.Fprintln(w, "  gander --upgrade                Download and install the latest release")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Render options:")
+	fmt.Fprintln(w, "  -outfile string   Write HTML to a file instead of opening in browser")
+	fmt.Fprintln(w, "  -watch            Live-reload the local browser preview on save")
+	if !authed {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "Run `gander signup --email you@example.com` to enable share / remove / list.")
+	}
 }
 
 func flagWasSet(name string) bool {
@@ -96,7 +160,7 @@ func flagWasSet(name string) bool {
 	return found
 }
 
-func openBrowser(url string) {
+func openBrowserLocal(url string) {
 	cmd := exec.Command("open", url)
 	if err := cmd.Start(); err != nil {
 		log.Printf("Warning: could not open browser: %v", err)
