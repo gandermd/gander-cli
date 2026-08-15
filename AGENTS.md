@@ -106,7 +106,7 @@ git checkout main && git pull --ff-only
 # ensure clean tree, then:
 git tag -a v0.2.0 -m "Release v0.2.0"
 git push origin v0.2.0
-# then watch: https://github.com/scott/gander/actions/workflows/release.yml
+# then watch: https://github.com/gandermd/gander-cli/actions/workflows/release.yml
 ```
 
 ### After a release

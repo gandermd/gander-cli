@@ -7,7 +7,7 @@ A simple CLI tool that renders a Markdown file in your web browser on macOS and 
 ### One-liner (recommended)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/scott/gander/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/gandermd/gander-cli/main/install.sh | bash
 ```
 
 Downloads the latest release binary for your OS/arch from GitHub Releases, verifies its SHA256 checksum, and installs to `~/go/bin/gander` (or `/usr/local/bin/gander` if `~/go/bin` doesn't exist). If the download fails (no network, no release for your platform), the script falls back to building from source.
@@ -25,7 +25,7 @@ The installer requires `curl` and `git` (only for the source fallback). Set `GIT
 If you prefer to look at the script before running it:
 
 ```bash
-git clone https://github.com/scott/gander.git
+git clone https://github.com/gandermd/gander-cli.git
 cd gander
 ./install.sh
 ```
@@ -35,7 +35,7 @@ cd gander
 If you're on a different platform, want to hack on the code, or `curl | bash` makes you nervous:
 
 ```bash
-git clone https://github.com/scott/gander.git
+git clone https://github.com/gandermd/gander-cli.git
 cd gander
 go mod tidy
 CGO_ENABLED=0 go build -trimpath -ldflags "-X main.Version=v0.2.1" -o gander .

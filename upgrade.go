@@ -16,7 +16,7 @@ import (
 
 var Version = "dev"
 
-const releasesAPI = "https://api.github.com/repos/scott/gander/releases/latest"
+const releasesAPI = "https://api.github.com/repos/gandermd/gander-cli/releases/latest"
 
 type releaseAsset struct {
 	Name               string `json:"name"`
@@ -143,7 +143,7 @@ func fetchLatestRelease() (*releaseInfo, error) {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
 	if rel.TagName == "" {
-		return nil, fmt.Errorf("no release published yet; check %s", "https://github.com/scott/gander/releases")
+		return nil, fmt.Errorf("no release published yet; check %s", "https://github.com/gandermd/gander-cli/releases")
 	}
 	return &rel, nil
 }

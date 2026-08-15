@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="scott/gander"
+REPO="gandermd/gander-cli"
 ASSET_PREFIX="gander"
 
 usage() {
