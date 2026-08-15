@@ -128,9 +128,6 @@ body {
 	grid-template-columns: 1fr;
 	min-height: 100vh;
 }
-.gander-layout.toc-visible {
-	grid-template-columns: 250px 1fr;
-}
 .gander-toc {
 	display: none;
 	position: sticky;
@@ -140,9 +137,6 @@ body {
 	padding: 2rem 1rem 2rem 1.5rem;
 	border-right: 1px solid #eaecef;
 	background: #fafbfc;
-}
-.gander-layout.toc-visible .gander-toc {
-	display: block;
 }
 .gander-toc-title {
 	font-size: 0.75rem;
@@ -219,11 +213,14 @@ ul, ol { padding-left: 2em; }
 li + li { margin-top: 0.25em; }
 
 @media (min-width: 950px) {
-	.gander-layout {
+	.gander-layout:not(.gander-layout--no-toc) {
 		grid-template-columns: 250px 1fr;
 	}
-	.gander-layout .gander-toc {
+	.gander-layout:not(.gander-layout--no-toc) .gander-toc {
 		display: block;
+	}
+	.gander-layout.gander-layout--no-toc .gander-content {
+		margin: 0 auto;
 	}
 }
 
@@ -365,11 +362,13 @@ func buildHTML(content string, headings []Heading, withLiveReload bool) string {
 	}
 
 	tocHTML := ""
+	layoutClass := "gander-layout gander-layout--no-toc"
 	if len(headings) >= 2 {
 		tocHTML = `<nav class="gander-toc" id="toc">
 <div class="gander-toc-title">On this page</div>
 <ul id="toc-list"></ul>
 </nav>`
+		layoutClass = "gander-layout"
 	}
 
 	script := tocScript
@@ -389,7 +388,7 @@ func buildHTML(content string, headings []Heading, withLiveReload bool) string {
 </head>
 <body>
 <script type="application/json" id="headings-data">%s</script>
-<div class="gander-layout" id="gander-layout">
+<div class="%s" id="gander-layout">
 %s
 <main class="gander-content" id="content">
 %s
@@ -403,5 +402,5 @@ func buildHTML(content string, headings []Heading, withLiveReload bool) string {
 %s
 </script>
 </body>
-</html>`, cssStyle, headingsJSON, tocHTML, content, mermaidInitScript, script)
+</html>`, cssStyle, headingsJSON, layoutClass, tocHTML, content, mermaidInitScript, script)
 }
