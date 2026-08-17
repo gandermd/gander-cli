@@ -114,7 +114,7 @@ func httpClient() *http.Client {
 	return &http.Client{Timeout: 2 * time.Minute}
 }
 
-func fetchLatestRelease() (*releaseInfo, error) {
+var fetchLatestRelease = func() (*releaseInfo, error) {
 	req, err := http.NewRequest(http.MethodGet, releasesAPI, nil)
 	if err != nil {
 		return nil, err

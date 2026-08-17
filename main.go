@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -12,6 +13,11 @@ import (
 
 func main() {
 	log.SetFlags(0)
+
+	if len(os.Args) == 1 {
+		runNoArg(os.Stdout)
+		return
+	}
 
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
@@ -131,7 +137,29 @@ func main() {
 	openBrowserLocal(url)
 }
 
-func printUsage(w *os.File) {
+func runNoArg(w io.Writer) {
+	fmt.Fprintf(w, "gander %s\n", Version)
+
+	switch {
+	case Version == "dev":
+		fmt.Fprintln(w, "Running a dev build — gander --upgrade may be a no-op")
+	default:
+		rel, err := fetchLatestRelease()
+		switch {
+		case err != nil:
+			fmt.Fprintf(w, "(could not check for updates: %v)\n", err)
+		case rel.TagName == Version:
+			fmt.Fprintln(w, "You're on the latest release.")
+		default:
+			fmt.Fprintf(w, "Update available: %s → run gander --upgrade\n", rel.TagName)
+		}
+	}
+
+	fmt.Fprintln(w)
+	printUsage(w)
+}
+
+func printUsage(w io.Writer) {
 	cfg, _ := LoadConfig()
 	authed := cfg.APIToken != ""
 
