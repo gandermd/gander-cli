@@ -65,6 +65,20 @@ man gander
 
 A Homebrew tap will install it automatically into `$(brew --prefix)/share/man/man1`.
 
+### Shell completions
+
+Generate a completion script with `gander completion {bash|zsh}` and source it from your shell rc:
+
+```bash
+# bash
+source <(gander completion bash)
+
+# zsh
+eval "$(gander completion zsh)"
+```
+
+The bundled scripts cover every current subcommand (`signup`, `share`, `remove`, `list`, `completion`, `--upgrade`) and render flag. They're also attached to every release as `gander-completions.tar.gz`.
+
 ### Prerequisites
 
 - **macOS** or **Linux**
@@ -176,20 +190,34 @@ gander signup --email <addr>      Register an account on gander.md
 gander share [--watch] <file>     Upload to gander.md and open the share link
 gander remove [--all] [<file>]    Delete a share from gander.md
 gander list                       List shares currently on gander.md
+gander completion {bash|zsh}      Print a shell completion script
 ```
 
-The subcommands appear in help only after a successful `gander signup`.
+The subcommands appear in help only after a successful `gander signup` (except `completion`, which is always available).
 
 ## Releasing
 
-To cut a new release, push a tag matching `v*`:
+Use `scripts/release.sh` to cut a release. It validates the working tree, checks that the target tag doesn't already exist, creates an annotated `v<version>` tag at HEAD, pushes it to `origin`, and then waits on the resulting GitHub Actions run before printing the release URL and per-asset URLs.
 
 ```bash
-git tag v0.2.0
+scripts/release.sh 0.2.0
+```
+
+Pass `--dry-run` to print the actions that would be taken without tagging or pushing. The script requires a clean working tree on `main`, plus `bash`, `git`, and `gh` (authenticated with repo scope).
+
+The release workflow (`.github/workflows/release.yml`) builds matrix binaries (`gander-{darwin,linux}-{amd64,arm64}`), generates a SHA256 sidecar for each, and attaches them to a GitHub Release with auto-generated notes. Existing users pick up the new version with `gander --upgrade`.
+
+### Manual fallback
+
+If `scripts/release.sh` isn't available (e.g. on a fresh checkout without the script), the equivalent manual sequence is:
+
+```bash
+git checkout main && git pull --ff-only
+git tag -a v0.2.0 -m "Release v0.2.0"
 git push origin v0.2.0
 ```
 
-GitHub Actions builds matrix binaries (`gander-{darwin,linux}-{amd64,arm64}`), generates a SHA256 sidecar for each, and attaches them to a GitHub Release with auto-generated notes. Existing users pick up the new version with `gander --upgrade`.
+You can then watch the run at https://github.com/gandermd/gander-cli/actions/workflows/release.yml.
 
 ## License
 

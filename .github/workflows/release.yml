@@ -83,6 +83,10 @@ jobs:
         run: |
           tar -czf release-assets/gander-man.tar.gz -C man man1
 
+      - name: Bundle shell completions
+        run: |
+          tar -czf release-assets/gander-completions.tar.gz -C completions gander.bash _gander
+
       - name: Create release
         uses: softprops/action-gh-release@v3
         with:
@@ -97,3 +101,4 @@ jobs:
             release-assets/gander-linux-arm64
             release-assets/gander-linux-arm64.sha256
             release-assets/gander-man.tar.gz
+            release-assets/gander-completions.tar.gz
