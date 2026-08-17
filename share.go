@@ -51,7 +51,7 @@ func runShare(args []string) error {
 		if err != nil {
 			return err
 		}
-		updated, err := cli.UpdateShare(sh.ID, string(content))
+		updated, err := cli.UpdateShare(sh.UUID, string(content))
 		if err != nil {
 			return fmt.Errorf("update: %w", err)
 		}
@@ -93,11 +93,11 @@ func lookupShare(cli *apiClient, shortID string) (*shareResp, error) {
 
 func runWatchAndPush(absPath string, sh *shareResp, cfg Config) error {
 	watcher := &watchPusher{
-		absPath: absPath,
-		shareID: sh.ID,
-		shortID: sh.ShortID,
-		cli:     newAPIClient(cfg.APIURL, cfg.APIToken),
-		debounce: time.Duration(cfg.DebounceMs) * time.Millisecond,
+		absPath:   absPath,
+		shareUUID: sh.UUID,
+		shortID:   sh.ShortID,
+		cli:       newAPIClient(cfg.APIURL, cfg.APIToken),
+		debounce:  time.Duration(cfg.DebounceMs) * time.Millisecond,
 	}
 	watcher.start()
 	defer watcher.stop()
@@ -117,11 +117,11 @@ func openBrowser(url string) {
 }
 
 type watchPusher struct {
-	absPath string
-	shareID int64
-	shortID string
-	cli     *apiClient
-	debounce time.Duration
+	absPath   string
+	shareUUID string
+	shortID   string
+	cli       *apiClient
+	debounce  time.Duration
 
 	lastHash string
 	mu       chan struct{}
@@ -193,7 +193,7 @@ func (w *watchPusher) push() {
 	}
 	w.lastHash = h
 
-	if _, err := w.cli.UpdateShare(w.shareID, string(data)); err != nil {
+	if _, err := w.cli.UpdateShare(w.shareUUID, string(data)); err != nil {
 		log.Printf("push to gandermd: %v", err)
 		return
 	}

@@ -26,14 +26,14 @@ func newAPIClient(base, token string) *apiClient {
 }
 
 type signupResp struct {
-	UserID    int64  `json:"user_id"`
+	UserUUID  string `json:"user_uuid"`
 	Email     string `json:"email"`
 	APIToken  string `json:"api_token"`
 	CreatedAt string `json:"created_at"`
 }
 
 type shareResp struct {
-	ID        int64  `json:"id"`
+	UUID      string `json:"uuid"`
 	ShortID   string `json:"short_id"`
 	Filename  string `json:"filename"`
 	Watch     bool   `json:"watch"`
@@ -102,16 +102,16 @@ func (c *apiClient) CreateShare(filename, content string, watch bool) (*shareRes
 	return &out, nil
 }
 
-func (c *apiClient) UpdateShare(id int64, content string) (*shareResp, error) {
+func (c *apiClient) UpdateShare(uuid, content string) (*shareResp, error) {
 	var out shareResp
-	if err := c.do("PUT", fmt.Sprintf("/api/shares/%d", id), map[string]string{"content": content}, &out); err != nil {
+	if err := c.do("PUT", fmt.Sprintf("/api/shares/%s", uuid), map[string]string{"content": content}, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
 }
 
-func (c *apiClient) DeleteShare(id int64) error {
-	return c.do("DELETE", fmt.Sprintf("/api/shares/%d", id), nil, nil)
+func (c *apiClient) DeleteShare(uuid string) error {
+	return c.do("DELETE", fmt.Sprintf("/api/shares/%s", uuid), nil, nil)
 }
 
 func (c *apiClient) ListShares() ([]shareResp, error) {
