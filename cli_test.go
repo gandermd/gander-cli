@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -711,4 +712,132 @@ func TestURLParseRejectsTrailingPath(t *testing.T) {
 	if urlShareRe.MatchString("https://gander.md/s/aBcD1234/extra") {
 		t.Error("regex should reject URL with extra path")
 	}
+}
+
+func TestRunNoArgDevBuild(t *testing.T) {
+	prevVersion := Version
+	prevFetch := fetchLatestRelease
+	defer func() {
+		Version = prevVersion
+		fetchLatestRelease = prevFetch
+	}()
+
+	Version = "dev"
+	fetchLatestRelease = func() (*releaseInfo, error) {
+		t.Fatal("fetchLatestRelease should not be called for dev builds")
+		return nil, nil
+	}
+
+	var buf bytes.Buffer
+	runNoArg(&buf)
+	out := buf.String()
+
+	if !strings.HasPrefix(out, "gander dev\n") {
+		t.Errorf("missing version line; got: %q", firstLines(out, 3))
+	}
+	if !strings.Contains(out, "Running a dev build") {
+		t.Errorf("missing dev-build message; got: %q", firstLines(out, 3))
+	}
+	if !strings.Contains(out, "gander — render Markdown") {
+		t.Error("usage block missing")
+	}
+	if !strings.Contains(out, "Usage:") {
+		t.Error("Usage header missing")
+	}
+}
+
+func TestRunNoArgUpToDate(t *testing.T) {
+	prevVersion := Version
+	prevFetch := fetchLatestRelease
+	defer func() {
+		Version = prevVersion
+		fetchLatestRelease = prevFetch
+	}()
+
+	Version = "v0.5.0"
+	fetchLatestRelease = func() (*releaseInfo, error) {
+		return &releaseInfo{TagName: "v0.5.0"}, nil
+	}
+
+	var buf bytes.Buffer
+	runNoArg(&buf)
+	out := buf.String()
+
+	if !strings.HasPrefix(out, "gander v0.5.0\n") {
+		t.Errorf("missing version line; got: %q", firstLines(out, 3))
+	}
+	if !strings.Contains(out, "You're on the latest release.") {
+		t.Errorf("missing up-to-date message; got: %q", firstLines(out, 3))
+	}
+	if strings.Contains(out, "Update available") {
+		t.Errorf("unexpected update-available line; got: %q", firstLines(out, 3))
+	}
+	if !strings.Contains(out, "Usage:") {
+		t.Error("Usage header missing")
+	}
+}
+
+func TestRunNoArgUpdateAvailable(t *testing.T) {
+	prevVersion := Version
+	prevFetch := fetchLatestRelease
+	defer func() {
+		Version = prevVersion
+		fetchLatestRelease = prevFetch
+	}()
+
+	Version = "v0.5.0"
+	fetchLatestRelease = func() (*releaseInfo, error) {
+		return &releaseInfo{TagName: "v0.6.0"}, nil
+	}
+
+	var buf bytes.Buffer
+	runNoArg(&buf)
+	out := buf.String()
+
+	if !strings.HasPrefix(out, "gander v0.5.0\n") {
+		t.Errorf("missing version line; got: %q", firstLines(out, 3))
+	}
+	want := "Update available: v0.6.0 → run gander --upgrade"
+	if !strings.Contains(out, want) {
+		t.Errorf("missing %q; got: %q", want, firstLines(out, 3))
+	}
+	if !strings.Contains(out, "Usage:") {
+		t.Error("Usage header missing")
+	}
+}
+
+func TestRunNoArgUpdateCheckError(t *testing.T) {
+	prevVersion := Version
+	prevFetch := fetchLatestRelease
+	defer func() {
+		Version = prevVersion
+		fetchLatestRelease = prevFetch
+	}()
+
+	Version = "v0.5.0"
+	fetchLatestRelease = func() (*releaseInfo, error) {
+		return nil, errors.New("network unreachable")
+	}
+
+	var buf bytes.Buffer
+	runNoArg(&buf)
+	out := buf.String()
+
+	if !strings.HasPrefix(out, "gander v0.5.0\n") {
+		t.Errorf("missing version line; got: %q", firstLines(out, 3))
+	}
+	if !strings.Contains(out, "(could not check for updates: network unreachable)") {
+		t.Errorf("missing update-check-error line; got: %q", firstLines(out, 3))
+	}
+	if !strings.Contains(out, "Usage:") {
+		t.Error("Usage header missing — usage should still print when update check fails")
+	}
+}
+
+func firstLines(s string, n int) string {
+	lines := strings.SplitN(s, "\n", n+1)
+	if len(lines) > n {
+		lines = lines[:n]
+	}
+	return strings.Join(lines, "\n")
 }
