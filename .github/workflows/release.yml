@@ -74,8 +74,14 @@ jobs:
       - name: Flatten artifacts
         run: |
           mkdir -p release-assets
-          find artifacts -type f -name 'gander-*' -exec cp {} release-assets/ \;
+          find artifacts -type f -name 'gander-*' -exec cp {} release-assets/ ;
           ls -la release-assets
+
+      - uses: actions/checkout@v7
+
+      - name: Bundle man page
+        run: |
+          tar -czf release-assets/gander-man.tar.gz -C man man1
 
       - name: Create release
         uses: softprops/action-gh-release@v3
@@ -90,3 +96,4 @@ jobs:
             release-assets/gander-linux-amd64.sha256
             release-assets/gander-linux-arm64
             release-assets/gander-linux-arm64.sha256
+            release-assets/gander-man.tar.gz

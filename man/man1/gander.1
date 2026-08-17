@@ -1,0 +1,195 @@
+.TH GANDER 1 "2025-08-16" "gander 0.5.0" "User Commands"
+.SH NAME
+gander \- render Markdown locally, optionally share it on gander.md
+.SH SYNOPSIS
+.B gander
+.RI [ options ]
+.IR file.md
+.sp
+.B gander signup
+.RB [ \-email \ Iemail\fR]
+.RB [ \-force ]
+.sp
+.B gander share
+.RB [ \-watch ]
+.IR file.md
+.sp
+.B gander remove
+.RB [ \-all | "\-pick "\fIshort_id\fR ]
+.RB [ \-yes ]
+.RB [ \-non\-interactive ]
+.IR target
+.sp
+.B gander list
+.sp
+.B gander completion
+.RB { bash | zsh }
+.sp
+.B gander \-\-upgrade
+.SH DESCRIPTION
+.B gander
+converts a Markdown file to HTML and opens the result in the default web
+browser.
+If run with
+.BR \-\-watch ","
+the preview live\-reloads in place on save.
+After registering with
+.B gander signup
+the
+.BR share ","
+.B remove
+and
+.B list
+subcommands upload Markdown to
+.RI \(la https://gander.md \(ra
+("gander.md") and return short share links.
+.SH OPTIONS
+These flags apply to the default
+.I gander
+.BR file " mode."
+.TP
+.BI \-outfile " string"
+Write the rendered HTML to
+.I string
+instead of opening it in the browser.
+.TP
+.BR \-watch ", " \-\-watch
+Render once, then re\-render and hot\-swap the preview in the browser each
+time the file changes.
+May not be combined with
+.BR \-outfile .
+.TP
+.BR \-upgrade ", " \-\-upgrade
+Download and install the latest release, then exit.
+.TP
+.BR \-\-help ", " \-h
+Print help and exit.
+.SH COMMANDS
+.SS "Signup"
+.TP
+.B signup
+Register an email address on gander.md and save the resulting API token in
+~/.gander.
+The token is required for the other gander.md commands.
+.sp
+.RS
+.TP
+.BI "\-email " email
+The address to register. Required.
+.TP
+.B \-force
+Overwrite a previously saved token (leaves any existing shares orphaned).
+.RE
+.SS "Share"
+.TP
+.B share
+Upload
+.IR file.md
+to gander.md, print the share link, and open it in the browser.
+.sp
+.RS
+.TP
+.B \-watch
+Continuously push local changes to the remote share until interrupted.
+.RE
+.SS "Remove"
+.TP
+.B remove
+Delete a share previously created by
+.BR share .
+The argument may be a local file path, an 8\-character
+.IR short_id ,
+or a
+.I https://gander.md/s/<short_id>
+URL.
+.sp
+.RS
+.TP
+.B \-all
+Remove every share matching the argument.
+.TP
+.BI "\-pick " short_id
+When the argument matches more than one share, remove the one with the
+given
+.IR short_id .
+.TP
+.B \-yes
+Skip the per\-share confirmation prompt.
+.TP
+.B \-non\-interactive
+Refuse to prompt; require
+.B \-all
+or
+.B \-pick
+when the argument is ambiguous.
+.RE
+.SS "List"
+.TP
+.B list
+Print a table of every share in the user's gander.md account (short id,
+file, watch flag, last update, URL).
+.SS "Completion"
+.TP
+.B completion
+Print a shell completion script to standard output.
+Takes a single argument naming the shell. Supported:
+.RB \(lq bash \(rq
+and
+.RB \(lq zsh \(rq.
+.SS "Self\-update"
+.TP
+.BR \-\-upgrade
+Download the latest release binary for the current platform, verify its
+checksum, atomically replace the running binary, and exit.
+.SH FILES
+.TP
+.I ~/.gander
+JSON configuration file. Holds the API token (chmod 600), API endpoint,
+default flags, and the local map of file path \(-> short id.
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B 1
+An error occurred (file not found, network failure, ambiguous share,
+user rejected a prompt, etc.).
+.SH EXAMPLES
+Render a local file and open the preview:
+.PP
+.RS
+.nf
+gander README.md
+.fi
+.RE
+.PP
+Live\-reload the preview while writing:
+.PP
+.RS
+.nf
+gander \-watch README.md
+.fi
+.RE
+.PP
+Push the same file to gander.md and open the share link:
+.PP
+.RS
+.nf
+gander share README.md
+.fi
+.RE
+.PP
+Remove a share by short id:
+.PP
+.RS
+.nf
+gander remove aBcD1234
+.fi
+.RE
+.SH "SEE ALSO"
+Project home page:
+.RI \(la https://github.com/gandermd/gander-cli \(ra.
+.SH AUTHORS
+.B gander
+is developed at
+.RI \(la https://gander.md \(ra.
