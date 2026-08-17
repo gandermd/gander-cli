@@ -278,7 +278,7 @@ func confirmAndDelete(targets []shareResp, opts removeOptions, cfg Config, rio *
 		}
 	}
 	for i := range targets {
-		if err := newAPIClient(cfg.APIURL, cfg.APIToken).DeleteShare(targets[i].ID); err != nil {
+		if err := newAPIClient(cfg.APIURL, cfg.APIToken).DeleteShare(targets[i].UUID); err != nil {
 			return fmt.Errorf("delete %s: %w", targets[i].ShortID, err)
 		}
 		fmt.Fprintf(rio.out(), "Removed %s (%s).\n", targets[i].Filename, targets[i].URL)

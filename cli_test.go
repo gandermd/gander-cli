@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -19,13 +18,16 @@ func TestShareWatchFlowEndToEnd(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
 
+	const shareUUID = "11111111-1111-1111-1111-111111111111"
+
 	var pushes int
 	var lastPushedContent string
+	var lastPutPath string
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/signup", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(201)
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"user_id":    1,
+			"user_uuid":  shareUUID,
 			"email":      "e2e@example.com",
 			"api_token":  "gmd_test",
 			"created_at": time.Now().Format(time.RFC3339),
@@ -36,7 +38,7 @@ func TestShareWatchFlowEndToEnd(t *testing.T) {
 		case http.MethodGet:
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode([]map[string]any{{
-				"id": 1, "short_id": "abc12345", "filename": "doc.md",
+				"uuid": shareUUID, "short_id": "abc12345", "filename": "doc.md",
 				"watch": false, "url": "https://gander.md/s/abc12345",
 				"created_at": time.Now().Format(time.RFC3339), "updated_at": time.Now().Format(time.RFC3339),
 			}})
@@ -48,7 +50,7 @@ func TestShareWatchFlowEndToEnd(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(201)
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"id": 1, "short_id": "abc12345", "filename": body["filename"],
+				"uuid": shareUUID, "short_id": "abc12345", "filename": body["filename"],
 				"watch": body["watch"] == "true", "url": "https://gander.md/s/abc12345",
 				"created_at": time.Now().Format(time.RFC3339), "updated_at": time.Now().Format(time.RFC3339),
 			})
@@ -56,10 +58,11 @@ func TestShareWatchFlowEndToEnd(t *testing.T) {
 			http.NotFound(w, r)
 		}
 	})
-	mux.HandleFunc("/api/shares/1", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/shares/"+shareUUID, func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]string
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		lastPushedContent = body["content"]
+		lastPutPath = r.URL.Path
 		pushes++
 		w.WriteHeader(200)
 	})
@@ -130,6 +133,9 @@ func TestShareWatchFlowEndToEnd(t *testing.T) {
 	if !strings.Contains(lastPushedContent, "v2") {
 		t.Errorf("last push didn't include update: %q", lastPushedContent)
 	}
+	if lastPutPath != "/api/shares/"+shareUUID {
+		t.Errorf("PUT path = %q, want %q", lastPutPath, "/api/shares/"+shareUUID)
+	}
 }
 
 func TestRunSignupPersistsConfig(t *testing.T) {
@@ -139,7 +145,7 @@ func TestRunSignupPersistsConfig(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(201)
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"user_id":    42,
+			"user_uuid":  "22222222-2222-2222-2222-222222222222",
 			"email":      "alice@example.com",
 			"api_token":  "gmd_xyz",
 			"created_at": time.Now().Format(time.RFC3339),
@@ -168,9 +174,9 @@ func TestRunSignupPersistsConfig(t *testing.T) {
 }
 
 type removeFixture struct {
-	shares      []shareResp
-	deletedIDs  []int64
-	listCalls   int
+	shares        []shareResp
+	deletedUUIDs  []string
+	listCalls     int
 	filenameCalls []string
 }
 
@@ -205,13 +211,8 @@ func newRemoveServer(t *testing.T, shares []shareResp) (*httptest.Server, *remov
 			http.NotFound(w, r)
 			return
 		}
-		idStr := strings.TrimPrefix(r.URL.Path, "/api/shares/")
-		id, err := strconv.ParseInt(idStr, 10, 64)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		fix.deletedIDs = append(fix.deletedIDs, id)
+		uuid := strings.TrimPrefix(r.URL.Path, "/api/shares/")
+		fix.deletedUUIDs = append(fix.deletedUUIDs, uuid)
 		w.WriteHeader(http.StatusNoContent)
 	})
 	srv := httptest.NewServer(mux)
@@ -233,10 +234,10 @@ func writeTestConfig(t *testing.T, baseURL, email, token string, shares map[stri
 	}
 }
 
-func mkShare(id int64, shortID, filename string, sizeBytes int) shareResp {
+func mkShare(uuid, shortID, filename string, sizeBytes int) shareResp {
 	now := time.Now().UTC().Format(time.RFC3339)
 	return shareResp{
-		ID:        id,
+		UUID:      uuid,
 		ShortID:   shortID,
 		Filename:  filename,
 		Watch:     false,
@@ -275,8 +276,8 @@ func TestParseRemoveArg(t *testing.T) {
 
 func TestRemoveByShortID(t *testing.T) {
 	shares := []shareResp{
-		mkShare(1, "abc12345", "doc.md", 100),
-		mkShare(2, "aBcD1234", "README.md", 200),
+		mkShare("00000000-0000-0000-0000-000000000001", "abc12345", "doc.md", 100),
+		mkShare("00000000-0000-0000-0000-000000000002", "aBcD1234", "README.md", 200),
 	}
 	srv, fix := newRemoveServer(t, shares)
 	writeTestConfig(t, srv.URL, "u@example.com", "gmd_t", nil)
@@ -286,14 +287,14 @@ func TestRemoveByShortID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("remove: %v", err)
 	}
-	if len(fix.deletedIDs) != 1 || fix.deletedIDs[0] != 2 {
-		t.Errorf("deletedIDs = %v, want [2]", fix.deletedIDs)
+	if len(fix.deletedUUIDs) != 1 || fix.deletedUUIDs[0] != "00000000-0000-0000-0000-000000000002" {
+		t.Errorf("deletedUUIDs = %v, want [00000000-0000-0000-0000-000000000002]", fix.deletedUUIDs)
 	}
 }
 
 func TestRemoveByURL(t *testing.T) {
 	shares := []shareResp{
-		mkShare(7, "aBcD1234", "README.md", 200),
+		mkShare("00000000-0000-0000-0000-000000000007", "aBcD1234", "README.md", 200),
 	}
 	srv, fix := newRemoveServer(t, shares)
 	writeTestConfig(t, srv.URL, "u@example.com", "gmd_t", nil)
@@ -302,15 +303,15 @@ func TestRemoveByURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("remove: %v", err)
 	}
-	if len(fix.deletedIDs) != 1 || fix.deletedIDs[0] != 7 {
-		t.Errorf("deletedIDs = %v, want [7]", fix.deletedIDs)
+	if len(fix.deletedUUIDs) != 1 || fix.deletedUUIDs[0] != "00000000-0000-0000-0000-000000000007" {
+		t.Errorf("deletedUUIDs = %v, want [00000000-0000-0000-0000-000000000007]", fix.deletedUUIDs)
 	}
 }
 
 func TestRemoveByFilenameSingleMatch(t *testing.T) {
 	shares := []shareResp{
-		mkShare(1, "abc12345", "doc.md", 100),
-		mkShare(2, "def56789", "README.md", 200),
+		mkShare("00000000-0000-0000-0000-000000000001", "abc12345", "doc.md", 100),
+		mkShare("00000000-0000-0000-0000-000000000002", "def56789", "README.md", 200),
 	}
 	srv, fix := newRemoveServer(t, shares)
 	writeTestConfig(t, srv.URL, "u@example.com", "gmd_t", nil)
@@ -320,8 +321,8 @@ func TestRemoveByFilenameSingleMatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("remove: %v", err)
 	}
-	if len(fix.deletedIDs) != 1 || fix.deletedIDs[0] != 2 {
-		t.Errorf("deletedIDs = %v, want [2]", fix.deletedIDs)
+	if len(fix.deletedUUIDs) != 1 || fix.deletedUUIDs[0] != "00000000-0000-0000-0000-000000000002" {
+		t.Errorf("deletedUUIDs = %v, want [00000000-0000-0000-0000-000000000002]", fix.deletedUUIDs)
 	}
 	if len(fix.filenameCalls) != 1 || fix.filenameCalls[0] != "README.md" {
 		t.Errorf("filenameCalls = %v, want [README.md]", fix.filenameCalls)
@@ -329,7 +330,7 @@ func TestRemoveByFilenameSingleMatch(t *testing.T) {
 }
 
 func TestRemoveByFilenameNoMatch(t *testing.T) {
-	shares := []shareResp{mkShare(1, "abc12345", "doc.md", 100)}
+	shares := []shareResp{mkShare("00000000-0000-0000-0000-000000000001", "abc12345", "doc.md", 100)}
 	srv, _ := newRemoveServer(t, shares)
 	writeTestConfig(t, srv.URL, "u@example.com", "gmd_t", nil)
 
@@ -343,7 +344,7 @@ func TestRemoveByFilenameNoMatch(t *testing.T) {
 }
 
 func TestRemoveByShortIDNotFound(t *testing.T) {
-	shares := []shareResp{mkShare(1, "abc12345", "doc.md", 100)}
+	shares := []shareResp{mkShare("00000000-0000-0000-0000-000000000001", "abc12345", "doc.md", 100)}
 	srv, fix := newRemoveServer(t, shares)
 	writeTestConfig(t, srv.URL, "u@example.com", "gmd_t", nil)
 
@@ -354,15 +355,15 @@ func TestRemoveByShortIDNotFound(t *testing.T) {
 	if !strings.Contains(err.Error(), "no share found") {
 		t.Errorf("err = %v", err)
 	}
-	if len(fix.deletedIDs) != 0 {
-		t.Errorf("deletedIDs = %v, want none", fix.deletedIDs)
+	if len(fix.deletedUUIDs) != 0 {
+		t.Errorf("deletedUUIDs = %v, want none", fix.deletedUUIDs)
 	}
 }
 
 func TestRemoveAmbiguousWithPick(t *testing.T) {
 	shares := []shareResp{
-		mkShare(1, "aBcD1111", "README.md", 100),
-		mkShare(2, "aBcD2222", "README.md", 200),
+		mkShare("00000000-0000-0000-0000-000000000001", "aBcD1111", "README.md", 100),
+		mkShare("00000000-0000-0000-0000-000000000002", "aBcD2222", "README.md", 200),
 	}
 	srv, fix := newRemoveServer(t, shares)
 	writeTestConfig(t, srv.URL, "u@example.com", "gmd_t", nil)
@@ -372,15 +373,15 @@ func TestRemoveAmbiguousWithPick(t *testing.T) {
 	if err != nil {
 		t.Fatalf("remove: %v", err)
 	}
-	if len(fix.deletedIDs) != 1 || fix.deletedIDs[0] != 2 {
-		t.Errorf("deletedIDs = %v, want [2]", fix.deletedIDs)
+	if len(fix.deletedUUIDs) != 1 || fix.deletedUUIDs[0] != "00000000-0000-0000-0000-000000000002" {
+		t.Errorf("deletedUUIDs = %v, want [00000000-0000-0000-0000-000000000002]", fix.deletedUUIDs)
 	}
 }
 
 func TestRemoveAmbiguousWithPickUnknown(t *testing.T) {
 	shares := []shareResp{
-		mkShare(1, "aBcD1111", "README.md", 100),
-		mkShare(2, "aBcD2222", "README.md", 200),
+		mkShare("00000000-0000-0000-0000-000000000001", "aBcD1111", "README.md", 100),
+		mkShare("00000000-0000-0000-0000-000000000002", "aBcD2222", "README.md", 200),
 	}
 	srv, fix := newRemoveServer(t, shares)
 	writeTestConfig(t, srv.URL, "u@example.com", "gmd_t", nil)
@@ -392,15 +393,15 @@ func TestRemoveAmbiguousWithPickUnknown(t *testing.T) {
 	if !strings.Contains(err.Error(), "--pick") {
 		t.Errorf("err = %v, want --pick message", err)
 	}
-	if len(fix.deletedIDs) != 0 {
-		t.Errorf("deletedIDs = %v, want none", fix.deletedIDs)
+	if len(fix.deletedUUIDs) != 0 {
+		t.Errorf("deletedUUIDs = %v, want none", fix.deletedUUIDs)
 	}
 }
 
 func TestRemoveAmbiguousWithAll(t *testing.T) {
 	shares := []shareResp{
-		mkShare(1, "aBcD1111", "README.md", 100),
-		mkShare(2, "aBcD2222", "README.md", 200),
+		mkShare("00000000-0000-0000-0000-000000000001", "aBcD1111", "README.md", 100),
+		mkShare("00000000-0000-0000-0000-000000000002", "aBcD2222", "README.md", 200),
 	}
 	srv, fix := newRemoveServer(t, shares)
 	writeTestConfig(t, srv.URL, "u@example.com", "gmd_t", nil)
@@ -409,13 +410,13 @@ func TestRemoveAmbiguousWithAll(t *testing.T) {
 	if err != nil {
 		t.Fatalf("remove: %v", err)
 	}
-	if len(fix.deletedIDs) != 2 || fix.deletedIDs[0] != 1 || fix.deletedIDs[1] != 2 {
-		t.Errorf("deletedIDs = %v, want [1 2]", fix.deletedIDs)
+	if len(fix.deletedUUIDs) != 2 || fix.deletedUUIDs[0] != "00000000-0000-0000-0000-000000000001" || fix.deletedUUIDs[1] != "00000000-0000-0000-0000-000000000002" {
+		t.Errorf("deletedUUIDs = %v, want [00000000-0000-0000-0000-000000000001 00000000-0000-0000-0000-000000000002]", fix.deletedUUIDs)
 	}
 }
 
 func TestRemoveAmbiguousPickAndAllMutuallyExclusive(t *testing.T) {
-	shares := []shareResp{mkShare(1, "aBcD1111", "README.md", 100)}
+	shares := []shareResp{mkShare("00000000-0000-0000-0000-000000000001", "aBcD1111", "README.md", 100)}
 	srv, _ := newRemoveServer(t, shares)
 	writeTestConfig(t, srv.URL, "u@example.com", "gmd_t", nil)
 
@@ -430,8 +431,8 @@ func TestRemoveAmbiguousPickAndAllMutuallyExclusive(t *testing.T) {
 
 func TestRemoveAmbiguousNonInteractive(t *testing.T) {
 	shares := []shareResp{
-		mkShare(1, "aBcD1111", "README.md", 100),
-		mkShare(2, "aBcD2222", "README.md", 200),
+		mkShare("00000000-0000-0000-0000-000000000001", "aBcD1111", "README.md", 100),
+		mkShare("00000000-0000-0000-0000-000000000002", "aBcD2222", "README.md", 200),
 	}
 	srv, fix := newRemoveServer(t, shares)
 	writeTestConfig(t, srv.URL, "u@example.com", "gmd_t", nil)
@@ -443,15 +444,15 @@ func TestRemoveAmbiguousNonInteractive(t *testing.T) {
 	if !strings.Contains(err.Error(), "matched 2 shares") {
 		t.Errorf("err = %v", err)
 	}
-	if len(fix.deletedIDs) != 0 {
-		t.Errorf("deletedIDs = %v, want none", fix.deletedIDs)
+	if len(fix.deletedUUIDs) != 0 {
+		t.Errorf("deletedUUIDs = %v, want none", fix.deletedUUIDs)
 	}
 }
 
 func TestRemoveAmbiguousNotTTY(t *testing.T) {
 	shares := []shareResp{
-		mkShare(1, "aBcD1111", "README.md", 100),
-		mkShare(2, "aBcD2222", "README.md", 200),
+		mkShare("00000000-0000-0000-0000-000000000001", "aBcD1111", "README.md", 100),
+		mkShare("00000000-0000-0000-0000-000000000002", "aBcD2222", "README.md", 200),
 	}
 	srv, fix := newRemoveServer(t, shares)
 	writeTestConfig(t, srv.URL, "u@example.com", "gmd_t", nil)
@@ -463,15 +464,15 @@ func TestRemoveAmbiguousNotTTY(t *testing.T) {
 	if !strings.Contains(err.Error(), "matched 2 shares") {
 		t.Errorf("err = %v", err)
 	}
-	if len(fix.deletedIDs) != 0 {
-		t.Errorf("deletedIDs = %v, want none", fix.deletedIDs)
+	if len(fix.deletedUUIDs) != 0 {
+		t.Errorf("deletedUUIDs = %v, want none", fix.deletedUUIDs)
 	}
 }
 
 func TestRemoveAmbiguousInteractivePicks(t *testing.T) {
 	shares := []shareResp{
-		mkShare(1, "aBcD1111", "README.md", 100),
-		mkShare(2, "aBcD2222", "README.md", 200),
+		mkShare("00000000-0000-0000-0000-000000000001", "aBcD1111", "README.md", 100),
+		mkShare("00000000-0000-0000-0000-000000000002", "aBcD2222", "README.md", 200),
 	}
 	srv, fix := newRemoveServer(t, shares)
 	writeTestConfig(t, srv.URL, "u@example.com", "gmd_t", nil)
@@ -482,8 +483,8 @@ func TestRemoveAmbiguousInteractivePicks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("remove: %v", err)
 	}
-	if len(fix.deletedIDs) != 1 || fix.deletedIDs[0] != 2 {
-		t.Errorf("deletedIDs = %v, want [2]", fix.deletedIDs)
+	if len(fix.deletedUUIDs) != 1 || fix.deletedUUIDs[0] != "00000000-0000-0000-0000-000000000002" {
+		t.Errorf("deletedUUIDs = %v, want [00000000-0000-0000-0000-000000000002]", fix.deletedUUIDs)
 	}
 	if !strings.Contains(stdout.String(), "aBcD1111") || !strings.Contains(stdout.String(), "aBcD2222") {
 		t.Errorf("stdout should include disambiguation table; got:\n%s", stdout.String())
@@ -491,7 +492,7 @@ func TestRemoveAmbiguousInteractivePicks(t *testing.T) {
 }
 
 func TestRemoveSingleMatchConfirmAborted(t *testing.T) {
-	shares := []shareResp{mkShare(1, "aBcD1111", "README.md", 100)}
+	shares := []shareResp{mkShare("00000000-0000-0000-0000-000000000001", "aBcD1111", "README.md", 100)}
 	srv, fix := newRemoveServer(t, shares)
 	writeTestConfig(t, srv.URL, "u@example.com", "gmd_t", nil)
 
@@ -503,13 +504,13 @@ func TestRemoveSingleMatchConfirmAborted(t *testing.T) {
 	if !strings.Contains(err.Error(), "aborted") {
 		t.Errorf("err = %v", err)
 	}
-	if len(fix.deletedIDs) != 0 {
-		t.Errorf("deletedIDs = %v, want none", fix.deletedIDs)
+	if len(fix.deletedUUIDs) != 0 {
+		t.Errorf("deletedUUIDs = %v, want none", fix.deletedUUIDs)
 	}
 }
 
 func TestRemoveSingleMatchConfirmYes(t *testing.T) {
-	shares := []shareResp{mkShare(1, "aBcD1111", "README.md", 100)}
+	shares := []shareResp{mkShare("00000000-0000-0000-0000-000000000001", "aBcD1111", "README.md", 100)}
 	srv, fix := newRemoveServer(t, shares)
 	writeTestConfig(t, srv.URL, "u@example.com", "gmd_t", nil)
 
@@ -518,13 +519,13 @@ func TestRemoveSingleMatchConfirmYes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("remove: %v", err)
 	}
-	if len(fix.deletedIDs) != 1 || fix.deletedIDs[0] != 1 {
-		t.Errorf("deletedIDs = %v, want [1]", fix.deletedIDs)
+	if len(fix.deletedUUIDs) != 1 || fix.deletedUUIDs[0] != "00000000-0000-0000-0000-000000000001" {
+		t.Errorf("deletedUUIDs = %v, want [00000000-0000-0000-0000-000000000001]", fix.deletedUUIDs)
 	}
 }
 
 func TestRemoveSingleMatchYesFlagSkipsPrompt(t *testing.T) {
-	shares := []shareResp{mkShare(1, "aBcD1111", "README.md", 100)}
+	shares := []shareResp{mkShare("00000000-0000-0000-0000-000000000001", "aBcD1111", "README.md", 100)}
 	srv, fix := newRemoveServer(t, shares)
 	writeTestConfig(t, srv.URL, "u@example.com", "gmd_t", nil)
 
@@ -532,15 +533,15 @@ func TestRemoveSingleMatchYesFlagSkipsPrompt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("remove: %v", err)
 	}
-	if len(fix.deletedIDs) != 1 {
-		t.Errorf("deletedIDs = %v, want [1]", fix.deletedIDs)
+	if len(fix.deletedUUIDs) != 1 {
+		t.Errorf("deletedUUIDs = %v, want [00000000-0000-0000-0000-000000000001]", fix.deletedUUIDs)
 	}
 }
 
 func TestRemoveConfigCleanup(t *testing.T) {
 	shares := []shareResp{
-		mkShare(1, "aBcD1111", "README.md", 100),
-		mkShare(2, "aBcD2222", "notes.md", 200),
+		mkShare("00000000-0000-0000-0000-000000000001", "aBcD1111", "README.md", 100),
+		mkShare("00000000-0000-0000-0000-000000000002", "aBcD2222", "notes.md", 200),
 	}
 	srv, fix := newRemoveServer(t, shares)
 	tmp := t.TempDir()
@@ -562,8 +563,8 @@ func TestRemoveConfigCleanup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("remove: %v", err)
 	}
-	if len(fix.deletedIDs) != 1 || fix.deletedIDs[0] != 1 {
-		t.Errorf("deletedIDs = %v, want [1]", fix.deletedIDs)
+	if len(fix.deletedUUIDs) != 1 || fix.deletedUUIDs[0] != "00000000-0000-0000-0000-000000000001" {
+		t.Errorf("deletedUUIDs = %v, want [00000000-0000-0000-0000-000000000001]", fix.deletedUUIDs)
 	}
 	after, err := LoadConfig()
 	if err != nil {
@@ -582,8 +583,8 @@ func TestRemoveConfigCleanup(t *testing.T) {
 
 func TestRemoveLocalMapPrecedenceOverServerLookup(t *testing.T) {
 	shares := []shareResp{
-		mkShare(1, "aBcD1111", "README.md", 100),
-		mkShare(2, "aBcD2222", "README.md", 200),
+		mkShare("00000000-0000-0000-0000-000000000001", "aBcD1111", "README.md", 100),
+		mkShare("00000000-0000-0000-0000-000000000002", "aBcD2222", "README.md", 200),
 	}
 	srv, fix := newRemoveServer(t, shares)
 	tmp := t.TempDir()
@@ -601,8 +602,8 @@ func TestRemoveLocalMapPrecedenceOverServerLookup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("remove: %v", err)
 	}
-	if len(fix.deletedIDs) != 1 || fix.deletedIDs[0] != 2 {
-		t.Errorf("deletedIDs = %v, want [2]", fix.deletedIDs)
+	if len(fix.deletedUUIDs) != 1 || fix.deletedUUIDs[0] != "00000000-0000-0000-0000-000000000002" {
+		t.Errorf("deletedUUIDs = %v, want [00000000-0000-0000-0000-000000000002]", fix.deletedUUIDs)
 	}
 	if len(fix.filenameCalls) != 0 {
 		t.Errorf("filenameCalls = %v, want none (local map should short-circuit)", fix.filenameCalls)
@@ -634,8 +635,8 @@ func TestRemoveRequiresExactlyOneArg(t *testing.T) {
 
 func TestFormatMatchesTableIncludesAllColumns(t *testing.T) {
 	shares := []shareResp{
-		mkShare(1, "aBcD1111", "README.md", 100),
-		mkShare(2, "aBcD2222", "notes.md", 2048),
+		mkShare("00000000-0000-0000-0000-000000000001", "aBcD1111", "README.md", 100),
+		mkShare("00000000-0000-0000-0000-000000000002", "aBcD2222", "notes.md", 2048),
 	}
 	got := formatMatchesTable(shares)
 	for _, want := range []string{"SHORT ID", "FILE", "CREATED", "SIZE", "aBcD1111", "aBcD2222", "README.md", "notes.md", "2.0 KB"} {
@@ -686,7 +687,7 @@ func TestShortIDArgExactly8IsShortID(t *testing.T) {
 
 func TestRemoveURLQueryEscape(t *testing.T) {
 	shares := []shareResp{
-		mkShare(1, "abc12345", "weird name.md", 100),
+		mkShare("00000000-0000-0000-0000-000000000001", "abc12345", "weird name.md", 100),
 	}
 	srv, fix := newRemoveServer(t, shares)
 	writeTestConfig(t, srv.URL, "u@example.com", "gmd_t", nil)
@@ -699,6 +700,44 @@ func TestRemoveURLQueryEscape(t *testing.T) {
 	}
 	if fix.filenameCalls[0] != "weird name.md" {
 		t.Errorf("filenameCalls[0] = %q, want %q", fix.filenameCalls[0], "weird name.md")
+	}
+}
+
+func TestAPIClientUsesUUIDInSharePath(t *testing.T) {
+	const uuid = "abcd1234-5678-90ab-cdef-1234567890ab"
+
+	var putPath, deletePath string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/shares/"+uuid, func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPut:
+			putPath = r.URL.Path
+			w.WriteHeader(200)
+			_ = json.NewEncoder(w).Encode(shareResp{UUID: uuid, ShortID: "aBcD1234"})
+		case http.MethodDelete:
+			deletePath = r.URL.Path
+			w.WriteHeader(204)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	cli := newAPIClient(srv.URL, "gmd_t")
+
+	if _, err := cli.UpdateShare(uuid, "# hi"); err != nil {
+		t.Fatalf("UpdateShare: %v", err)
+	}
+	if putPath != "/api/shares/"+uuid {
+		t.Errorf("PUT path = %q, want %q", putPath, "/api/shares/"+uuid)
+	}
+
+	if err := cli.DeleteShare(uuid); err != nil {
+		t.Fatalf("DeleteShare: %v", err)
+	}
+	if deletePath != "/api/shares/"+uuid {
+		t.Errorf("DELETE path = %q, want %q", deletePath, "/api/shares/"+uuid)
 	}
 }
 
