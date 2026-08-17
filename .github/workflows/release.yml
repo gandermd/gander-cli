@@ -74,7 +74,7 @@ jobs:
       - name: Flatten artifacts
         run: |
           mkdir -p release-assets
-          find artifacts -type f -name 'gander-*' -exec cp {} release-assets/ ;
+          find artifacts -type f -name 'gander-*' -exec cp {} release-assets/ \;
           ls -la release-assets
 
       - uses: actions/checkout@v7
