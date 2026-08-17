@@ -54,6 +54,17 @@ Downloads the latest release binary that matches your OS/arch, verifies its SHA2
 
 If you built from source the old-fashioned way, re-run `install.sh` (or `git pull && ./install.sh --source`).
 
+### Man page
+
+`gander(1)` is bundled in the repository at `man/man1/gander.1` and attached to every release as `gander-man.tar.gz`. Once installed, run `man gander` for the full command reference:
+
+```bash
+tar -xzf gander-man.tar.gz -C /usr/local/share/man/man1  # or any directory in $MANPATH
+man gander
+```
+
+A Homebrew tap will install it automatically into `$(brew --prefix)/share/man/man1`.
+
 ### Shell completions
 
 Generate a completion script with `gander completion {bash|zsh}` and source it from your shell rc:
