@@ -39,6 +39,12 @@ func main() {
 				os.Exit(1)
 			}
 			return
+		case "completion":
+			if err := runCompletion(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "completion: %v\n", err)
+				os.Exit(1)
+			}
+			return
 		case "--help", "-h", "help":
 			printUsage(os.Stdout)
 			return
@@ -141,6 +147,7 @@ func printUsage(w *os.File) {
 		fmt.Fprintln(w, "  gander list                                                List shares currently on gander.md")
 	}
 	fmt.Fprintln(w, "  gander --upgrade                Download and install the latest release")
+	fmt.Fprintln(w, "  gander completion {bash|zsh}    Print a shell completion script to stdout")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Render options:")
 	fmt.Fprintln(w, "  -outfile string   Write HTML to a file instead of opening in browser")
