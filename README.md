@@ -54,6 +54,20 @@ Downloads the latest release binary that matches your OS/arch, verifies its SHA2
 
 If you built from source the old-fashioned way, re-run `install.sh` (or `git pull && ./install.sh --source`).
 
+### Shell completions
+
+Generate a completion script with `gander completion {bash|zsh}` and source it from your shell rc:
+
+```bash
+# bash
+source <(gander completion bash)
+
+# zsh
+eval "$(gander completion zsh)"
+```
+
+The bundled scripts cover every current subcommand (`signup`, `share`, `remove`, `list`, `completion`, `--upgrade`) and render flag. They're also attached to every release as `gander-completions.tar.gz`.
+
 ### Prerequisites
 
 - **macOS** or **Linux**
@@ -165,9 +179,10 @@ gander signup --email <addr>      Register an account on gander.md
 gander share [--watch] <file>     Upload to gander.md and open the share link
 gander remove [--all] [<file>]    Delete a share from gander.md
 gander list                       List shares currently on gander.md
+gander completion {bash|zsh}      Print a shell completion script
 ```
 
-The subcommands appear in help only after a successful `gander signup`.
+The subcommands appear in help only after a successful `gander signup` (except `completion`, which is always available).
 
 ## Releasing
 

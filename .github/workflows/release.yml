@@ -62,7 +62,7 @@ jobs:
             dist/gander-${{ matrix.target }}
             dist/gander-${{ matrix.target }}.sha256
 
-  release:
+release:
     name: publish release
     needs: build
     runs-on: ubuntu-latest
@@ -74,8 +74,14 @@ jobs:
       - name: Flatten artifacts
         run: |
           mkdir -p release-assets
-          find artifacts -type f -name 'gander-*' -exec cp {} release-assets/ \;
+          find artifacts -type f -name 'gander-*' -exec cp {} release-assets/ ;
           ls -la release-assets
+
+      - uses: actions/checkout@v7
+
+      - name: Bundle shell completions
+        run: |
+          tar -czf release-assets/gander-completions.tar.gz -C completions gander.bash _gander
 
       - name: Create release
         uses: softprops/action-gh-release@v3
@@ -90,3 +96,4 @@ jobs:
             release-assets/gander-linux-amd64.sha256
             release-assets/gander-linux-arm64
             release-assets/gander-linux-arm64.sha256
+            release-assets/gander-completions.tar.gz
