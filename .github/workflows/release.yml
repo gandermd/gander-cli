@@ -67,6 +67,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
+
       - uses: actions/download-artifact@v8
         with:
           path: artifacts
@@ -76,8 +78,6 @@ jobs:
           mkdir -p release-assets
           find artifacts -type f -name 'gander-*' -exec cp {} release-assets/ \;
           ls -la release-assets
-
-      - uses: actions/checkout@v7
 
       - name: Bundle man page
         run: |
