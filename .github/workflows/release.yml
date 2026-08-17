@@ -29,9 +29,9 @@ jobs:
             goos: linux
             goarch: arm64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: '1.23'
           cache: false
@@ -54,9 +54,10 @@ jobs:
           sha256sum "gander-${{ matrix.target }}" > "gander-${{ matrix.target }}.sha256"
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gander-${{ matrix.target }}
+          if-no-files-found: error
           path: |
             dist/gander-${{ matrix.target }}
             dist/gander-${{ matrix.target }}.sha256
@@ -66,7 +67,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
 
@@ -77,7 +78,7 @@ jobs:
           ls -la release-assets
 
       - name: Create release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
           files: |
