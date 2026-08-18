@@ -50,6 +50,12 @@ func main() {
 				os.Exit(1)
 			}
 			return
+		case "manage":
+			if err := runManage(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "manage: %v\n", err)
+				os.Exit(1)
+			}
+			return
 		case "--help", "-h", "help":
 			printUsage(os.Stdout)
 			return

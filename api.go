@@ -102,6 +102,20 @@ func (c *apiClient) PollSignupIntent(id string) (*signupIntentPollResp, error) {
 	return &out, nil
 }
 
+type manageIntentResp struct {
+	IntentID    string `json:"intent_id"`
+	DashboardURL string `json:"dashboard_url"`
+	ExpiresAt   string `json:"expires_at"`
+}
+
+func (c *apiClient) OpenManageIntent() (*manageIntentResp, error) {
+	var out manageIntentResp
+	if err := c.do("POST", "/api/manage/intent", nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (c *apiClient) CreateShare(filename, content string, watch bool) (*shareResp, error) {
 	var out shareResp
 	if err := c.do("POST", "/api/shares", map[string]any{

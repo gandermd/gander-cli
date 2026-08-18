@@ -77,7 +77,7 @@ source <(gander completion bash)
 eval "$(gander completion zsh)"
 ```
 
-The bundled scripts cover every current subcommand (`signup`, `share`, `remove`, `list`, `completion`, `--upgrade`) and render flag. They're also attached to every release as `gander-completions.tar.gz`.
+The bundled scripts cover every current subcommand (`signup`, `share`, `remove`, `list`, `manage`, `completion`, `--upgrade`) and render flag. They're also attached to every release as `gander-completions.tar.gz`.
 
 ### Prerequisites
 
@@ -166,7 +166,7 @@ Optional JSON config file at `~/.gander` lets you set defaults. Any field you om
 | `watch`       | `false`            | Default to live-reload mode when the flag is not explicitly set.           |
 | `debounce_ms` | `150`              | Coalesce file-change events within this window before re-rendering.        |
 | `port`        | `0`                | HTTP port for the watch server (`0` = OS-assigned free port).              |
-| `api_url`     | `https://gander.md` | gandermd endpoint; only used by `signup`, `share`, `remove`, `list`.       |
+| `api_url`     | `https://gander.md` | gandermd endpoint; used by `signup`, `share`, `remove`, `list`, `manage`.  |
 | `email`       | _(empty)_          | Email address registered with gandermd.                                   |
 | `api_token`   | _(empty)_          | Bearer token. Set by `gander signup`. Treat as a password.                 |
 | `shares`      | `{}`               | Map of local file paths to short IDs, maintained by `gander share`.        |
@@ -187,10 +187,11 @@ CLI flags always override the config. Pass `--watch=false` (or any explicit valu
 Subcommands:
 
 ```
-gander signup --email <addr>      Register an account on gander.md
+gander signup --email <addr>      Open the signup form in your browser, save the API token
 gander share [--watch] <file>     Upload to gander.md and open the share link
 gander remove [--all] [<file>]    Delete a share from gander.md
 gander list                       List shares currently on gander.md
+gander manage                     Open the dashboard in your browser
 gander completion {bash|zsh}      Print a shell completion script
 ```
 

@@ -8,7 +8,6 @@ gander \- render Markdown locally, optionally share it on gander.md
 .sp
 .B gander signup
 .RB [ \-email \ Iemail\fR]
-.RB [ \-force ]
 .sp
 .B gander share
 .RB [ \-watch ]
@@ -22,6 +21,8 @@ gander \- render Markdown locally, optionally share it on gander.md
 .sp
 .B gander list
 .sp
+.B gander manage
+.sp
 .B gander completion
 .RB { bash | zsh }
 .sp
@@ -32,14 +33,15 @@ converts a Markdown file to HTML and opens the result in the default web
 browser.
 If run with
 .BR \-\-watch ","
-the preview live\-reloads in place on save.
+the preview live\-reloadss in place on save.
 After registering with
 .B gander signup
 the
 .BR share ","
-.B remove
+.BR remove ","
+.B list ","
 and
-.B list
+.B manage
 subcommands upload Markdown to
 .RI \(la https://gander.md \(ra
 ("gander.md") and return short share links.
@@ -68,17 +70,15 @@ Print help and exit.
 .SS "Signup"
 .TP
 .B signup
-Register an email address on gander.md and save the resulting API token in
-~/.gander.
+Open the signup form in your browser, then save the resulting API token
+in
+.IR ~/.gander .
 The token is required for the other gander.md commands.
 .sp
 .RS
 .TP
 .BI "\-email " email
 The address to register. Required.
-.TP
-.B \-force
-Overwrite a previously saved token (leaves any existing shares orphaned).
 .RE
 .SS "Share"
 .TP
@@ -128,6 +128,12 @@ when the argument is ambiguous.
 .B list
 Print a table of every share in the user's gander.md account (short id,
 file, watch flag, last update, URL).
+.SS "Manage"
+.TP
+.B manage
+Open the gander.md dashboard in your browser. Requires an existing API
+token (sign up first). The dashboard shows your shares, rotates your API
+token, and lets you attach a password to log in via the web.
 .SS "Completion"
 .TP
 .B completion
