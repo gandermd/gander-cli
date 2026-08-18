@@ -24,13 +24,19 @@ func TestShareWatchFlowEndToEnd(t *testing.T) {
 	var lastPushedContent string
 	var lastPutPath string
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/signup", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/signup/intent", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(201)
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"user_uuid":  shareUUID,
-			"email":      "e2e@example.com",
-			"api_token":  "gmd_test",
-			"created_at": time.Now().Format(time.RFC3339),
+			"intent_id":  "intent-1",
+			"signup_url": "https://gander.md/signup?intent=intent-1",
+			"expires_at": time.Now().Add(10 * time.Minute).Format(time.RFC3339),
+		})
+	})
+	mux.HandleFunc("/api/signup/intent/intent-1", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status":    "complete",
+			"api_token": "gmd_test",
 		})
 	})
 	mux.HandleFunc("/api/shares", func(w http.ResponseWriter, r *http.Request) {
@@ -77,6 +83,10 @@ func TestShareWatchFlowEndToEnd(t *testing.T) {
 	if err := os.WriteFile(mdFile, []byte("# v1"), 0644); err != nil {
 		t.Fatal(err)
 	}
+
+	prevOpenBrowser := openBrowser
+	openBrowser = func(url string) error { return nil }
+	defer func() { openBrowser = prevOpenBrowser }()
 
 	if err := runSignup([]string{"--email", "e2e@example.com"}); err != nil {
 		t.Fatalf("signup: %v", err)
@@ -142,20 +152,31 @@ func TestRunSignupPersistsConfig(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/signup/intent", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(201)
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"user_uuid":  "22222222-2222-2222-2222-222222222222",
-			"email":      "alice@example.com",
-			"api_token":  "gmd_xyz",
-			"created_at": time.Now().Format(time.RFC3339),
+			"intent_id":  "intent-1",
+			"signup_url": "https://gander.md/signup?intent=intent-1",
+			"expires_at": time.Now().Add(10 * time.Minute).Format(time.RFC3339),
 		})
-	}))
+	})
+	mux.HandleFunc("/api/signup/intent/intent-1", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status":    "complete",
+			"api_token": "gmd_xyz",
+		})
+	})
+	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
 	if err := os.WriteFile(filepath.Join(tmp, ".gander"), []byte(`{"api_url": "`+srv.URL+`"}`), 0600); err != nil {
 		t.Fatal(err)
 	}
+
+	prevOpenBrowser := openBrowser
+	openBrowser = func(url string) error { return nil }
+	defer func() { openBrowser = prevOpenBrowser }()
 
 	if err := runSignup([]string{"--email", "alice@example.com"}); err != nil {
 		t.Fatalf("signup: %v", err)

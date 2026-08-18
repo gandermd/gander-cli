@@ -25,11 +25,15 @@ func newAPIClient(base, token string) *apiClient {
 	}
 }
 
-type signupResp struct {
-	UserUUID  string `json:"user_uuid"`
-	Email     string `json:"email"`
-	APIToken  string `json:"api_token"`
-	CreatedAt string `json:"created_at"`
+type signupIntentResp struct {
+	IntentID  string `json:"intent_id"`
+	SignupURL string `json:"signup_url"`
+	ExpiresAt string `json:"expires_at"`
+}
+
+type signupIntentPollResp struct {
+	Status   string `json:"status"`
+	APIToken string `json:"api_token,omitempty"`
 }
 
 type shareResp struct {
@@ -82,9 +86,31 @@ func (c *apiClient) do(method, path string, body, dst any) error {
 	return nil
 }
 
-func (c *apiClient) Signup(email string) (*signupResp, error) {
-	var out signupResp
-	if err := c.do("POST", "/api/signup", map[string]string{"email": email}, &out); err != nil {
+func (c *apiClient) Signup(email string) (*signupIntentResp, error) {
+	var out signupIntentResp
+	if err := c.do("POST", "/api/signup/intent", map[string]string{"email": email}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *apiClient) PollSignupIntent(id string) (*signupIntentPollResp, error) {
+	var out signupIntentPollResp
+	if err := c.do("GET", "/api/signup/intent/"+id, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+type manageIntentResp struct {
+	IntentID    string `json:"intent_id"`
+	DashboardURL string `json:"dashboard_url"`
+	ExpiresAt   string `json:"expires_at"`
+}
+
+func (c *apiClient) OpenManageIntent() (*manageIntentResp, error) {
+	var out manageIntentResp
+	if err := c.do("POST", "/api/manage/intent", nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

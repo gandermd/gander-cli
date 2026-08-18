@@ -6,10 +6,11 @@
 _gander() {
     local -a commands
     commands=(
-        'signup:Create a gander.md account and save the API token'
+        'signup:Open signup form in your browser, save the API token'
         'share:Upload Markdown to gander.md and open the share link'
         'remove:Delete a share from gander.md'
         'list:List shares currently on gander.md'
+        'manage:Open the dashboard in your browser'
         'completion:Print a shell completion script'
         '--upgrade:Download and install the latest release'
         'upgrade:Alias for --upgrade'
@@ -40,6 +41,9 @@ _gander() {
                 '*:file or short_id:_files'
             ;;
         list)
+            _arguments
+            ;;
+        manage)
             _arguments
             ;;
         completion)

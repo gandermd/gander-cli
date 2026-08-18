@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 )
 
@@ -48,6 +47,12 @@ func main() {
 		case "completion":
 			if err := runCompletion(os.Args[2:]); err != nil {
 				fmt.Fprintf(os.Stderr, "completion: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		case "manage":
+			if err := runManage(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "manage: %v\n", err)
 				os.Exit(1)
 			}
 			return
@@ -134,7 +139,9 @@ func main() {
 	}
 	url := "file://" + tmpPath
 	fmt.Printf("Preview at: %s\n", url)
-	openBrowserLocal(url)
+	if err := openBrowser(url); err != nil {
+		log.Printf("Warning: could not open browser: %v", err)
+	}
 }
 
 func runNoArg(w io.Writer) {
@@ -167,12 +174,13 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Usage:")
 	fmt.Fprintln(w, "  gander <file.md> [options]      Render and open locally")
-	fmt.Fprintln(w, "  gander signup --email <addr>    Create a gander.md account and save the API token")
+	fmt.Fprintln(w, "  gander signup --email <addr>    Open signup form in your browser, save the API token")
 	if authed {
 		fmt.Fprintln(w, "  gander share [--watch] <file>                              Upload to gander.md and open the share link")
 		fmt.Fprintln(w, "  gander remove [--all|--pick <short_id>|--yes|--non-interactive] <file|short_id|url>")
 		fmt.Fprintln(w, "                                                              Delete a share from gander.md")
 		fmt.Fprintln(w, "  gander list                                                List shares currently on gander.md")
+		fmt.Fprintln(w, "  gander manage                                               Open the dashboard in your browser")
 	}
 	fmt.Fprintln(w, "  gander --upgrade                Download and install the latest release")
 	fmt.Fprintln(w, "  gander completion {bash|zsh}    Print a shell completion script to stdout")
@@ -182,7 +190,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  -watch            Live-reload the local browser preview on save")
 	if !authed {
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, "Run `gander signup --email you@example.com` to enable share / remove / list.")
+		fmt.Fprintln(w, "Run `gander signup --email you@example.com` to enable share / remove / list / manage.")
 	}
 }
 
@@ -196,12 +204,7 @@ func flagWasSet(name string) bool {
 	return found
 }
 
-func openBrowserLocal(url string) {
-	cmd := exec.Command("open", url)
-	if err := cmd.Start(); err != nil {
-		log.Printf("Warning: could not open browser: %v", err)
-	}
-}
+
 
 func writeHTMLTo(outPath string, content []byte) error {
 	html, headings := renderMarkdownWithIDs(string(content))
