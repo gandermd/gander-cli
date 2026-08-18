@@ -126,12 +126,13 @@ you can `share`, `list`, and `remove` markdown from your terminal — and
 viewers see the same live-reload preview you'd see locally.
 
 ```bash
-gander signup --email you@example.com   # one-time, saves an API token
+gander signup --email you@example.com   # opens browser form, polls for API token
 gander share README.md                  # opens https://gander.md/s/xK7m2pQa
 gander share README.md --watch          # also live-updates the remote viewer on save
 gander list                             # table of active shares
 gander remove README.md                 # 404s the short link
 gander remove --all                     # remove every share in your account
+gander manage                           # opens the dashboard in your browser
 ```
 
 These commands appear in `gander --help` only after a successful signup,
@@ -140,7 +141,7 @@ since they require an API token stored in `~/.gander` (`api_token`,
 The CLI ships with `https://gander.md` as the default endpoint; set
 `api_url` in your config to point at a self-hosted instance.
 
-> Token rotation is not supported yet — see gandermd issue #1.
+API token rotation is supported via the dashboard (`gander manage` → rotate).
 
 ### Configuration (`~/.gander`)
 

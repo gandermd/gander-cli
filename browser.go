@@ -6,7 +6,7 @@ import (
 	"runtime"
 )
 
-func openBrowser(url string) error {
+var openBrowser = func(url string) error {
 	cmd, err := openBrowserCommand(url)
 	if err != nil {
 		return err
