@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 )
 
@@ -134,7 +133,9 @@ func main() {
 	}
 	url := "file://" + tmpPath
 	fmt.Printf("Preview at: %s\n", url)
-	openBrowserLocal(url)
+	if err := openBrowser(url); err != nil {
+		log.Printf("Warning: could not open browser: %v", err)
+	}
 }
 
 func runNoArg(w io.Writer) {
@@ -196,12 +197,7 @@ func flagWasSet(name string) bool {
 	return found
 }
 
-func openBrowserLocal(url string) {
-	cmd := exec.Command("open", url)
-	if err := cmd.Start(); err != nil {
-		log.Printf("Warning: could not open browser: %v", err)
-	}
-}
+
 
 func writeHTMLTo(outPath string, content []byte) error {
 	html, headings := renderMarkdownWithIDs(string(content))

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"syscall"
@@ -55,7 +54,7 @@ func runShare(args []string) error {
 		if err != nil {
 			return fmt.Errorf("update: %w", err)
 		}
-		openBrowser(updated.URL)
+		openBrowserURL(updated.URL)
 		if *watch {
 			return runWatchAndPush(absPath, updated, cfg)
 		}
@@ -71,7 +70,7 @@ func runShare(args []string) error {
 		return fmt.Errorf("save mapping: %w", err)
 	}
 	fmt.Printf("Shared %s as %s\n", absPath, sh.URL)
-	openBrowser(sh.URL)
+	openBrowserURL(sh.URL)
 	if *watch {
 		return runWatchAndPush(absPath, sh, cfg)
 	}
@@ -109,9 +108,8 @@ func runWatchAndPush(absPath string, sh *shareResp, cfg Config) error {
 	return nil
 }
 
-func openBrowser(url string) {
-	cmd := exec.Command("open", url)
-	if err := cmd.Start(); err != nil {
+func openBrowserURL(url string) {
+	if err := openBrowser(url); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: could not open browser: %v\n", err)
 	}
 }
