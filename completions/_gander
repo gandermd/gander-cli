@@ -11,7 +11,7 @@ _gander() {
         'remove:Delete a share from gander.md'
         'list:List shares currently on gander.md'
         'manage:Open the dashboard in your browser'
-        'auth:Install a new API token (validate against /api/me first)'
+        'auth:Install a new API token (validate against /api/shares first)'
         'completion:Print a shell completion script'
         '--upgrade:Download and install the latest release'
         'upgrade:Alias for --upgrade'

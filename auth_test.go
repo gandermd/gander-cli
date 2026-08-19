@@ -54,10 +54,11 @@ func TestRunAuthValidatesAndPersists(t *testing.T) {
 		gotBearer string
 	)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/me", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/shares", func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		gotBearer = r.Header.Get("Authorization")
 		w.WriteHeader(200)
+		_, _ = w.Write([]byte("[]"))
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -70,8 +71,8 @@ func TestRunAuthValidatesAndPersists(t *testing.T) {
 	if err := runAuth([]string{"gmd_new"}); err != nil {
 		t.Fatalf("auth: %v", err)
 	}
-	if gotPath != "/api/me" {
-		t.Errorf("path = %q, want /api/me", gotPath)
+	if gotPath != "/api/shares" {
+		t.Errorf("path = %q, want /api/shares", gotPath)
 	}
 	if gotBearer != "Bearer gmd_new" {
 		t.Errorf("bearer = %q, want Bearer gmd_new", gotBearer)
@@ -110,8 +111,11 @@ func TestRunAuthRejectsInvalidToken(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for 401")
 	}
-	if !strings.Contains(err.Error(), "auth") {
-		t.Errorf("err = %v", err)
+	if !strings.Contains(err.Error(), "token rejected") {
+		t.Errorf("err = %v, want mention of 'token rejected'", err)
+	}
+	if !strings.Contains(err.Error(), "401") {
+		t.Errorf("err = %v, want mention of HTTP 401", err)
 	}
 
 	got, statErr := os.ReadFile(filepath.Join(tmp, ".gander"))
@@ -120,5 +124,27 @@ func TestRunAuthRejectsInvalidToken(t *testing.T) {
 	}
 	if string(got) != string(original) {
 		t.Errorf("~/.gander was modified after a failed auth:\nbefore: %s\nafter:  %s", original, got)
+	}
+}
+
+func TestRunAuthErrorNotDoublePrefixed(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+
+	if err := os.WriteFile(filepath.Join(tmp, ".gander"), []byte(`{"api_url":"`+srv.URL+`","api_token":"gmd_old"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	err := runAuth([]string{"gmd_bad"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if strings.HasPrefix(err.Error(), "auth: ") {
+		t.Errorf("err = %q; runAuth must not add an 'auth: ' prefix (main.go adds it once). Got double prefix.", err)
 	}
 }
