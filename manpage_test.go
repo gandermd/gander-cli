@@ -33,7 +33,7 @@ func TestManPageExistsAndRenders(t *testing.T) {
 		"NAME", "SYNOPSIS", "DESCRIPTION", "OPTIONS", "COMMANDS", "FILES",
 		"EXIT STATUS", "EXAMPLES",
 		"gander signup", "gander share", "gander remove",
-		"gander list", "gander completion",
+		"gander list", "gander auth", "gander completion",
 		"--upgrade",
 	} {
 		if !strings.Contains(text, want) {

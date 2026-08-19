@@ -140,6 +140,10 @@ func (c *apiClient) DeleteShare(uuid string) error {
 	return c.do("DELETE", fmt.Sprintf("/api/shares/%s", uuid), nil, nil)
 }
 
+func (c *apiClient) ValidateToken() error {
+	return c.do("GET", "/api/me", nil, nil)
+}
+
 func (c *apiClient) ListShares() ([]shareResp, error) {
 	var out []shareResp
 	if err := c.do("GET", "/api/shares", nil, &out); err != nil {

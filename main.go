@@ -56,6 +56,12 @@ func main() {
 				os.Exit(1)
 			}
 			return
+		case "auth":
+			if err := runAuth(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "auth: %v\n", err)
+				os.Exit(1)
+			}
+			return
 		case "--help", "-h", "help":
 			printUsage(os.Stdout)
 			return
@@ -181,6 +187,7 @@ func printUsage(w io.Writer) {
 		fmt.Fprintln(w, "                                                              Delete a share from gander.md")
 		fmt.Fprintln(w, "  gander list                                                List shares currently on gander.md")
 		fmt.Fprintln(w, "  gander manage                                               Open the dashboard in your browser")
+		fmt.Fprintln(w, "  gander auth <api_token>                                     Install a new API token (e.g. after rotating in the dashboard)")
 	}
 	fmt.Fprintln(w, "  gander --upgrade                Download and install the latest release")
 	fmt.Fprintln(w, "  gander completion {bash|zsh}    Print a shell completion script to stdout")
@@ -190,7 +197,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  -watch            Live-reload the local browser preview on save")
 	if !authed {
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, "Run `gander signup --email you@example.com` to enable share / remove / list / manage.")
+		fmt.Fprintln(w, "Run `gander signup --email you@example.com` to enable share / remove / list / manage / auth.")
 	}
 }
 

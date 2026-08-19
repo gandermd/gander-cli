@@ -133,6 +133,7 @@ gander list                             # table of active shares
 gander remove README.md                 # 404s the short link
 gander remove --all                     # remove every share in your account
 gander manage                           # opens the dashboard in your browser
+gander auth <api_token>                 # install a rotated/issued API token
 ```
 
 These commands appear in `gander --help` only after a successful signup,
@@ -141,7 +142,10 @@ since they require an API token stored in `~/.gander` (`api_token`,
 The CLI ships with `https://gander.md` as the default endpoint; set
 `api_url` in your config to point at a self-hosted instance.
 
-API token rotation is supported via the dashboard (`gander manage` → rotate).
+API tokens can be rotated from the dashboard (`gander manage` → rotate).
+After rotating, install the new token on each machine with
+`gander auth <token>`; the CLI validates it against `/api/me` before
+overwriting `~/.gander`.
 
 ### Configuration (`~/.gander`)
 
@@ -192,6 +196,7 @@ gander share [--watch] <file>     Upload to gander.md and open the share link
 gander remove [--all] [<file>]    Delete a share from gander.md
 gander list                       List shares currently on gander.md
 gander manage                     Open the dashboard in your browser
+gander auth <api_token>           Install a new API token (e.g. after rotating)
 gander completion {bash|zsh}      Print a shell completion script
 ```
 
