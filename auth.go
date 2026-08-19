@@ -15,7 +15,7 @@ func runAuth(args []string) error {
 
 	cli := newAPIClient(cfg.APIURL, token)
 	if err := cli.ValidateToken(); err != nil {
-		return fmt.Errorf("auth: %w", err)
+		return fmt.Errorf("token rejected by server: %w", err)
 	}
 
 	cfg.APIToken = token

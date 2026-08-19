@@ -144,8 +144,8 @@ The CLI ships with `https://gander.md` as the default endpoint; set
 
 API tokens can be rotated from the dashboard (`gander manage` → rotate).
 After rotating, install the new token on each machine with
-`gander auth <token>`; the CLI validates it against `/api/me` before
-overwriting `~/.gander`.
+`gander auth <token>`; the CLI validates it against `/api/shares`
+before overwriting `~/.gander`.
 
 ### Configuration (`~/.gander`)
 

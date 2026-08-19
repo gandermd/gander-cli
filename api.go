@@ -141,7 +141,7 @@ func (c *apiClient) DeleteShare(uuid string) error {
 }
 
 func (c *apiClient) ValidateToken() error {
-	return c.do("GET", "/api/me", nil, nil)
+	return c.do("GET", "/api/shares", nil, nil)
 }
 
 func (c *apiClient) ListShares() ([]shareResp, error) {
