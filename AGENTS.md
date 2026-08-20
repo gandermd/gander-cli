@@ -17,7 +17,7 @@ self-updates from GitHub Releases.
   | File                  | Purpose                                                  |
   | --------------------- | -------------------------------------------------------- |
   | `main.go`             | CLI parsing, flag dispatch, entrypoint glue              |
-  | `config.go`           | `~/.gander` JSON loader and defaults                        |
+  | `config.go`           | `~/.gander` JSON loader and defaults; honors `GANDER_CONFIG=<name>` to use `~/.gander.<name>` instead (full isolation from the prod profile, with path-traversal guard) |
   | `render.go`           | Markdown → HTML, page builder, CSS, TOC + reload JS      |
   | `watch.go`            | HTTP server, SSE hub, fsnotify watcher, debounced reload |
   | `upgrade.go`          | `--upgrade` self-update via GitHub Releases API          |

@@ -168,6 +168,26 @@ checksum, atomically replace the running binary, and exit.
 .I ~/.gander
 JSON configuration file. Holds the API token (chmod 600), API endpoint,
 default flags, and the local map of file path \(-> short id.
+.TP
+.I ~/.gander.\fIname\fR
+When
+.B GANDER_CONFIG=\fIname\fR
+is set in the environment, the CLI reads and writes this file instead of
+the default
+.IR ~/.gander .
+Useful for pointing a single checkout at a local dev or staging instance
+without disturbing the prod profile. The legacy
+.I ~/.mdp
+fallback only applies when
+.B GANDER_CONFIG
+is unset; named profiles never fall back to
+.IR .mdp .
+Names must be a single path component (no
+.RB \(lq / \(rq,
+.RB \(lq \e \(rq,
+.RB \(lq . \(rq,
+or
+.RB \(lq .. \(rq).
 .SH EXIT STATUS
 .TP
 .B 0
@@ -206,6 +226,14 @@ Remove a share by short id:
 .RS
 .nf
 gander remove aBcD1234
+.fi
+.RE
+.PP
+Sign up against a local dev gandermd using a separate profile:
+.PP
+.RS
+.nf
+GANDER_CONFIG=dev gander signup \-\-email dev@example.com
 .fi
 .RE
 .SH "SEE ALSO"
