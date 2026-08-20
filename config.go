@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -35,6 +36,12 @@ func configPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("could not determine home directory: %w", err)
+	}
+	if profile := os.Getenv("GANDER_CONFIG"); profile != "" {
+		if profile == "." || profile == ".." || profile != filepath.Base(profile) || strings.ContainsAny(profile, `/\`) {
+			return "", fmt.Errorf("invalid GANDER_CONFIG %q: must be a single path component", profile)
+		}
+		return filepath.Join(home, ".gander."+profile), nil
 	}
 	primary := filepath.Join(home, ".gander")
 	if _, statErr := os.Stat(primary); statErr != nil && os.IsNotExist(statErr) {

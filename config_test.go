@@ -201,3 +201,75 @@ func TestLoadConfigPrimaryWinsOverLegacy(t *testing.T) {
 		t.Errorf("DebounceMs = %d, want 100 (primary should win)", cfg.DebounceMs)
 	}
 }
+
+func TestConfigPathProfile(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+
+	t.Setenv("GANDER_CONFIG", "dev")
+
+	path, err := configPath()
+	if err != nil {
+		t.Fatalf("configPath: %v", err)
+	}
+	want := filepath.Join(dir, ".gander.dev")
+	if path != want {
+		t.Errorf("configPath = %q, want %q", path, want)
+	}
+
+	primary := filepath.Join(dir, ".gander")
+	if err := os.WriteFile(primary, []byte(`{"debounce_ms": 100, "api_token": "gmd_prod"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.DebounceMs != 150 {
+		t.Errorf("profile LoadConfig DebounceMs = %d, want 150 (default, isolated from primary)", cfg.DebounceMs)
+	}
+	if cfg.APIToken == "gmd_prod" {
+		t.Errorf("profile LoadConfig leaked api_token from ~/.gander")
+	}
+}
+
+func TestConfigPathProfileRejectsTraversal(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+
+	for _, bad := range []string{"../escape", "a/b", `a\b`, ".."} {
+		t.Run(bad, func(t *testing.T) {
+			t.Setenv("GANDER_CONFIG", bad)
+			if _, err := configPath(); err == nil {
+				t.Errorf("configPath with GANDER_CONFIG=%q succeeded, want error", bad)
+			}
+		})
+	}
+}
+
+func TestConfigPathProfileBypassesMdp(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+
+	t.Setenv("GANDER_CONFIG", "dev")
+
+	legacy := filepath.Join(dir, ".mdp")
+	if err := os.WriteFile(legacy, []byte(`{"watch": true, "debounce_ms": 250}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.Watch {
+		t.Errorf("profile LoadConfig Watch = true, want false (legacy .mdp must not leak into named profile)")
+	}
+	if cfg.DebounceMs != 150 {
+		t.Errorf("profile LoadConfig DebounceMs = %d, want 150 (default)", cfg.DebounceMs)
+	}
+}

@@ -177,6 +177,17 @@ Optional JSON config file at `~/.gander` lets you set defaults. Any field you om
 
 CLI flags always override the config. Pass `--watch=false` (or any explicit value) to override `~/.gander` for a single run.
 
+#### Profiles (`GANDER_CONFIG`)
+
+For pointing a single checkout at a different gandermd instance (local dev, staging, a self-hosted deployment) without disturbing your prod `~/.gander`, set `GANDER_CONFIG=<name>`. The CLI then reads and writes `~/.gander.<name>` instead — fully isolated from the default profile.
+
+```sh
+GANDER_CONFIG=dev gander signup --email dev@example.com    # writes ~/.gander.dev
+GANDER_CONFIG=staging gander list                          # writes ~/.gander.staging
+```
+
+The legacy `~/.mdp` fallback only applies when `GANDER_CONFIG` is unset; named profiles never fall back to `.mdp`. Profile names must be a single path component (no `/`, `\`, `.`, or `..`).
+
 ### Options
 
 ```
