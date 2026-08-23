@@ -894,6 +894,32 @@ func TestRunNoArgUpdateCheckError(t *testing.T) {
 	}
 }
 
+func TestPrintVersion(t *testing.T) {
+	prev := Version
+	defer func() { Version = prev }()
+
+	cases := []struct {
+		name string
+		val  string
+		want string
+	}{
+		{"dev", "dev", "gander dev\n"},
+		{"release tag", "v0.11.0", "gander v0.11.0\n"},
+		{"prerelease", "v1.0.0-rc1", "gander v1.0.0-rc1\n"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			Version = tc.val
+			var buf bytes.Buffer
+			printVersion(&buf)
+			if got := buf.String(); got != tc.want {
+				t.Errorf("printVersion with Version=%q = %q, want %q", tc.val, got, tc.want)
+			}
+		})
+	}
+}
+
 func firstLines(s string, n int) string {
 	lines := strings.SplitN(s, "\n", n+1)
 	if len(lines) > n {

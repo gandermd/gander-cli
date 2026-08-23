@@ -4,7 +4,18 @@ A simple CLI tool that renders a Markdown file in your web browser on macOS and 
 
 ## Installation
 
-### One-liner (recommended)
+### Homebrew (recommended)
+
+```bash
+brew tap gandermd/gander
+brew install gander
+```
+
+This installs `gander` on your `$PATH` for macOS and Linux (via Linuxbrew), registers `gander(1)` under `$(brew --prefix)/share/man/man1`, and ships bash + zsh completions under `$(brew --prefix)/share`. Upgrade alongside everything else with `brew upgrade`, and uninstall cleanly with `brew uninstall gander`. `gander --upgrade` keeps working for in-place binary upgrades.
+
+### One-liner (fallback / non-Homebrew systems)
+
+Use this on systems without Homebrew or in CI environments that can't tap a formula:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gandermd/gander-cli/main/install.sh | bash
@@ -56,14 +67,12 @@ If you built from source the old-fashioned way, re-run `install.sh` (or `git pul
 
 ### Man page
 
-`gander(1)` is bundled in the repository at `man/man1/gander.1` and attached to every release as `gander-man.tar.gz`. Once installed, run `man gander` for the full command reference:
+`gander(1)` is bundled in the repository at `man/man1/gander.1` and attached to every release as `gander-man.tar.gz`. Homebrew installs it automatically into `$(brew --prefix)/share/man/man1`; on other systems, drop the tarball into any directory in `$MANPATH`:
 
 ```bash
 tar -xzf gander-man.tar.gz -C /usr/local/share/man/man1  # or any directory in $MANPATH
 man gander
 ```
-
-A Homebrew tap will install it automatically into `$(brew --prefix)/share/man/man1`.
 
 ### Shell completions
 
@@ -77,7 +86,7 @@ source <(gander completion bash)
 eval "$(gander completion zsh)"
 ```
 
-The bundled scripts cover every current subcommand (`signup`, `share`, `remove`, `list`, `manage`, `completion`, `--upgrade`) and render flag. They're also attached to every release as `gander-completions.tar.gz`.
+Homebrew installs the bash + zsh scripts under `$(brew --prefix)/share/...` automatically. The bundled scripts cover every current subcommand (`signup`, `share`, `remove`, `list`, `manage`, `completion`, `--upgrade`, `--version`) and render flag. They're also attached to every release as `gander-completions.tar.gz`.
 
 ### Prerequisites
 
@@ -208,6 +217,7 @@ gander remove [--all] [<file>]    Delete a share from gander.md
 gander list                       List shares currently on gander.md
 gander manage                     Open the dashboard in your browser
 gander auth <api_token>           Install a new API token (e.g. after rotating)
+gander --version                  Print the version and exit
 gander completion {bash|zsh}      Print a shell completion script
 ```
 
@@ -224,6 +234,14 @@ scripts/release.sh 0.2.0
 Pass `--dry-run` to print the actions that would be taken without tagging or pushing. The script requires a clean working tree on `main`, plus `bash`, `git`, and `gh` (authenticated with repo scope).
 
 The release workflow (`.github/workflows/release.yml`) builds matrix binaries (`gander-{darwin,linux}-{amd64,arm64}`), generates a SHA256 sidecar for each, and attaches them to a GitHub Release with auto-generated notes. Existing users pick up the new version with `gander --upgrade`.
+
+After the release is published, bump the Homebrew formula in `gandermd/homebrew-gander` so `brew upgrade gander` picks up the new version:
+
+```bash
+scripts/bump-homebrew.sh 0.12.0
+```
+
+This clones the tap, runs `brew bump-formula-pr` (which fetches SHA256s straight from the GitHub release), and opens a PR. Requires `brew` and `gh` (authenticated with repo scope).
 
 ### Manual fallback
 
