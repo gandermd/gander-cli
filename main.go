@@ -20,6 +20,9 @@ func main() {
 
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
+		case "--version", "version":
+			printVersion(os.Stdout)
+			return
 		case "signup":
 			if err := runSignup(os.Args[2:]); err != nil {
 				fmt.Fprintf(os.Stderr, "signup: %v\n", err)
@@ -150,6 +153,10 @@ func main() {
 	}
 }
 
+func printVersion(w io.Writer) {
+	fmt.Fprintf(w, "gander %s\n", Version)
+}
+
 func runNoArg(w io.Writer) {
 	fmt.Fprintf(w, "gander %s\n", Version)
 
@@ -190,6 +197,7 @@ func printUsage(w io.Writer) {
 		fmt.Fprintln(w, "  gander auth <api_token>                                     Install a new API token (e.g. after rotating in the dashboard)")
 	}
 	fmt.Fprintln(w, "  gander --upgrade                Download and install the latest release")
+	fmt.Fprintln(w, "  gander --version               Print the version and exit")
 	fmt.Fprintln(w, "  gander completion {bash|zsh}    Print a shell completion script to stdout")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Render options:")
