@@ -146,6 +146,21 @@ body {
 	color: #6a737d;
 	margin: 0 0 0.75rem 0;
 }
+.gander-toc a.gander-toc-logo {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	color: #1b283f;
+	text-decoration: none;
+	margin: 0 0 1.25rem 0;
+}
+.gander-toc-logo svg { display: block; }
+.gander-toc-wordmark {
+	font-size: 1.2rem;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	line-height: 1;
+}
 .gander-toc ul {
 	list-style: none;
 	padding: 0;
@@ -212,6 +227,22 @@ img { max-width: 100%; }
 ul, ol { padding-left: 2em; }
 li + li { margin-top: 0.25em; }
 
+.gander-md-cta {
+	color: #586069;
+	font-size: 0.85em;
+	text-align: center;
+	padding: 1.5rem 3rem 2rem;
+	border-top: 1px solid #eaecef;
+	margin-top: 3rem;
+}
+.gander-md-cta a { color: #0366d6; font-weight: 500; }
+.gander-md-viewer-logo {
+	display: flex;
+	justify-content: center;
+	margin-bottom: 0.6rem;
+}
+.gander-md-viewer-logo svg { display: block; }
+
 @media (min-width: 950px) {
 	.gander-layout:not(.gander-layout--no-toc) {
 		grid-template-columns: 250px 1fr;
@@ -233,6 +264,9 @@ li + li { margin-top: 0.25em; }
 	}
 	.gander-content {
 		padding: 2rem 1.5rem;
+	}
+	.gander-md-cta {
+		padding: 1.5rem 1.5rem 2rem;
 	}
 }
 `
@@ -299,7 +333,7 @@ const tocScript = `
 const mermaidInitScript = `
 (function() {
 	function transform() {
-		var scope = document.getElementById('content') || document.body;
+		var scope = document.getElementById('content-body') || document.body;
 		var blocks = scope.querySelectorAll('pre > code.language-mermaid');
 		blocks.forEach(function(code) {
 			var pre = code.parentElement;
@@ -332,17 +366,19 @@ const mermaidInitScript = `
 })();
 `
 
+const viewerLogoSVG = `<svg class="gander-md-viewer-logo-svg" width="26" height="24" viewBox="232 283 411 371" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="#1b283f" stroke="none" fill-rule="evenodd" d="M 384.994 283.934 C 380.142 285.410, 376.312 287.913, 372.578 292.046 C 365.409 299.981, 365.534 299.128, 365.196 342.169 L 364.893 380.837 357.696 381.988 C 338.734 385.018, 322.806 391.579, 307 402.869 C 297.754 409.473, 286.374 420.674, 254.542 454.500 L 233.839 476.500 249.169 477.139 C 265.500 477.820, 271.202 479.050, 281 484.008 C 296.659 491.932, 308.617 507.104, 314.884 527 C 316.010 530.575, 318.299 540.988, 319.971 550.140 C 323.219 567.916, 326.338 578.723, 331.109 588.724 C 345.677 619.266, 377.918 644.357, 412 651.675 C 419.910 653.373, 427.486 653.500, 521.071 653.500 L 621.641 653.500 627.528 650.490 C 631.191 648.616, 634.654 645.853, 636.698 643.173 C 643.385 634.406, 643.083 641.179, 642.777 506.783 L 642.500 385.264 593.500 335.487 C 564.163 305.685, 543.209 285.166, 541.282 284.355 C 538.665 283.253, 524.014 283.016, 462.782 283.086 C 421.377 283.133, 386.372 283.515, 384.994 283.934 M 389.500 300.954 C 388.400 301.409, 386.375 302.991, 385 304.470 L 382.500 307.159 382.214 343.579 C 381.945 377.974, 382.028 380.001, 383.714 380.026 C 384.696 380.040, 390 380.487, 395.500 381.018 C 415.623 382.963, 437.240 390.084, 454.453 400.438 C 464.908 406.727, 477.070 416.058, 476.647 417.465 C 476.487 417.996, 472.713 420.525, 468.259 423.084 C 436.404 441.392, 409.629 468.945, 396.054 497.387 C 382.109 526.605, 379.259 557.860, 388.112 584.500 C 392.223 596.873, 397.928 606.125, 406.994 615.121 C 415.727 623.786, 425.919 629.465, 439.500 633.229 C 447.426 635.427, 448.281 635.450, 531.500 635.745 C 610.255 636.025, 615.719 635.933, 619 634.272 C 626.485 630.483, 625.997 639.212, 625.998 509.250 L 626 393 588.468 393 C 556.854 393, 550.352 392.756, 547.232 391.452 C 542.290 389.388, 539.124 386.341, 536.890 381.500 C 535.197 377.832, 535.042 374.284, 535.022 338.750 L 535 300 463.250 300.063 C 423.788 300.098, 390.600 300.499, 389.500 300.954 M 465.832 493.693 C 455.499 503.975, 446.318 513.918, 445.429 515.791 C 442.365 522.248, 443.407 523.881, 464.250 545.291 C 482.295 563.827, 483.725 565.063, 487.095 565.032 C 491.465 564.993, 494 562.509, 494 558.267 C 494 555.636, 491.552 552.692, 477.017 537.846 C 467.676 528.306, 460.026 520.215, 460.017 519.867 C 460.008 519.519, 467.350 512.094, 476.333 503.367 C 485.317 494.640, 493.217 486.471, 493.889 485.212 C 496.216 480.854, 492.643 475, 487.655 475 C 485.053 475, 481.938 477.668, 465.832 493.693 M 527.073 477.635 C 525.933 479.084, 525 481.235, 525 482.416 C 525 483.859, 530.787 490.387, 542.659 502.335 L 560.319 520.109 542.659 537.868 C 531.868 548.720, 525.006 556.379, 525.015 557.563 C 525.053 562.637, 529.917 566.656, 534.133 565.098 C 536.635 564.174, 573.002 528.850, 574.592 525.800 C 576.283 522.556, 576.400 518.657, 574.894 515.684 C 574.285 514.483, 565.177 504.837, 554.653 494.250 C 537.785 477.279, 535.142 475, 532.332 475 C 530.080 475, 528.537 475.773, 527.073 477.635"/></svg>`
+
 const reloadScript = `
 (function() {
 	if (!window.EventSource) return;
 	var es = new EventSource('/events');
 	es.addEventListener('content', function(e) {
-		var content = document.getElementById('content');
-		if (!content) return;
+		var body = document.getElementById('content-body');
+		if (!body) return;
 		var html;
 		try { html = JSON.parse(e.data); } catch (err) { return; }
 		var y = window.scrollY;
-		content.innerHTML = html;
+		body.innerHTML = html;
 		if (typeof window.ganderRebuildTOC === 'function') {
 			window.ganderRebuildTOC();
 		}
@@ -364,10 +400,11 @@ func buildHTML(content string, headings []Heading, withLiveReload bool) string {
 	tocHTML := ""
 	layoutClass := "gander-layout gander-layout--no-toc"
 	if len(headings) >= 2 {
-		tocHTML = `<nav class="gander-toc" id="toc">
+		tocHTML = fmt.Sprintf(`<nav class="gander-toc" id="toc">
+<a href="https://gander.md/" class="gander-toc-logo">%s<span class="gander-toc-wordmark">gander</span></a>
 <div class="gander-toc-title">On this page</div>
 <ul id="toc-list"></ul>
-</nav>`
+</nav>`, viewerLogoSVG)
 		layoutClass = "gander-layout"
 	}
 
@@ -375,6 +412,8 @@ func buildHTML(content string, headings []Heading, withLiveReload bool) string {
 	if withLiveReload {
 		script = tocScript + reloadScript
 	}
+
+	ctaHTML := fmt.Sprintf(`<div class="gander-md-cta"><div class="gander-md-viewer-logo">%s</div>Get your gander at <a href="https://gander.md/cli">gander.md/cli</a></div>`, viewerLogoSVG)
 
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en">
@@ -390,7 +429,8 @@ func buildHTML(content string, headings []Heading, withLiveReload bool) string {
 <script type="application/json" id="headings-data">%s</script>
 <div class="%s" id="gander-layout">
 %s
-<main class="gander-content" id="content">
+<main class="gander-content">
+<div id="content-body">%s</div>
 %s
 </main>
 </div>
@@ -402,5 +442,5 @@ func buildHTML(content string, headings []Heading, withLiveReload bool) string {
 %s
 </script>
 </body>
-</html>`, cssStyle, headingsJSON, layoutClass, tocHTML, content, mermaidInitScript, script)
+</html>`, cssStyle, headingsJSON, layoutClass, tocHTML, content, ctaHTML, mermaidInitScript, script)
 }
