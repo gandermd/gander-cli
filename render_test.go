@@ -187,3 +187,124 @@ func TestBuildHTMLMermaidRunsAfterLiveReload(t *testing.T) {
 		t.Error("ganderRenderMermaid should be called from the live-reload SSE handler (after content swaps)")
 	}
 }
+
+func TestBuildHTMLTOCLogoAndWordmark(t *testing.T) {
+	_, headings := renderMarkdownWithIDs("# A\n\n## B\n\nbody")
+	page := buildHTML("<p>x</p>", headings, false)
+
+	if !strings.Contains(page, `<a href="https://gander.md/" class="gander-toc-logo">`) {
+		t.Error("TOC should render a clickable logo link above 'On this page'")
+	}
+	if !strings.Contains(page, `<span class="gander-toc-wordmark">gander</span>`) {
+		t.Error("TOC should render a 'gander' wordmark next to the logo")
+	}
+	if !strings.Contains(page, `class="gander-toc-logo"`) {
+		t.Error("TOC logo link missing gander-toc-logo class")
+	}
+}
+
+func TestBuildHTMLCTABelowMain(t *testing.T) {
+	_, headings := renderMarkdownWithIDs("# A\n\n## B\n\nbody")
+	page := buildHTML("<p>x</p>", headings, false)
+
+	if !strings.Contains(page, `class="gander-md-cta"`) {
+		t.Error("page should render the share-viewer footer CTA")
+	}
+	if !strings.Contains(page, `class="gander-md-viewer-logo"`) {
+		t.Error("CTA should render the small goose logo above the link")
+	}
+	if !strings.Contains(page, `<a href="https://gander.md/cli">gander.md/cli</a>`) {
+		t.Error("CTA should link to https://gander.md/cli with 'gander.md/cli' label")
+	}
+	if !strings.Contains(page, "Get your gander at") {
+		t.Error("CTA should include 'Get your gander at' copy")
+	}
+
+	mainOpen := strings.Index(page, `<main class="gander-content">`)
+	if mainOpen < 0 {
+		t.Fatal("page missing <main class=\"gander-content\">")
+	}
+	ctaIdx := strings.Index(page, `class="gander-md-cta"`)
+	if ctaIdx <= mainOpen {
+		t.Errorf("CTA must render below <main>, got ctaIdx=%d mainOpen=%d", ctaIdx, mainOpen)
+	}
+}
+
+func TestBuildHTMLCTARendersWithoutTOC(t *testing.T) {
+	_, headings := renderMarkdownWithIDs("# Only one")
+	page := buildHTML("<p>x</p>", headings, false)
+
+	if !strings.Contains(page, `class="gander-md-cta"`) {
+		t.Error("CTA should render even when there is no TOC")
+	}
+	if strings.Contains(page, `<a href="https://gander.md/" class="gander-toc-logo">`) {
+		t.Error("TOC logo link should not render when there are fewer than 2 headings")
+	}
+}
+
+func TestBuildHTMLCSSIncludesNewClasses(t *testing.T) {
+	page := buildHTML("<p>x</p>", nil, false)
+	for _, cls := range []string{
+		".gander-md-cta",
+		".gander-md-viewer-logo",
+		".gander-toc-logo",
+		".gander-toc-wordmark",
+	} {
+		if !strings.Contains(page, cls) {
+			t.Errorf("buildHTML CSS missing %q", cls)
+		}
+	}
+}
+
+func TestBuildHTMLContentBodyInsideMain(t *testing.T) {
+	_, headings := renderMarkdownWithIDs("# A\n\n## B\n\nbody")
+	page := buildHTML("<p>x</p>", headings, true)
+
+	bodyOpen := strings.Index(page, `<div id="content-body">`)
+	if bodyOpen < 0 {
+		t.Fatal("page missing #content-body swap target")
+	}
+	bodyClose := strings.Index(page[bodyOpen:], `</div>`)
+	if bodyClose < 0 {
+		t.Fatal("page #content-body not closed")
+	}
+	bodyClose += bodyOpen
+	bodyInner := page[bodyOpen:bodyClose]
+
+	for _, forbidden := range []string{
+		`class="gander-md-cta"`,
+		`gander.md/cli`,
+	} {
+		if strings.Contains(bodyInner, forbidden) {
+			t.Errorf("SSE swap target must not contain %q; the CTA needs to survive live reloads", forbidden)
+		}
+	}
+
+	if !strings.Contains(page, `getElementById('content-body')`) {
+		t.Error("SSE reload script must target #content-body, not #content")
+	}
+	if strings.Contains(page, `getElementById('content')`) {
+		t.Error("SSE reload script must not target the old #content id")
+	}
+
+	mainOpen := strings.Index(page, `<main class="gander-content">`)
+	if mainOpen >= bodyOpen {
+		t.Error("#content-body must render inside <main>")
+	}
+
+	ctaIdx := strings.Index(page, `class="gander-md-cta"`)
+	if ctaIdx <= bodyClose {
+		t.Errorf("CTA must render after the SSE swap target, got ctaIdx=%d bodyClose=%d", ctaIdx, bodyClose)
+	}
+}
+
+func TestBuildHTMLMermaidScopesToContentBody(t *testing.T) {
+	page := buildHTML("<p>x</p>", nil, false)
+
+	if !strings.Contains(page, `getElementById('content-body')`) {
+		t.Error("mermaid init script should scope to #content-body")
+	}
+	if strings.Contains(page, "getElementById('content') || document.body") {
+		t.Error("mermaid init script should not scope to the old #content id")
+	}
+}
