@@ -53,8 +53,12 @@ func TestShareWatchFlowEndToEnd(t *testing.T) {
 			var body map[string]string
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			lastPushedContent = body["content"]
+			status := http.StatusCreated
+			if pushes > 1 {
+				status = http.StatusOK
+			}
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(201)
+			w.WriteHeader(status)
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"uuid": shareUUID, "short_id": "abc12345", "filename": body["filename"],
 				"watch": body["watch"] == "true", "url": "https://gander.md/s/abc12345",
@@ -70,12 +74,15 @@ func TestShareWatchFlowEndToEnd(t *testing.T) {
 		lastPushedContent = body["content"]
 		lastPutPath = r.URL.Path
 		pushes++
-		w.WriteHeader(200)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"uuid": shareUUID, "short_id": "abc12345",
+		})
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	if err := os.WriteFile(filepath.Join(tmp, ".gander"), []byte(`{"api_url": "`+srv.URL+`"}`), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmp, ".gander"), []byte(`{"api_url": "`+srv.URL+`","debounce_ms":10}`), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -103,42 +110,43 @@ func TestShareWatchFlowEndToEnd(t *testing.T) {
 		t.Errorf("first push content = %q", lastPushedContent)
 	}
 
-	prevPushes = pushes
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 
 	done := make(chan error, 1)
 	go func() {
-		done <- runShare([]string{"--watch", mdFile})
+		done <- runShareWithCtx(ctx, []string{"--watch", mdFile})
 	}()
 
-	go func() {
-		<-ctx.Done()
-	}()
+	time.Sleep(500 * time.Millisecond)
 
 	deadline := time.Now().Add(5 * time.Second)
+	watchedFile := false
 	for time.Now().Before(deadline) {
 		if err := os.WriteFile(mdFile, []byte("# v2"), 0644); err != nil {
 			t.Fatal(err)
 		}
-		time.Sleep(300 * time.Millisecond)
-		if pushes > prevPushes {
+		if !watchedFile && lastPutPath != "" {
+			watchedFile = true
+		}
+		if watchedFile && strings.Contains(lastPushedContent, "v2") {
 			break
 		}
+		time.Sleep(200 * time.Millisecond)
 	}
 
 	cancel()
 	select {
 	case err := <-done:
 		if err != nil {
-			t.Logf("watch returned (expected): %v", err)
+			t.Errorf("watch returned error: %v", err)
 		}
 	case <-time.After(2 * time.Second):
 		t.Errorf("watch did not exit on cancel")
 	}
 
-	if pushes <= prevPushes {
-		t.Errorf("expected at least one watch push, got %d total", pushes)
+	if !watchedFile {
+		t.Errorf("watch did not push any updates")
 	}
 	if !strings.Contains(lastPushedContent, "v2") {
 		t.Errorf("last push didn't include update: %q", lastPushedContent)

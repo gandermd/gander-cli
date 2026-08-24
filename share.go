@@ -17,6 +17,10 @@ import (
 )
 
 func runShare(args []string) error {
+	return runShareWithCtx(context.Background(), args)
+}
+
+func runShareWithCtx(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("share", flag.ContinueOnError)
 	watch := fs.Bool("watch", false, "live-update the shared page as the file changes")
 	if err := fs.Parse(args); err != nil {
@@ -27,9 +31,9 @@ func runShare(args []string) error {
 		return fmt.Errorf("usage: gander share [--watch] file.md")
 	}
 
-	absPath, err := filepath.Abs(rest[0])
+	canonical, err := canonicalPath(rest[0])
 	if err != nil {
-		return fmt.Errorf("resolve path: %w", err)
+		return err
 	}
 
 	cfg, err := requireAuth()
@@ -37,44 +41,42 @@ func runShare(args []string) error {
 		return err
 	}
 
-	content, err := os.ReadFile(absPath)
+	content, err := os.ReadFile(canonical)
 	if err != nil {
-		return fmt.Errorf("read %s: %w", absPath, err)
+		return fmt.Errorf("read %s: %w", canonical, err)
 	}
 
 	cli := newAPIClient(cfg.APIURL, cfg.APIToken)
-	existing, hasExisting := cfg.Shares[absPath]
-	if hasExisting {
-		fmt.Printf("Already shared as %s — refreshing content in place.\n", existing)
-		sh, err := lookupShare(cli, existing)
-		if err != nil {
-			return err
-		}
-		updated, err := cli.UpdateShare(sh.UUID, string(content))
-		if err != nil {
-			return fmt.Errorf("update: %w", err)
-		}
-		openBrowserURL(updated.URL)
-		if *watch {
-			return runWatchAndPush(absPath, updated, cfg)
-		}
-		return nil
-	}
-
-	sh, err := cli.CreateShare(filepath.Base(absPath), string(content), *watch)
+	_, hadLocal := cfg.Shares[canonical]
+	sh, created, err := cli.CreateShare(filepath.Base(canonical), canonical, string(content), *watch)
 	if err != nil {
 		return fmt.Errorf("create: %w", err)
 	}
-	cfg.Shares[absPath] = sh.ShortID
+	cfg.Shares[canonical] = sh.ShortID
 	if err := WriteConfig(cfg); err != nil {
 		return fmt.Errorf("save mapping: %w", err)
 	}
-	fmt.Printf("Shared %s as %s\n", absPath, sh.URL)
+	if !created || hadLocal {
+		fmt.Printf("Already shared %s as %s — refreshing content in place.\n", canonical, sh.URL)
+	} else {
+		fmt.Printf("Shared %s as %s\n", canonical, sh.URL)
+	}
 	openBrowserURL(sh.URL)
 	if *watch {
-		return runWatchAndPush(absPath, sh, cfg)
+		return runWatchAndPushCtx(ctx, canonical, sh, cfg)
 	}
 	return nil
+}
+
+func canonicalPath(p string) (string, error) {
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		return "", fmt.Errorf("resolve path: %w", err)
+	}
+	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+		abs = resolved
+	}
+	return filepath.Clean(abs), nil
 }
 
 func lookupShare(cli *apiClient, shortID string) (*shareResp, error) {
@@ -91,6 +93,10 @@ func lookupShare(cli *apiClient, shortID string) (*shareResp, error) {
 }
 
 func runWatchAndPush(absPath string, sh *shareResp, cfg Config) error {
+	return runWatchAndPushCtx(context.Background(), absPath, sh, cfg)
+}
+
+func runWatchAndPushCtx(ctx context.Context, absPath string, sh *shareResp, cfg Config) error {
 	watcher := &watchPusher{
 		absPath:   absPath,
 		shareUUID: sh.UUID,
@@ -104,7 +110,10 @@ func runWatchAndPush(absPath string, sh *shareResp, cfg Config) error {
 	fmt.Printf("Watching %s — pushing changes to %s. Press Ctrl+C to stop.\n", absPath, sh.URL)
 	sig := make(chan os.Signal, 1)
 	signalNotify(sig)
-	<-sig
+	select {
+	case <-sig:
+	case <-ctx.Done():
+	}
 	return nil
 }
 

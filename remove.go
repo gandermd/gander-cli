@@ -154,11 +154,11 @@ func resolveRemoveTargets(cli *apiClient, cfg *Config, target removeTarget) ([]s
 		}
 		return nil, nil
 	case removeTargetFilename:
-		absPath, err := filepath.Abs(target.filename)
+		canonical, err := canonicalPath(target.filename)
 		if err != nil {
-			return nil, fmt.Errorf("resolve path: %w", err)
+			return nil, err
 		}
-		if sid, ok := cfg.Shares[absPath]; ok {
+		if sid, ok := cfg.Shares[canonical]; ok {
 			all, err := cli.ListShares()
 			if err != nil {
 				return nil, fmt.Errorf("list: %w", err)
@@ -169,7 +169,7 @@ func resolveRemoveTargets(cli *apiClient, cfg *Config, target removeTarget) ([]s
 				}
 			}
 		}
-		list, err := cli.ListSharesByFilename(filepath.Base(target.filename))
+		list, err := cli.ListSharesByFilename(filepath.Base(canonical))
 		if err != nil {
 			return nil, fmt.Errorf("lookup: %w", err)
 		}
