@@ -27,16 +27,21 @@ func runList(_ []string) error {
 	}
 
 	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "SHORT ID\tFILE\tWATCH\tUPDATED\tURL")
+	fmt.Fprintln(tw, "SHORT ID\tFILE\tPATH\tWATCH\tUPDATED\tURL")
 	for i := range all {
 		watch := "no"
 		if all[i].Watch {
 			watch = "yes"
 		}
+		path := all[i].Path
+		if path == "" {
+			path = "-"
+		}
 		updated, _ := time.Parse(time.RFC3339, all[i].UpdatedAt)
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
 			all[i].ShortID,
 			all[i].Filename,
+			path,
 			watch,
 			updated.Format("2006-01-02 15:04 MST"),
 			all[i].URL,

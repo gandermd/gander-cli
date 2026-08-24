@@ -40,6 +40,7 @@ type shareResp struct {
 	UUID      string `json:"uuid"`
 	ShortID   string `json:"short_id"`
 	Filename  string `json:"filename"`
+	Path      string `json:"path,omitempty"`
 	Watch     bool   `json:"watch"`
 	URL       string `json:"url"`
 	CreatedAt string `json:"created_at"`
@@ -48,17 +49,26 @@ type shareResp struct {
 }
 
 func (c *apiClient) do(method, path string, body, dst any) error {
+	status, err := c.doStatus(method, path, body, dst)
+	if err != nil {
+		return err
+	}
+	_ = status
+	return nil
+}
+
+func (c *apiClient) doStatus(method, path string, body, dst any) (int, error) {
 	var rdr io.Reader
 	if body != nil {
 		buf, err := json.Marshal(body)
 		if err != nil {
-			return fmt.Errorf("marshal: %w", err)
+			return 0, fmt.Errorf("marshal: %w", err)
 		}
 		rdr = bytes.NewReader(buf)
 	}
 	req, err := http.NewRequest(method, c.base+path, rdr)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
@@ -68,22 +78,22 @@ func (c *apiClient) do(method, path string, body, dst any) error {
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return fmt.Errorf("request: %w", err)
+		return 0, fmt.Errorf("request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
+		return resp.StatusCode, fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
 	}
 	if dst == nil {
 		_, _ = io.Copy(io.Discard, resp.Body)
-		return nil
+		return resp.StatusCode, nil
 	}
 	if err := json.NewDecoder(resp.Body).Decode(dst); err != nil {
-		return fmt.Errorf("decode: %w", err)
+		return resp.StatusCode, fmt.Errorf("decode: %w", err)
 	}
-	return nil
+	return resp.StatusCode, nil
 }
 
 func (c *apiClient) Signup(email string) (*signupIntentResp, error) {
@@ -116,16 +126,18 @@ func (c *apiClient) OpenManageIntent() (*manageIntentResp, error) {
 	return &out, nil
 }
 
-func (c *apiClient) CreateShare(filename, content string, watch bool) (*shareResp, error) {
+func (c *apiClient) CreateShare(filename, path, content string, watch bool) (*shareResp, bool, error) {
 	var out shareResp
-	if err := c.do("POST", "/api/shares", map[string]any{
+	status, err := c.doStatus("POST", "/api/shares", map[string]any{
 		"filename": filename,
+		"path":     path,
 		"content":  content,
 		"watch":    watch,
-	}, &out); err != nil {
-		return nil, err
+	}, &out)
+	if err != nil {
+		return nil, false, err
 	}
-	return &out, nil
+	return &out, status == http.StatusCreated, nil
 }
 
 func (c *apiClient) UpdateShare(uuid, content string) (*shareResp, error) {
