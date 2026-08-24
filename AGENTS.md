@@ -32,11 +32,14 @@ self-updates from GitHub Releases.
 go test ./...           # run all tests
 go vet ./...            # static checks (must be clean)
 go build ./...          # compile check
+shellcheck scripts/release.sh   # static checks on shell scripts you change
 CGO_ENABLED=0 go build -o gander .   # produce a portable binary
 ```
 
-Run all three before committing. The project has no separate `lint` step —
-`go vet` is the floor.
+Run all four before committing. The project has no separate `lint` step —
+`go vet` (Go) and `shellcheck` (shell) are the floor. Run `shellcheck` on any
+shell file you edit; `scripts/bump-homebrew.sh` and `install.sh` carry
+pre-existing warnings tracked separately.
 
 ## Conventions
 
@@ -79,23 +82,37 @@ matches on it. Don't rename without updating `assetNameForRuntime` in
 From a clean `main`:
 
 ```bash
-scripts/release.sh 0.2.0
+scripts/release.sh
 ```
 
-The script:
+That auto-detects the next version from conventional commits since the last
+tag (`feat:` → minor, `fix:` → patch, `BREAKING CHANGE` / `feat!:` → major),
+asks for a `y/N` confirm, then runs the whole release end-to-end:
 
-1. Validates the working tree, branch, and that the tag doesn't already
-   exist.
+1. Validates the working tree, branch, and that the tag doesn't already exist.
 2. Confirms `gh` is authenticated.
-3. Creates an annotated tag `v0.2.0` and pushes it to `origin`.
+3. Creates an annotated tag `v<version>` and pushes it to `origin`.
 4. `gh run watch --workflow release --exit-status` blocks until the
    workflow finishes.
-5. Prints the release URL and per-asset download URLs.
+5. Runs `scripts/bump-homebrew.sh` to open the Homebrew formula bump PR
+   against `gandermd/homebrew-gander`.
+6. Prints the GitHub Release URL, per-asset URLs, and the Homebrew PR URL.
 
 Useful flags:
 
+- `--bump {major|minor|patch}` — force the bump component off the latest
+  tag (mutually exclusive with an explicit version).
+- `<version>` — set the version explicitly, skipping auto-detection.
+- `--no-homebrew` — release only; skip the Homebrew PR step.
 - `--dry-run` — print what would happen without tagging or pushing.
 - `--help` — usage.
+
+If `scripts/bump-homebrew.sh` ever needs to run on its own (e.g. a re-bump
+after a manual fix), it still works standalone:
+
+```bash
+scripts/bump-homebrew.sh 0.12.0
+```
 
 ### Cutting a release (manual)
 
