@@ -20,11 +20,19 @@ self-updates from GitHub Releases.
   | `config.go`           | `~/.gander` JSON loader and defaults; honors `GANDER_CONFIG=<name>` to use `~/.gander.<name>` instead (full isolation from the prod profile, with path-traversal guard) |
   | `render.go`           | Markdown → HTML, page builder, CSS, TOC + reload JS      |
   | `watch.go`            | HTTP server, SSE hub, fsnotify watcher, debounced reload |
+  | `share.go`            | `gander share [--watch]` upload + push-to-gandermd loop  |
+  | `api.go`              | gandermd HTTP client (signup, share CRUD, manage intent) |
+  | `signup.go`/`auth.go`/`list.go`/`remove.go`/`manage.go` | gandermd account subcommands |
   | `upgrade.go`          | `--upgrade` self-update via GitHub Releases API          |
+  | `completion.go`       | `gander completion {bash\|zsh}`                          |
   | `*_test.go`           | Unit tests                                               |
   | `install.sh`          | Installer: downloads the latest release, source fallback |
   | `scripts/release.sh`  | Release automation (see below)                           |
   | `.github/workflows/`  | CI (currently just `release.yml`)                        |
+
+### Using gander from an agent
+
+When working on gander (or any project with a Markdown surface — design docs, plans, postmortems), install [`gandermd/gander-skill`](https://github.com/gandermd/gander-skill) so your agent can `gander share --watch` a file it's iterating on; the human opens the URL once and reads along without copy-pasting. The skill's `scripts/save-plan.sh` is also a clean way to persist this plan (and others) as markdown under `./plans/` and gander or share it before any code changes. See the `## For AI coding agents` section of `README.md` for the full pitch.
 
 ## Build, test, lint
 
