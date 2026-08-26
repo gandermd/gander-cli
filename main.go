@@ -77,6 +77,12 @@ func main() {
 				os.Exit(1)
 			}
 			return
+		case "runner":
+			if err := runRunnerCmd(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "runner: %v\n", err)
+				os.Exit(1)
+			}
+			return
 		case "completion":
 			if err := runCompletion(os.Args[2:]); err != nil {
 				fmt.Fprintf(os.Stderr, "completion: %v\n", err)
@@ -229,6 +235,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  gander status                  Show runner version + active watches + URLs")
 	fmt.Fprintln(w, "  gander stop [<file>|<id>] [--all]     Remove a watch from the runner")
 	fmt.Fprintln(w, "  gander logs [<id>] [--follow|--no-follow]  Tail the runner log; filter by watch id")
+	fmt.Fprintln(w, "  gander runner install|uninstall  Auto-start the runner at login (LaunchAgent/systemd)")
 	fmt.Fprintln(w, "  gander --upgrade                Download and install the latest release")
 	fmt.Fprintln(w, "  gander --version               Print the version and exit")
 	fmt.Fprintln(w, "  gander completion {bash|zsh}    Print a shell completion script to stdout")

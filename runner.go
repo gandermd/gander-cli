@@ -155,6 +155,7 @@ func ensureRunner(home string) (string, error) {
 		devnull.Close()
 		return "", err
 	}
+	autoInstallIfNeeded()
 
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
