@@ -8,6 +8,7 @@ _gander() {
     commands=(
         'signup:Open signup form in your browser, save the API token'
         'share:Upload Markdown to gander.md and open the share link'
+        'watch:Live-share to gander.md and push every save (alias for share --watch)'
         'remove:Delete a share from gander.md'
         'list:List shares currently on gander.md'
         'manage:Open the dashboard in your browser'
@@ -31,6 +32,10 @@ _gander() {
         share)
             _arguments \
                 '--watch[Live-update the shared page as the file changes]' \
+                '*:markdown file:_files -g "*.md"'
+            ;;
+        watch)
+            _arguments \
                 '*:markdown file:_files -g "*.md"'
             ;;
         remove)

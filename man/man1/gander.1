@@ -13,6 +13,9 @@ gander \- render Markdown locally, optionally share it on gander.md
 .RB [ \-watch ]
 .IR file.md
 .sp
+.B gander watch
+.IR file.md
+.sp
 .B gander remove
 .RB [ \-all | "\-pick "\fIshort_id\fR ]
 .RB [ \-yes ]
@@ -41,11 +44,11 @@ After registering with
 .B gander signup
 the
 .BR share ","
+.BR watch ","
 .BR remove ","
-.B list ","
-.B manage ,
+.B list ,
 and
-.B auth
+.B manage
 subcommands upload Markdown to
 .RI \(la https://gander.md \(ra
 ("gander.md") and return short share links.
@@ -96,6 +99,15 @@ to gander.md, print the share link, and open it in the browser.
 .B \-watch
 Continuously push local changes to the remote share until interrupted.
 .RE
+.SS "Watch"
+.TP
+.B watch
+Shorthand for
+.B "share \-\-watch"
+\&: upload
+.IR file.md
+to gander.md and live\-update the remote share on every save until
+interrupted.
 .SS "Remove"
 .TP
 .B remove
@@ -218,6 +230,15 @@ Push the same file to gander.md and open the share link:
 .RS
 .nf
 gander share README.md
+.fi
+.RE
+.PP
+Live\-push the file to gander.md on every save (shorthand for
+.BR "share \-\-watch" ):
+.PP
+.RS
+.nf
+gander watch README.md
 .fi
 .RE
 .PP

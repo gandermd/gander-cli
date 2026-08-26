@@ -1,12 +1,12 @@
 # gander — share markdown from your agent to your browser in real time
 
-Render a Markdown file locally with `gander <file>`, or push it to a shareable URL with `gander share <file> --watch` that updates in place on every save. Built so humans and agents can read and collaborate on markdown at the same time.
+Render a Markdown file locally with `gander <file>`, or push it to a shareable URL with `gander watch <file>` that updates in place on every save. Built so humans and agents can read and collaborate on markdown at the same time.
 
 ## For AI coding agents
 
 `gander` solves the problem of `cat`-ing a markdown file just to see what your agent wrote — open a browser tab once and the page updates in place on every save. Two workflows cover most of what you'll do:
 
-1. **`gander share README.md --watch`** — upload to `gander.md` and get a short URL. Every save hot-swaps the rendered page in every connected viewer's browser, so you can read along while your agent iterates on a design doc without copy-pasting or refreshing.
+1. **`gander watch README.md`** — upload to `gander.md` and get a short URL. Every save hot-swaps the rendered page in every connected viewer's browser, so you can read along while your agent iterates on a design doc without copy-pasting or refreshing. (This is shorthand for `gander share README.md --watch`.)
 
 2. **[`gandermd/gander-skill`](https://github.com/gandermd/gander-skill)** — a `SKILL.md` that wires all of this into your agent runner (OpenCode, Claude Code, Codex CLI, Cursor, Grok Build, Windsurf, and any other agent that loads `SKILL.md` files), plus two helper scripts:
    - `scripts/save-plan.sh` — pipe the agent's plan into `./plans/YYYY-MM-DD-<slug>.md`, then gander or share it.
@@ -148,12 +148,13 @@ A local HTTP server is started on a random free port (printed in the output) so 
 
 ### Share on gander.md
 
-If you're running an agent that streams markdown to a file, `gander share --watch` is the shortest path from the agent's writes to your browser — open the URL once and every connected viewer sees the latest version in real time. `gander.md` is the public hosting service for gander. Once you sign up, you can `share`, `list`, and `remove` markdown from your terminal, and viewers see the same live-reload preview you'd see locally.
+If you're running an agent that streams markdown to a file, `gander watch` is the shortest path from the agent's writes to your browser — open the URL once and every connected viewer sees the latest version in real time. `gander.md` is the public hosting service for gander. Once you sign up, you can `share`, `watch`, `list`, and `remove` markdown from your terminal, and viewers see the same live-reload preview you'd see locally.
 
 ```bash
 gander signup --email you@example.com   # opens browser form, polls for API token
 gander share README.md                  # opens https://gander.md/s/xK7m2pQa
-gander share README.md --watch          # also live-updates the remote viewer on save
+gander watch README.md                  # upload + live-update the remote viewer on save
+gander share README.md --watch          # same as `watch`, spelled out
 gander list                             # table of active shares
 gander remove README.md                 # 404s the short link
 gander remove --all                     # remove every share in your account
@@ -229,6 +230,7 @@ Subcommands:
 ```
 gander signup --email <addr>      Open the signup form in your browser, save the API token
 gander share [--watch] <file>     Upload to gander.md and open the share link
+gander watch <file>               Live-share to gander.md and push every save (alias for share --watch)
 gander remove [--all] [<file>]    Delete a share from gander.md
 gander list                       List shares currently on gander.md
 gander manage                     Open the dashboard in your browser

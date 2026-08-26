@@ -156,6 +156,187 @@ func TestShareWatchFlowEndToEnd(t *testing.T) {
 	}
 }
 
+func TestWatchCmdEqualsShareWatch(t *testing.T) {
+	const shareUUID = "22222222-2222-2222-2222-222222222222"
+
+	var posts int
+	var lastPushedContent string
+	var lastPutPath string
+	var shareWatchValue bool
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/shares", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode([]map[string]any{{
+				"uuid": shareUUID, "short_id": "watch1", "filename": "doc.md",
+				"watch": false, "url": "https://gander.md/s/watch1",
+				"created_at": time.Now().Format(time.RFC3339), "updated_at": time.Now().Format(time.RFC3339),
+			}})
+		case http.MethodPost:
+			posts++
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if c, ok := body["content"].(string); ok {
+				lastPushedContent = c
+			}
+			shareWatchValue = body["watch"] == true
+			status := http.StatusCreated
+			if posts > 1 {
+				status = http.StatusOK
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(status)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"uuid": shareUUID, "short_id": "watch1", "filename": body["filename"],
+				"watch": body["watch"] == "true", "url": "https://gander.md/s/watch1",
+				"created_at": time.Now().Format(time.RFC3339), "updated_at": time.Now().Format(time.RFC3339),
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	})
+	mux.HandleFunc("/api/shares/"+shareUUID, func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if c, ok := body["content"].(string); ok {
+			lastPushedContent = c
+		}
+		lastPutPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"uuid": shareUUID, "short_id": "watch1",
+		})
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	cfg := DefaultConfig()
+	cfg.APIURL = srv.URL
+	cfg.APIToken = "gmd_test"
+	cfg.DebounceMs = 10
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	if err := WriteConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	mdFile := filepath.Join(tmp, "doc.md")
+	if err := os.WriteFile(mdFile, []byte("# v1"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	prevOpenBrowser := openBrowser
+	openBrowser = func(url string) error { return nil }
+	defer func() { openBrowser = prevOpenBrowser }()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- runWatchCmdWithCtx(ctx, []string{mdFile})
+	}()
+
+	deadline := time.Now().Add(5 * time.Second)
+	watchedFile := false
+	for time.Now().Before(deadline) {
+		if err := os.WriteFile(mdFile, []byte("# v2"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if !watchedFile && lastPutPath != "" {
+			watchedFile = true
+		}
+		if watchedFile && strings.Contains(lastPushedContent, "v2") {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Errorf("watch cmd returned error: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Errorf("watch cmd did not exit on cancel")
+	}
+
+	if posts < 1 {
+		t.Errorf("expected at least one POST /api/shares from watch, got %d", posts)
+	}
+	if !shareWatchValue {
+		t.Errorf("expected initial POST to send watch=true, got false")
+	}
+	if !watchedFile {
+		t.Errorf("watch did not push any updates via PUT")
+	}
+	if !strings.Contains(lastPushedContent, "v2") {
+		t.Errorf("last push didn't include update: %q", lastPushedContent)
+	}
+	if lastPutPath != "/api/shares/"+shareUUID {
+		t.Errorf("PUT path = %q, want %q", lastPutPath, "/api/shares/"+shareUUID)
+	}
+}
+
+func TestWatchCmdRequiresAuth(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	mux := http.NewServeMux()
+	var calls int
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		http.NotFound(w, r)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	cfg := DefaultConfig()
+	cfg.APIURL = srv.URL
+	cfg.Email = ""
+	cfg.APIToken = ""
+	if err := WriteConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	mdFile := filepath.Join(tmp, "doc.md")
+	if err := os.WriteFile(mdFile, []byte("# v1"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := runWatchCmd([]string{mdFile})
+	if err == nil {
+		t.Fatal("expected auth error, got nil")
+	}
+	if !strings.Contains(err.Error(), "not signed up") {
+		t.Errorf("err = %v, want 'not signed up' message", err)
+	}
+	if calls != 0 {
+		t.Errorf("expected zero network calls without auth, got %d", calls)
+	}
+}
+
+func TestWatchCmdRejectsBadArgs(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	cfg := DefaultConfig()
+	cfg.APIToken = "gmd_t"
+	if err := WriteConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := runWatchCmd(nil); err == nil {
+		t.Error("expected error for zero args")
+	}
+	if err := runWatchCmd([]string{"a", "b"}); err == nil {
+		t.Error("expected error for two args")
+	}
+}
+
 func TestRunSignupPersistsConfig(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)

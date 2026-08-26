@@ -20,6 +20,17 @@ func runShare(args []string) error {
 	return runShareWithCtx(context.Background(), args)
 }
 
+func runWatchCmd(args []string) error {
+	return runWatchCmdWithCtx(context.Background(), args)
+}
+
+func runWatchCmdWithCtx(ctx context.Context, args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("usage: gander watch <file.md>")
+	}
+	return runShareWithCtx(ctx, []string{"--watch", args[0]})
+}
+
 func runShareWithCtx(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("share", flag.ContinueOnError)
 	watch := fs.Bool("watch", false, "live-update the shared page as the file changes")
