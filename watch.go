@@ -1,3 +1,11 @@
+// watch.go owns the LOCAL preview path used by `gander <file> --watch`:
+// a localhost HTTP server pushes hot-swaps to the user's own browser.
+//
+// The REMOTE live-share used by the `gander watch <file>` top-level
+// subcommand lives in share.go as runWatchCmd and is a thin wrapper
+// around `share --watch` — different scope, different code path. Keep
+// these two deliberately separate.
+
 package main
 
 import (

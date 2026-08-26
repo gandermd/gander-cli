@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -239,9 +240,11 @@ func captureStdIO(t *testing.T, fn func() error) (string, string) {
 	os.Stdout = wOut
 	os.Stderr = wErr
 
-	done := make(chan struct{})
+	var wg sync.WaitGroup
 	var outBuf, errBuf strings.Builder
+	wg.Add(2)
 	go func() {
+		defer wg.Done()
 		buf := make([]byte, 4096)
 		for {
 			n, err := rOut.Read(buf)
@@ -249,11 +252,12 @@ func captureStdIO(t *testing.T, fn func() error) (string, string) {
 				outBuf.Write(buf[:n])
 			}
 			if err != nil {
-				break
+				return
 			}
 		}
 	}()
 	go func() {
+		defer wg.Done()
 		buf := make([]byte, 4096)
 		for {
 			n, err := rErr.Read(buf)
@@ -261,7 +265,7 @@ func captureStdIO(t *testing.T, fn func() error) (string, string) {
 				errBuf.Write(buf[:n])
 			}
 			if err != nil {
-				break
+				return
 			}
 		}
 	}()
@@ -269,9 +273,9 @@ func captureStdIO(t *testing.T, fn func() error) (string, string) {
 	err := fn()
 	wOut.Close()
 	wErr.Close()
-	close(done)
 	os.Stdout = origOut
 	os.Stderr = origErr
+	wg.Wait()
 
 	if err != nil {
 		t.Logf("function returned: %v", err)

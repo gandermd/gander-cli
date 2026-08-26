@@ -35,6 +35,12 @@ func main() {
 				os.Exit(1)
 			}
 			return
+		case "watch":
+			if err := runWatchCmd(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "watch: %v\n", err)
+				os.Exit(1)
+			}
+			return
 		case "remove":
 			if err := runRemove(os.Args[2:]); err != nil {
 				fmt.Fprintf(os.Stderr, "remove: %v\n", err)
@@ -190,6 +196,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  gander signup --email <addr>    Open signup form in your browser, save the API token")
 	if authed {
 		fmt.Fprintln(w, "  gander share [--watch] <file>                              Upload to gander.md and open the share link")
+		fmt.Fprintln(w, "  gander watch <file>                                        Live-share to gander.md and push every save (alias for `share --watch`)")
 		fmt.Fprintln(w, "  gander remove [--all|--pick <short_id>|--yes|--non-interactive] <file|short_id|url>")
 		fmt.Fprintln(w, "                                                              Delete a share from gander.md")
 		fmt.Fprintln(w, "  gander list                                                List shares currently on gander.md")
@@ -205,7 +212,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  -watch            Live-reload the local browser preview on save")
 	if !authed {
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, "Run `gander signup --email you@example.com` to enable share / remove / list / manage / auth.")
+		fmt.Fprintln(w, "Run `gander signup --email you@example.com` to enable share / watch / remove / list / manage / auth.")
 	}
 }
 
