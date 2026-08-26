@@ -26,6 +26,12 @@ func newRunnerHTTP(mgr *watchManager) (*runnerHTTP, error) {
 	if port == 0 {
 		port = defaultRunnerPort
 	}
+	return newRunnerHTTPOnPort(mgr, port)
+}
+
+// newRunnerHTTPOnPort binds on the requested port. Tests use this with
+// port 0 (OS-assigned) to avoid clashing with a real daemon.
+func newRunnerHTTPOnPort(mgr *watchManager, port int) (*runnerHTTP, error) {
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
