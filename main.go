@@ -59,6 +59,24 @@ func main() {
 				os.Exit(1)
 			}
 			return
+		case "status":
+			if err := runStatus(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "status: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		case "stop":
+			if err := runStop(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "stop: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		case "logs":
+			if err := runLogs(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "logs: %v\n", err)
+				os.Exit(1)
+			}
+			return
 		case "completion":
 			if err := runCompletion(os.Args[2:]); err != nil {
 				fmt.Fprintf(os.Stderr, "completion: %v\n", err)
@@ -208,6 +226,9 @@ func printUsage(w io.Writer) {
 		fmt.Fprintln(w, "  gander manage                                               Open the dashboard in your browser")
 		fmt.Fprintln(w, "  gander auth <api_token>                                     Install a new API token (e.g. after rotating in the dashboard)")
 	}
+	fmt.Fprintln(w, "  gander status                  Show runner version + active watches + URLs")
+	fmt.Fprintln(w, "  gander stop [<file>|<id>] [--all]     Remove a watch from the runner")
+	fmt.Fprintln(w, "  gander logs [<id>] [--follow|--no-follow]  Tail the runner log; filter by watch id")
 	fmt.Fprintln(w, "  gander --upgrade                Download and install the latest release")
 	fmt.Fprintln(w, "  gander --version               Print the version and exit")
 	fmt.Fprintln(w, "  gander completion {bash|zsh}    Print a shell completion script to stdout")

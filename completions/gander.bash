@@ -8,7 +8,7 @@ _gander_completions() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     if [[ ${COMP_CWORD} -eq 1 ]]; then
-        cmds="signup share watch remove list manage auth completion --upgrade upgrade --help -h -help help"
+        cmds="signup share watch remove list status stop logs manage auth completion --upgrade upgrade --help -h -help help"
         COMPREPLY=( $(compgen -W "${cmds}" -- "${cur}") )
         return 0
     fi
@@ -23,11 +23,25 @@ _gander_completions() {
             return 0
             ;;
         watch)
-            COMPREPLY=( $(compgen -f -- "${cur}") )
+            COMPREPLY=( $(compgen -W "--foreground" -- "${cur}") )
+            COMPREPLY+=( $(compgen -f -- "${cur}") )
             return 0
             ;;
         remove)
             COMPREPLY=( $(compgen -W "--all --pick --yes --non-interactive" -- "${cur}") )
+            return 0
+            ;;
+        status)
+            COMPREPLY=()
+            return 0
+            ;;
+        stop)
+            COMPREPLY=( $(compgen -W "--all --yes --non-interactive" -- "${cur}") )
+            COMPREPLY+=( $(compgen -f -- "${cur}") )
+            return 0
+            ;;
+        logs)
+            COMPREPLY=( $(compgen -W "--follow --no-follow" -- "${cur}") )
             return 0
             ;;
         completion)

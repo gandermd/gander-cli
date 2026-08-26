@@ -142,7 +142,11 @@ func ensureRunner(home string) (string, error) {
 	} else {
 		cmd.Stdout = devnull
 	}
-	if errF != nil {
+	// Go's default log package writes to os.Stderr; route it to runner.log
+	// so `gander logs` picks up the same lines as plain stderr noise.
+	if logF != nil {
+		cmd.Stderr = logF
+	} else if errF != nil {
 		cmd.Stderr = errF
 	} else {
 		cmd.Stderr = devnull
