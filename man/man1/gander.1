@@ -16,6 +16,18 @@ gander \- render Markdown locally, optionally share it on gander.md
 .B gander watch
 .IR file.md
 .sp
+.B gander status
+.sp
+.B gander stop
+.RI [\| \fIfile\||\|id\||\|\-\-all\ ||\|\-yes\ ||\|\-non\-interactive\ |\|
+.sp
+.B gander logs
+.RI [\| \fIid\fR\ |
+.RB [ \-\-follow | \-\-no\-follow ]]
+.sp
+.B gander runner
+.RB { install | uninstall }
+.sp
 .B gander remove
 .RB [ \-all | "\-pick "\fIshort_id\fR ]
 .RB [ \-yes ]
@@ -63,10 +75,32 @@ Write the rendered HTML to
 instead of opening it in the browser.
 .TP
 .BR \-watch ", " \-\-watch
-Render once, then re\-render and hot\-swap the preview in the browser each
-time the file changes.
+Hand the file off to the long\-lived
+.B gander _serve
+runner daemon; the CLI exits and the daemon owns the watch. Each watch
+is reachable at
+.BR http://127.0.0.1:7821/w/\fIid\fB?t=\fItoken\fR;
+the per\-watch
+.I token
+is unguessable and stored in
+.IR ~/.gander/watches.json .
+On every save the rendered HTML hot\-swaps in place and the TOC rebuilds;
+scroll position is preserved.
+On first
+.B \-\-watch
+a LaunchAgent (macOS) or
+.B systemctl \-\-user
+unit (Linux) is installed so the daemon restarts on every login.
 May not be combined with
 .BR \-outfile .
+.IP
+.B \-\-foreground
+When combined with
+.BR \-\-watch ","
+run the old blocking watcher in the foreground (the CLI blocks until
+.BR Ctrl\-C ;
+no runner, no port held across processes). Useful for CI, sandboxes,
+or debugging the watcher itself.
 .TP
 .BR \-upgrade ", " \-\-upgrade
 Download and install the latest release, then exit.
@@ -106,8 +140,46 @@ Shorthand for
 .B "share \-\-watch"
 \&: upload
 .IR file.md
-to gander.md and live\-update the remote share on every save until
-interrupted.
+to gander.md and live\-update the remote share on every save. The
+share is owned by the runner daemon and survives the CLI's lifetime.
+.SS "Status"
+.TP
+.B status
+Print the runner daemon version and uptime, then a table of every
+active watch with its id, mode, canonical path, age, and full
+.B "http://127.0.0.1:7821/w/\fIid\fB?t=\fItoken\fR"
+URL.
+.SS "Stop"
+.TP
+.B stop
+Remove a watch from the runner. Accepts the canonical path, a watch
+.IR id ","
+or
+.B \-\-all
+to clear everything. The runner returns the list of removed ids and the
+CLI prints one
+.B stopped
+line per removal.
+.SS "Logs"
+.TP
+.B logs
+Tail
+.IR ~/.gander/runner.log .
+On macOS and Linux the file is the daemon's redirected stderr. Pass a
+watch
+.I id
+to filter to a single watch. Pass
+.B \-\-no\-follow
+to print existing lines and exit; the default is to follow every 500ms.
+.SS "Runner"
+.TP
+.B runner " {install|uninstall}"
+Install or remove the LaunchAgent (macOS) /
+.B systemctl \-\-user
+unit (Linux) that keeps the runner alive across logins. Auto\-installed on the
+first
+.B \-\-watch
+if not present, so this command is mostly for explicit control.
 .SS "Remove"
 .TP
 .B remove
