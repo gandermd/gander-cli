@@ -74,17 +74,34 @@ func runRunner(args []string) error {
 	if err := mgr.load(); err != nil {
 		log.Printf("runner: watches: %v", err)
 	}
+	if err := mgr.ensureDaemonToken(); err != nil {
+		ipcLn.Close()
+		os.Remove(sockPath)
+		return fmt.Errorf("daemon token: %w", err)
+	}
+
+	http, err := newRunnerHTTP(mgr)
+	if err != nil {
+		ipcLn.Close()
+		os.Remove(sockPath)
+		return fmt.Errorf("http: %w", err)
+	}
 
 	ipc := newIPCSrv(ipcLn, mgr, Version)
 	go ipc.serve()
+	go http.serve()
 
 	mgr.resumeAll()
+	if err := mgr.persist(); err != nil {
+		log.Printf("runner: persist after resume: %v", err)
+	}
 
 	sigCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	<-sigCtx.Done()
 
 	log.Printf("runner: shutting down")
+	http.shutdown()
 	mgr.persist()
 	return nil
 }

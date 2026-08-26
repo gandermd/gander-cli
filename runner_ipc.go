@@ -39,6 +39,7 @@ type watchOut struct {
 	Path      string `json:"path"`
 	Mode      string `json:"mode"`
 	URL       string `json:"url,omitempty"`
+	Token     string `json:"token,omitempty"`
 	ShareURL  string `json:"share_url,omitempty"`
 	ShortID   string `json:"short_id,omitempty"`
 	UUID      string `json:"uuid,omitempty"`

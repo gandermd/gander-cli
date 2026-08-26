@@ -7,8 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net"
-	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
@@ -32,20 +30,24 @@ type shareRef struct {
 }
 
 type persistedWatch struct {
-	ID       string    `json:"id"`
-	Path     string    `json:"path"`
-	Mode     watchMode `json:"mode"`
-	Share    *shareRef `json:"share,omitempty"`
-	Started  time.Time `json:"started_at"`
+	ID      string    `json:"id"`
+	Path    string    `json:"path"`
+	Mode    watchMode `json:"mode"`
+	Token   string    `json:"token,omitempty"`
+	Share   *shareRef `json:"share,omitempty"`
+	Started time.Time `json:"started_at"`
 }
 
 type watchesFile struct {
-	Version int              `json:"version"`
-	Watches []persistedWatch `json:"watches"`
+	Version     int              `json:"version"`
+	DaemonToken string           `json:"daemon_token,omitempty"`
+	Port        int              `json:"port,omitempty"`
+	Watches     []persistedWatch `json:"watches"`
 }
 
 type watchEntry struct {
 	info      watchOut
+	state     *watchState
 	cancel    context.CancelFunc
 	startedAt time.Time
 	shutdown  chan struct{}
@@ -53,10 +55,12 @@ type watchEntry struct {
 }
 
 type watchManager struct {
-	home    string
-	mu      sync.Mutex
-	entries map[string]*watchEntry
-	byPath  map[string]string
+	home        string
+	mu          sync.Mutex
+	entries     map[string]*watchEntry
+	byPath      map[string]string
+	port        int
+	daemonToken string
 }
 
 func newWatchManager(home string) *watchManager {
@@ -64,7 +68,22 @@ func newWatchManager(home string) *watchManager {
 		home:    home,
 		entries: map[string]*watchEntry{},
 		byPath:  map[string]string{},
+		port:    defaultRunnerPort,
 	}
+}
+
+// ensureDaemonToken loads m.daemonToken from disk or generates a new one.
+// Called once at startup; the token persists in ~/.gander/watches.json.
+func (m *watchManager) ensureDaemonToken() error {
+	if m.daemonToken != "" {
+		return nil
+	}
+	tok, err := newToken()
+	if err != nil {
+		return err
+	}
+	m.daemonToken = tok
+	return nil
 }
 
 func (m *watchManager) load() error {
@@ -88,10 +107,18 @@ func (m *watchManager) load() error {
 		return err
 	}
 	for _, w := range wf.Watches {
+		token := w.Token
+		if token == "" {
+			token, err = newToken()
+			if err != nil {
+				return fmt.Errorf("token gen: %w", err)
+			}
+		}
 		info := watchOut{
 			ID:        w.ID,
 			Path:      w.Path,
 			Mode:      string(w.Mode),
+			Token:     token,
 			StartedAt: w.Started.UTC().Format(time.RFC3339),
 		}
 		if w.Share != nil {
@@ -101,24 +128,42 @@ func (m *watchManager) load() error {
 		m.entries[w.ID] = e
 		m.byPath[w.Path] = w.ID
 	}
+	if wf.DaemonToken == "" {
+		tok, err := newToken()
+		if err != nil {
+			return fmt.Errorf("token gen: %w", err)
+		}
+		m.daemonToken = tok
+	} else {
+		m.daemonToken = wf.DaemonToken
+	}
+	if wf.Port != 0 {
+		m.port = wf.Port
+	}
+	if err := m.ensureDaemonToken(); err != nil {
+		return fmt.Errorf("ensureDaemonToken: %w", err)
+	}
 	return nil
 }
 
 func (m *watchManager) persist() error {
 	m.mu.Lock()
-	var pw []persistedWatch
+	pw := []persistedWatch{}
 	for _, e := range m.entries {
 		w := persistedWatch{
-			ID:       e.info.ID,
-			Path:     e.info.Path,
-			Mode:     watchMode(e.info.Mode),
-			Started:  e.startedAt,
+			ID:      e.info.ID,
+			Path:    e.info.Path,
+			Mode:    watchMode(e.info.Mode),
+			Token:   e.info.Token,
+			Started: e.startedAt,
 		}
 		if e.info.ShareURL != "" {
 			w.Share = &shareRef{UUID: e.info.UUID, ShortID: e.info.ShortID, URL: e.info.ShareURL}
 		}
 		pw = append(pw, w)
 	}
+	port := m.port
+	tok := m.daemonToken
 	m.mu.Unlock()
 
 	dir := m.home
@@ -132,7 +177,12 @@ func (m *watchManager) persist() error {
 	}
 	enc := json.NewEncoder(tmp)
 	enc.SetIndent("", "  ")
-	if err := enc.Encode(watchesFile{Version: watchesFileVersion, Watches: pw}); err != nil {
+	if err := enc.Encode(watchesFile{
+		Version:     watchesFileVersion,
+		DaemonToken: tok,
+		Port:        port,
+		Watches:     pw,
+	}); err != nil {
 		tmp.Close()
 		os.Remove(finalPath + ".tmp")
 		return err
@@ -156,43 +206,57 @@ func (m *watchManager) register(path, mode string, share shareRef) (watchOut, er
 	if err != nil {
 		return watchOut{}, err
 	}
+	token, err := newToken()
+	if err != nil {
+		return watchOut{}, err
+	}
 
 	m.mu.Lock()
 	if existing, ok := m.byPath[canonical]; ok {
 		m.mu.Unlock()
 		if e, ok := m.entries[existing]; ok {
+			if e.info.URL == "" {
+				e.info.URL = fmt.Sprintf("http://127.0.0.1:%d/w/%s?t=%s", m.port, e.info.ID, e.info.Token)
+			}
 			return e.info, nil
 		}
 	}
 	m.mu.Unlock()
 
+	startedAt := time.Now().UTC()
+	info := watchOut{
+		ID:        id,
+		Path:      canonical,
+		Mode:      mode,
+		Token:     token,
+		StartedAt: startedAt.Format(time.RFC3339),
+	}
+	if share.UUID != "" {
+		info.ShareURL = share.URL
+		info.ShortID = share.ShortID
+		info.UUID = share.UUID
+	}
+	url := fmt.Sprintf("http://127.0.0.1:%d/w/%s?t=%s", m.port, id, token)
+	info.URL = url
+
 	e := &watchEntry{
-		info: watchOut{
-			ID:        id,
-			Path:      canonical,
-			Mode:      mode,
-			StartedAt: time.Now().UTC().Format(time.RFC3339),
-		},
-		startedAt: time.Now().UTC(),
+		info:      info,
+		startedAt: startedAt,
 		shutdown:  make(chan struct{}),
 		done:      make(chan struct{}),
 	}
-	if share.UUID != "" {
-		e.info.ShareURL = share.URL
-		e.info.ShortID = share.ShortID
-		e.info.UUID = share.UUID
-	}
 
 	if mode == "" || mode == string(modeLocal) {
-		ln, state, perr := m.bindLocal(e)
+		state, perr := m.bindLocal(e)
 		if perr != nil {
 			return watchOut{}, perr
 		}
+		e.state = state
 		m.mu.Lock()
 		m.entries[id] = e
 		m.byPath[canonical] = id
 		m.mu.Unlock()
-		go m.serveLocal(e, state, ln)
+		go m.serveLocal(e, state)
 	} else {
 		m.mu.Lock()
 		m.entries[id] = e
@@ -205,61 +269,43 @@ func (m *watchManager) register(path, mode string, share shareRef) (watchOut, er
 		log.Printf("runner: persist after register: %v", err)
 	}
 	log.Printf("runner: registered watch id=%s path=%s mode=%s url=%s", id, canonical, mode, e.info.URL)
-	return e.info, nil
+	return info, nil
 }
 
-func (m *watchManager) bindLocal(e *watchEntry) (net.Listener, *watchState, error) {
+// bindLocal renders the markdown file into a watchState. The HTTP server is
+// shared by all watches — the per-watch state is referenced by the handler
+// via mgr.entries[id].state.
+func (m *watchManager) bindLocal(e *watchEntry) (*watchState, error) {
 	content, err := os.ReadFile(e.info.Path)
 	if err != nil {
-		return nil, nil, fmt.Errorf("read %s: %w", e.info.Path, err)
+		return nil, fmt.Errorf("read %s: %w", e.info.Path, err)
 	}
 	contentHTML, headings := renderMarkdownWithIDs(string(content))
 	html := []byte(buildHTML(contentHTML, headings, true))
 	hash := hashBytes(content)
-	state := newWatchState(e.info.Path, html, contentHTML, headings, hash)
-
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return nil, nil, fmt.Errorf("listen: %w", err)
-	}
-	url := "http://" + ln.Addr().String()
-	m.mu.Lock()
-	e.info.URL = url
-	m.mu.Unlock()
-	return ln, state, nil
+	return newWatchState(e.info.Path, html, contentHTML, headings, hash), nil
 }
 
-func (m *watchManager) serveLocal(e *watchEntry, state *watchState, ln net.Listener) {
+func (m *watchManager) serveLocal(e *watchEntry, state *watchState) {
 	defer close(e.done)
 	log.Printf("runner[%s]: local preview at %s", e.info.ID, e.info.URL)
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", state.handleIndex)
-	mux.HandleFunc("/events", state.handleEvents)
-	srv := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	m.mu.Lock()
 	e.cancel = cancel
 	m.mu.Unlock()
 
-	serveDone := make(chan struct{})
+	watchLoopDone := make(chan struct{})
 	go func() {
-		defer close(serveDone)
-		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
-			log.Printf("runner[%s]: serve: %v", e.info.ID, err)
-		}
+		defer close(watchLoopDone)
+		watchLoop(ctx, state, e.info.Path, 150)
 	}()
-	go watchLoop(ctx, state, e.info.Path, 150)
 
 	select {
 	case <-e.shutdown:
-		shutdownCtx, scancel := context.WithTimeout(context.Background(), 5*time.Second)
-		_ = srv.Shutdown(shutdownCtx)
-		scancel()
 		cancel()
-		<-serveDone
-	case <-serveDone:
+		<-watchLoopDone
+	case <-watchLoopDone:
 	}
 }
 
@@ -280,12 +326,15 @@ func (m *watchManager) resumeAll() {
 			go m.runShare(e)
 			continue
 		}
-		ln, state, err := m.bindLocal(e)
+		state, err := m.bindLocal(e)
 		if err != nil {
 			log.Printf("runner[%s]: resume bind: %v", e.info.ID, err)
 			continue
 		}
-		go m.serveLocal(e, state, ln)
+		e.state = state
+		port := m.port
+		e.info.URL = fmt.Sprintf("http://127.0.0.1:%d/w/%s?t=%s", port, e.info.ID, e.info.Token)
+		go m.serveLocal(e, state)
 	}
 }
 
@@ -363,6 +412,14 @@ func (m *watchManager) list() []watchOut {
 
 func newID() (string, error) {
 	var b [4]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b[:]), nil
+}
+
+func newToken() (string, error) {
+	var b [16]byte
 	if _, err := rand.Read(b[:]); err != nil {
 		return "", err
 	}
