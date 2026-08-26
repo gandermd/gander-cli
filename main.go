@@ -20,6 +20,12 @@ func main() {
 
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
+		case "_serve":
+			if err := runRunner(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "_serve: %v\n", err)
+				os.Exit(1)
+			}
+			return
 		case "--version", "version":
 			printVersion(os.Stdout)
 			return
@@ -128,10 +134,9 @@ func main() {
 	}
 
 	if useWatch {
-		if err := runWatch(absPath, cfg); err != nil {
+		if err := handOffWatch(absPath); err != nil {
 			log.Fatalf("watch: %v", err)
 		}
-		fmt.Println("Stopped.")
 		return
 	}
 
