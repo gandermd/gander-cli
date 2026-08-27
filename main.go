@@ -120,6 +120,7 @@ func main() {
 
 	outFile := flag.String("outfile", "", "Optional: write HTML output to file instead of opening in browser")
 	watch := flag.Bool("watch", false, "Watch the file for changes and live-reload the browser preview")
+	foreground := flag.Bool("foreground", false, "With --watch, run the blocking watcher in-process (no runner handoff)")
 	upgrade := flag.Bool("upgrade", false, "Download and install the latest release, then exit")
 	flag.Parse()
 
@@ -158,6 +159,12 @@ func main() {
 	}
 
 	if useWatch {
+		if *foreground {
+			if err := runWatch(absPath, cfg); err != nil {
+				log.Fatalf("watch: %v", err)
+			}
+			return
+		}
 		if err := handOffWatch(absPath); err != nil {
 			log.Fatalf("watch: %v", err)
 		}
@@ -242,7 +249,8 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Render options:")
 	fmt.Fprintln(w, "  -outfile string   Write HTML to a file instead of opening in browser")
-	fmt.Fprintln(w, "  -watch            Live-reload the local browser preview on save")
+	fmt.Fprintln(w, "  -watch            Live-reload the local browser preview on save (via the runner)")
+	fmt.Fprintln(w, "  -foreground       With -watch, run the blocking watcher in-process (CI / debug)")
 	if !authed {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "Run `gander signup --email you@example.com` to enable share / watch / remove / list / manage / auth.")
