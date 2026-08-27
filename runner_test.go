@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -259,6 +260,89 @@ func mustStateForTest(t *testing.T, path string) *watchState {
 	return newWatchState(path, html, contentHTML, headings, hash)
 }
 
+func TestWatchManagerLoadRestoresShareRef(t *testing.T) {
+	home := t.TempDir()
+	body := `{
+  "version": 1,
+  "daemon_token": "abc",
+  "port": 7821,
+  "watches": [{
+    "id": "0cfb59c4",
+    "path": "/tmp/doc.md",
+    "mode": "share",
+    "token": "tok",
+    "started_at": "2026-08-27T17:00:00Z",
+    "share": {"uuid": "u-1", "short_id": "TqcYKLEp", "url": "http://127.0.0.1:7331/s/TqcYKLEp"}
+  }]
+}`
+	if err := os.WriteFile(filepath.Join(home, watchesFileName), []byte(body), 0600); err != nil {
+		t.Fatal(err)
+	}
+	m := newWatchManager(home)
+	if err := m.load(); err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	e, ok := m.entries["0cfb59c4"]
+	if !ok {
+		t.Fatal("watch not loaded")
+	}
+	if e.info.ShortID != "TqcYKLEp" {
+		t.Errorf("ShortID = %q, want TqcYKLEp", e.info.ShortID)
+	}
+	if e.info.UUID != "u-1" {
+		t.Errorf("UUID = %q, want u-1", e.info.UUID)
+	}
+	if e.info.ShareURL != "http://127.0.0.1:7331/s/TqcYKLEp" {
+		t.Errorf("ShareURL = %q", e.info.ShareURL)
+	}
+}
+
+func TestStopByIDMatchesShortID(t *testing.T) {
+	home := t.TempDir()
+	m := newWatchManager(home)
+	if err := m.ensureDaemonToken(); err != nil {
+		t.Fatal(err)
+	}
+	doc := filepath.Join(t.TempDir(), "doc.md")
+	if err := os.WriteFile(doc, []byte("# hi\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	info, err := m.register(doc, "share", shareRef{
+		UUID: "u-1", ShortID: "TqcYKLEp", URL: "http://127.0.0.1:7331/s/TqcYKLEp",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !m.stopByID("TqcYKLEp") {
+		t.Fatal("stopByID(shortID) returned false")
+	}
+	if _, ok := m.entries[info.ID]; ok {
+		t.Error("watch still registered after stop by short id")
+	}
+}
+
+func TestNewRunnerHTTPFallsBackWhenPortBusy(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	busy := ln.Addr().(*net.TCPAddr).Port
+
+	m := newWatchManager(t.TempDir())
+	h, err := newRunnerHTTPOnPort(m, busy)
+	if err != nil {
+		t.Fatalf("expected fallback listen, got %v", err)
+	}
+	t.Cleanup(func() { h.shutdown() })
+	if m.port == busy {
+		t.Errorf("bound the busy port %d; want a fallback port", busy)
+	}
+	if m.port == 0 {
+		t.Error("mgr.port was not updated to the fallback port")
+	}
+}
+
 // TestIPCRoundTripDisallowUnknownFields is intentionally a no-op: the
 // json.Decoder on the daemon side is configured with
 // DisallowUnknownFields() and the policy is covered end-to-end by the
@@ -266,3 +350,4 @@ func mustStateForTest(t *testing.T, path string) *watchState {
 // a future in-process server test once runnerIPC exposes a Start-able
 // listener.
 func TestIPCRoundTripDisallowUnknownFields(t *testing.T) {}
+

@@ -124,6 +124,8 @@ func (m *watchManager) load() error {
 		}
 		if w.Share != nil {
 			info.ShareURL = w.Share.URL
+			info.ShortID = w.Share.ShortID
+			info.UUID = w.Share.UUID
 		}
 		e := &watchEntry{info: info, startedAt: w.Started, shutdown: make(chan struct{}), done: make(chan struct{})}
 		m.entries[w.ID] = e
@@ -320,7 +322,7 @@ func (m *watchManager) runShare(e *watchEntry) {
 		}
 		return
 	}
-	if !strings.HasPrefix(cfg.APIURL, "https://") {
+	if !apiURLTrusted(cfg.APIURL) {
 		log.Printf("runner[%s]: refusing to push to cleartext api_url=%s (set GANDER_ALLOW_INSECURE_API=1 to override)", e.info.ID, cfg.APIURL)
 		select {
 		case <-e.shutdown:
@@ -378,6 +380,16 @@ func (m *watchManager) resumeAll() {
 func (m *watchManager) stopByID(id string) bool {
 	m.mu.Lock()
 	e, ok := m.entries[id]
+	if !ok {
+		for _, cand := range m.entries {
+			if cand.info.ShortID != "" && cand.info.ShortID == id {
+				e = cand
+				id = cand.info.ID
+				ok = true
+				break
+			}
+		}
+	}
 	if !ok {
 		m.mu.Unlock()
 		return false
@@ -442,14 +454,11 @@ func (m *watchManager) persistQuiet() {
 // error so the daemon can refuse to start (the CLI prints the error
 // and the user can either flip the URL or set GANDER_ALLOW_INSECURE_API).
 func enforceHTTPSForShareWatches(m *watchManager) error {
-	if os.Getenv("GANDER_ALLOW_INSECURE_API") == "1" {
-		return nil
-	}
 	cfg, err := LoadConfig()
 	if err != nil {
 		return nil
 	}
-	if strings.HasPrefix(cfg.APIURL, "https://") {
+	if apiURLTrusted(cfg.APIURL) {
 		return nil
 	}
 	m.mu.Lock()

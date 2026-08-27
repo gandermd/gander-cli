@@ -41,18 +41,31 @@ func runStatus(_ []string) error {
 	}
 
 	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "ID\tMODE\tPATH\tSINCE\tURL")
+	fmt.Fprintln(tw, "ID\tMODE\tSHORT ID\tPATH\tSINCE\tURL")
 	for _, w := range watches {
 		since := formatRelative(w.StartedAt)
-		url := w.URL
-		if url == "" {
-			url = "-"
-		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
-			w.ID, w.Mode, w.Path, since, url)
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+			w.ID, w.Mode, statusShortID(w), w.Path, since, statusURL(w))
 	}
 	_ = tw.Flush()
 	return nil
+}
+
+func statusURL(w watchOut) string {
+	if w.Mode == string(modeShare) && w.ShareURL != "" {
+		return w.ShareURL
+	}
+	if w.URL != "" {
+		return w.URL
+	}
+	return "-"
+}
+
+func statusShortID(w watchOut) string {
+	if w.ShortID == "" {
+		return "-"
+	}
+	return w.ShortID
 }
 
 func formatDuration(d time.Duration) string {

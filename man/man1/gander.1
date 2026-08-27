@@ -146,9 +146,10 @@ share is owned by the runner daemon and survives the CLI's lifetime.
 .TP
 .B status
 Print the runner daemon version and uptime, then a table of every
-active watch with its id, mode, canonical path, age, and full
-.B "http://127.0.0.1:7821/w/\fIid\fB?t=\fItoken\fR"
-URL.
+active watch with its runner id, mode, gandermd short id (share
+mode), canonical path, age, and URL. Local watches use the
+.B "http://127.0.0.1:\fIport\fB/w/\fIid\fB?t=\fItoken\fR"
+preview URL; share-mode watches use the gandermd share URL.
 .SS "Stop"
 .TP
 .B stop

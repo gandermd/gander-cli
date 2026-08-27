@@ -221,11 +221,11 @@ CLI flags always override the config. Pass `--watch=false` (or any explicit valu
 
 #### Profiles (`GANDER_CONFIG`)
 
-For pointing a single checkout at a different gandermd instance (local dev, staging, a self-hosted deployment) without disturbing your prod `~/.gander`, set `GANDER_CONFIG=<name>`. The CLI then reads and writes `~/.gander.<name>` instead — fully isolated from the default profile.
+For pointing a single checkout at a different gandermd instance (local dev, staging, a self-hosted deployment) without disturbing your prod `~/.gander`, set `GANDER_CONFIG=<name>`. The CLI then uses `~/.gander.<name>/` (config at `config.json`, runner socket and watches alongside) — fully isolated from the default profile. A legacy JSON file at `~/.gander.<name>` is migrated into that directory on first write or `--watch`.
 
 ```sh
-GANDER_CONFIG=dev gander signup --email dev@example.com    # writes ~/.gander.dev
-GANDER_CONFIG=staging gander list                          # writes ~/.gander.staging
+GANDER_CONFIG=dev gander signup --email dev@example.com    # writes ~/.gander.dev/config.json
+GANDER_CONFIG=staging gander list                          # reads ~/.gander.staging/config.json
 ```
 
 The legacy `~/.mdp` fallback only applies when `GANDER_CONFIG` is unset; named profiles never fall back to `.mdp`. Profile names must be a single path component (no `/`, `\`, `.`, or `..`).

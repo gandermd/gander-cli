@@ -17,7 +17,7 @@ self-updates from GitHub Releases.
   | File                          | Purpose                                                  |
   | ----------------------------- | -------------------------------------------------------- |
   | `main.go`                     | CLI parsing, flag dispatch, entrypoint glue              |
-  | `config.go`                   | `~/.gander` JSON loader and defaults; honors `GANDER_CONFIG=<name>` to use `~/.gander.<name>` instead (full isolation from the prod profile, with path-traversal guard) |
+  | `config.go`                   | Profile dir `~/.gander` (or `~/.gander.<name>` via `GANDER_CONFIG`); JSON at `config.json`. Migrates a legacy file at that path into the directory. Path-traversal guard on profile names. |
   | `render.go`                   | Markdown → HTML, page builder, CSS, TOC + reload JS      |
   | `watch.go`                    | Per-watch HTTP+SSE server and fsnotify loop (also reused by the runner via `serveWatchForever`) |
   | `share.go`                    | `gander share [--watch]` upload + push-to-gandermd loop (also reused by the runner via `serveShareWatcher`) |

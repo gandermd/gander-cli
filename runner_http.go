@@ -34,6 +34,10 @@ func newRunnerHTTP(mgr *watchManager) (*runnerHTTP, error) {
 func newRunnerHTTPOnPort(mgr *watchManager, port int) (*runnerHTTP, error) {
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	ln, err := net.Listen("tcp", addr)
+	if err != nil && port != 0 {
+		log.Printf("runner: %s busy, falling back to OS-assigned port", addr)
+		ln, err = net.Listen("tcp", "127.0.0.1:0")
+	}
 	if err != nil {
 		return nil, fmt.Errorf("listen %s: %w", addr, err)
 	}

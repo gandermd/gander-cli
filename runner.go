@@ -121,10 +121,13 @@ func runRunner(args []string) error {
 }
 
 func runnerHome() (string, error) {
-	return configPath()
+	return ensureProfileDir()
 }
 
 func ensureRunner(home string) (string, error) {
+	if err := os.MkdirAll(home, 0700); err != nil {
+		return "", err
+	}
 	sockPath := filepath.Join(home, runnerSockName)
 	if c, err := net.DialTimeout("unix", sockPath, 200*time.Millisecond); err == nil {
 		c.Close()
