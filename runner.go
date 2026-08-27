@@ -97,6 +97,19 @@ func runRunner(args []string) error {
 		log.Printf("runner: persist after resume: %v", err)
 	}
 
+	// Per security review: refuse to load share-mode watches against a
+	// cleartext gandermd endpoint. The runner owns the API token after
+	// reading ~/.gander; we don't want it transmitting markdown over
+	// the network in cleartext just because a stale watches.json from a
+	// local development config survived a daemon restart.
+	if err := enforceHTTPSForShareWatches(mgr); err != nil {
+		log.Printf("runner: refusing to start: %v", err)
+		http.shutdown()
+		os.Remove(sockPath)
+		os.Remove(pidPath)
+		return err
+	}
+
 	sigCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	<-sigCtx.Done()

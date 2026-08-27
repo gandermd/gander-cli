@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -319,6 +320,13 @@ func (m *watchManager) runShare(e *watchEntry) {
 		}
 		return
 	}
+	if !strings.HasPrefix(cfg.APIURL, "https://") {
+		log.Printf("runner[%s]: refusing to push to cleartext api_url=%s (set GANDER_ALLOW_INSECURE_API=1 to override)", e.info.ID, cfg.APIURL)
+		select {
+		case <-e.shutdown:
+		}
+		return
+	}
 	pusher := &watchPusher{
 		absPath:   e.info.Path,
 		shareUUID: e.info.UUID,
@@ -427,6 +435,35 @@ func (m *watchManager) persistQuiet() {
 	if err := m.persist(); err != nil {
 		log.Printf("runner: persist: %v", err)
 	}
+}
+
+// enforceHTTPSForShareWatches refuses to resume any persisted share-mode
+// watch whose saved gandermd endpoint is not HTTPS. Returns a non-nil
+// error so the daemon can refuse to start (the CLI prints the error
+// and the user can either flip the URL or set GANDER_ALLOW_INSECURE_API).
+func enforceHTTPSForShareWatches(m *watchManager) error {
+	if os.Getenv("GANDER_ALLOW_INSECURE_API") == "1" {
+		return nil
+	}
+	cfg, err := LoadConfig()
+	if err != nil {
+		return nil
+	}
+	if strings.HasPrefix(cfg.APIURL, "https://") {
+		return nil
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, e := range m.entries {
+		if e.info.Mode != string(modeShare) {
+			continue
+		}
+		if strings.HasPrefix(e.info.ShareURL, "https://") {
+			continue
+		}
+		return fmt.Errorf("api_url %q is not HTTPS but watches.json contains a share-mode watch (set GANDER_ALLOW_INSECURE_API=1 or update ~/.gander's api_url to https://)", cfg.APIURL)
+	}
+	return nil
 }
 
 func (m *watchManager) list() []watchOut {
