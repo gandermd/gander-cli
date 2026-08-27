@@ -213,7 +213,7 @@ func TestConfigPathProfile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("configPath: %v", err)
 	}
-	want := filepath.Join(dir, ".gander.dev")
+	want := filepath.Join(dir, ".gander.dev", configFileName)
 	if path != want {
 		t.Errorf("configPath = %q, want %q", path, want)
 	}
@@ -271,5 +271,129 @@ func TestConfigPathProfileBypassesMdp(t *testing.T) {
 	}
 	if cfg.DebounceMs != 150 {
 		t.Errorf("profile LoadConfig DebounceMs = %d, want 150 (default)", cfg.DebounceMs)
+	}
+}
+
+func TestLoadConfigReadsDirConfigJSON(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+
+	profile := filepath.Join(dir, ".gander")
+	if err := os.Mkdir(profile, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(profile, configFileName), []byte(`{"debounce_ms": 321}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.DebounceMs != 321 {
+		t.Errorf("DebounceMs = %d, want 321", cfg.DebounceMs)
+	}
+}
+
+func TestEnsureProfileDirMigratesLegacyFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+	t.Setenv("GANDER_CONFIG", "dev")
+
+	legacy := filepath.Join(dir, ".gander.dev")
+	body := []byte(`{"api_url":"http://127.0.0.1:7331","api_token":"gmd_dev"}`)
+	if err := os.WriteFile(legacy, body, 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := ensureProfileDir()
+	if err != nil {
+		t.Fatalf("ensureProfileDir: %v", err)
+	}
+	if got != legacy {
+		t.Errorf("ensureProfileDir = %q, want %q", got, legacy)
+	}
+	fi, err := os.Stat(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !fi.IsDir() {
+		t.Fatalf("%s is not a directory after migrate", legacy)
+	}
+	migrated, err := os.ReadFile(filepath.Join(legacy, configFileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(migrated) != string(body) {
+		t.Errorf("migrated config = %s, want %s", migrated, body)
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig after migrate: %v", err)
+	}
+	if cfg.APIToken != "gmd_dev" {
+		t.Errorf("APIToken = %q, want gmd_dev", cfg.APIToken)
+	}
+}
+
+func TestWriteConfigMigratesLegacyFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+
+	legacy := filepath.Join(dir, ".gander")
+	if err := os.WriteFile(legacy, []byte(`{"email":"old@example.com"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := DefaultConfig()
+	cfg.Email = "new@example.com"
+	if err := WriteConfig(cfg); err != nil {
+		t.Fatalf("WriteConfig: %v", err)
+	}
+
+	fi, err := os.Stat(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !fi.IsDir() {
+		t.Fatal("expected ~/.gander to become a directory")
+	}
+	got, err := LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Email != "new@example.com" {
+		t.Errorf("Email = %q, want new@example.com", got.Email)
+	}
+}
+
+func TestAPIURLTrusted(t *testing.T) {
+	t.Setenv("GANDER_ALLOW_INSECURE_API", "")
+	tests := []struct {
+		url  string
+		want bool
+	}{
+		{"https://gander.md", true},
+		{"HTTPS://gander.md", true},
+		{"http://127.0.0.1:7331", true},
+		{"http://localhost:7331", true},
+		{"http://[::1]:7331", true},
+		{"http://example.com", false},
+		{"http://192.168.1.5", false},
+		{"", false},
+		{"not a url", false},
+	}
+	for _, tc := range tests {
+		if got := apiURLTrusted(tc.url); got != tc.want {
+			t.Errorf("apiURLTrusted(%q) = %v, want %v", tc.url, got, tc.want)
+		}
+	}
+	t.Setenv("GANDER_ALLOW_INSECURE_API", "1")
+	if !apiURLTrusted("http://example.com") {
+		t.Error("GANDER_ALLOW_INSECURE_API=1 should trust cleartext remote URLs")
 	}
 }

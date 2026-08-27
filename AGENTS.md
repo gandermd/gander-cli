@@ -14,21 +14,36 @@ self-updates from GitHub Releases.
 - **Distribution:** prebuilt binaries in `dist/` (for `install.sh`) and
   GitHub Releases (for `gander --upgrade`).
 - **Source layout:**
-  | File                  | Purpose                                                  |
-  | --------------------- | -------------------------------------------------------- |
-  | `main.go`             | CLI parsing, flag dispatch, entrypoint glue              |
-  | `config.go`           | `~/.gander` JSON loader and defaults; honors `GANDER_CONFIG=<name>` to use `~/.gander.<name>` instead (full isolation from the prod profile, with path-traversal guard) |
-  | `render.go`           | Markdown → HTML, page builder, CSS, TOC + reload JS      |
-  | `watch.go`            | HTTP server, SSE hub, fsnotify watcher, debounced reload |
-  | `share.go`            | `gander share [--watch]` upload + push-to-gandermd loop  |
-  | `api.go`              | gandermd HTTP client (signup, share CRUD, manage intent) |
+  | File                          | Purpose                                                  |
+  | ----------------------------- | -------------------------------------------------------- |
+  | `main.go`                     | CLI parsing, flag dispatch, entrypoint glue              |
+  | `config.go`                   | Profile dir `~/.gander` (or `~/.gander.<name>` via `GANDER_CONFIG`); JSON at `config.json`. Migrates a legacy file at that path into the directory. Path-traversal guard on profile names. |
+  | `render.go`                   | Markdown → HTML, page builder, CSS, TOC + reload JS      |
+  | `watch.go`                    | Per-watch HTTP+SSE server and fsnotify loop (also reused by the runner via `serveWatchForever`) |
+  | `share.go`                    | `gander share [--watch]` upload + push-to-gandermd loop (also reused by the runner via `serveShareWatcher`) |
+  | `runner.go`                   | Daemon lifecycle (`gander _serve`): flock, UDS, PID, signal handling, hand-off from CLI |
+  | `runner_ipc.go`               | UDS server + client + line-delimited JSON protocol       |
+  | `runner_ipc_linux.go`         | `SO_PEERCRED` peer-UID check                             |
+  | `runner_ipc_darwin.go`        | macOS UDS peer check (file-mode only — see comment)       |
+  | `runner_watch.go`             | `watchManager`: register/stop/list, `watches.json` persistence (chmod 0600, atomic rename, refuses to load wider modes) |
+  | `runner_http.go`              | Daemon's single HTTP server on `127.0.0.1:7821`; `/w/<id>?t=…` and `/healthz` token-gated via `crypto/subtle.ConstantTimeCompare` |
+  | `runner_install.go`           | LaunchAgent (macOS) / systemd user unit (Linux) rendering + idempotent `launchctl load` / `systemctl enable --now` |
+  | `runner_cmd.go`               | `gander runner {install\|uninstall}` CLI subcommand      |
+  | `status.go`                   | `gander status` — list runner + watches via IPC         |
+  | `stop.go`                     | `gander stop [<file>\|<id>] [--all]`                   |
+  | `logs.go`                     | `gander logs [<id>] [--follow\|--no-follow]` tail file  |
+  | `api.go`                      | gandermd HTTP client (signup, share CRUD, manage intent) |
   | `signup.go`/`auth.go`/`list.go`/`remove.go`/`manage.go` | gandermd account subcommands |
-  | `upgrade.go`          | `--upgrade` self-update via GitHub Releases API          |
-  | `completion.go`       | `gander completion {bash\|zsh}`                          |
-  | `*_test.go`           | Unit tests                                               |
-  | `install.sh`          | Installer: downloads the latest release, source fallback |
-  | `scripts/release.sh`  | Release automation (see below)                           |
-  | `.github/workflows/`  | CI (currently just `release.yml`)                        |
+  | `upgrade.go`                  | `--upgrade` self-update via GitHub Releases API; coordinates with the runner (shutdown over UDS, replace binary, supervisor restarts under the new code) |
+  | `completion.go`               | `gander completion {bash\|zsh}`                          |
+  | `*_test.go`                   | Unit tests                                               |
+  | `install.sh`                  | Installer: downloads the latest release, source fallback |
+  | `scripts/release.sh`          | Release automation (see below)                           |
+  | `plans/`                      | Agent-authored plans (untracked; not part of releases)   |
+  | `.github/workflows/`          | CI (currently just `release.yml`)                        |
+
+- **Runner architecture (Phases 0–6 of `plans/2026-08-26-persistent-runner-process-for-gander.md`):**
+  `gander --watch <file>` hands the file off to a long-lived daemon (`gander _serve`) and exits. The daemon owns the HTTP server on `127.0.0.1:7821`, the fsnotify loop, and `~/.gander/watches.json` (chmod 0600, atomic temp-rename writes, refuses to load with broader modes). Watches survive the CLI's lifetime and reboots — the daemon is auto-launched at login by `gander runner install` (LaunchAgent on macOS, `systemctl --user` on Linux). The CLI surfaces are `gander status`, `gander stop`, `gander logs`, `gander runner {install|uninstall}`; the old blocking behavior is preserved behind `gander --watch --foreground`. Security defaults: UDS gated by `~/.gander/runner.sock` mode 0600 inside `~/.gander` mode 0700, plus `SO_PEERCRED` peer-UID on Linux; per-watch and daemon tokens (32 hex from `crypto/rand`) compared with `crypto/subtle.ConstantTimeCompare`; `watches.json` mode at most 0600 — the daemon refuses to start if it's wider. `gander --upgrade` reads `~/.gander/runner.pid`, verifies the recorded PID is still a live same-user process, sends `{"op":"shutdown"}` over UDS, replaces the binary, and lets the supervisor (or `ensureRunner` when unsupervised) bring the new binary back up — `watches.json` is reloaded by the new process so the upgrade is invisible to open viewers.
 
 ### Using gander from an agent
 

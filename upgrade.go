@@ -1,16 +1,22 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -42,6 +48,8 @@ func runUpgrade() error {
 	if err != nil {
 		return fmt.Errorf("resolve binary symlinks: %w", err)
 	}
+
+	stopDaemonForUpgrade(exePath)
 
 	fmt.Printf("Current version: %s\n", Version)
 	fmt.Println("Checking for updates...")
@@ -86,7 +94,117 @@ func runUpgrade() error {
 
 	fmt.Printf("Upgraded %s -> %s\n", Version, rel.TagName)
 	fmt.Printf("Release notes: %s\n", rel.HTMLURL)
+
+	restartDaemonAfterUpgrade(exePath)
 	return nil
+}
+
+// stopDaemonForUpgrade asks the live runner to shut down over IPC so the
+// binary can be replaced cleanly. The same-process check verifies that
+// the recorded runner.pid is still a real PID before signaling; a stale
+// PID file or a dead daemon is left alone and the upgrade proceeds.
+func stopDaemonForUpgrade(_ string) {
+	pid := runningPIDForOurUpgrade()
+	if pid == 0 {
+		return
+	}
+	home, err := runnerHome()
+	if err != nil {
+		log.Printf("upgrade: locate runner home: %v", err)
+		return
+	}
+	resp, err := ipcRoundTrip(home, ipcRequest{Op: "shutdown"})
+	if err != nil {
+		log.Printf("upgrade: notify runner: %v (continuing with replace)", err)
+		return
+	}
+	if !resp.OK {
+		log.Printf("upgrade: runner refused shutdown: %s (continuing)", resp.Error)
+		return
+	}
+	sock := filepath.Join(home, "runner.sock")
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		c, err := net.DialTimeout("unix", sock, 100*time.Millisecond)
+		if err != nil {
+			return
+		}
+		c.Close()
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+// restartDaemonAfterUpgrade brings the daemon back up if no LaunchAgent/
+// systemd unit is going to do it for us. The unit file (if present) points
+// at the upgraded binary path; launchd/systemd restart it from the new
+// binary the moment our process disappears.
+func restartDaemonAfterUpgrade(_ string) {
+	home, err := runnerHome()
+	if err != nil {
+		return
+	}
+	if isRunnerSupervised() {
+		fmt.Println("runner: auto-start unit will pick up the new binary automatically")
+		return
+	}
+	if _, err := ensureRunner(home); err != nil {
+		log.Printf("upgrade: respawn runner: %v", err)
+		return
+	}
+	fmt.Println("runner: respawned under the new binary")
+}
+
+// runningPIDForOurUpgrade returns the recorded runner.pid if it points at
+// a live process owned by the same user, or 0 otherwise. The same-UID
+// check is performed by sending signal 0 and inspecting the error.
+func runningPIDForOurUpgrade() int {
+	home, err := runnerHome()
+	if err != nil {
+		return 0
+	}
+	data, err := os.ReadFile(filepath.Join(home, "runner.pid"))
+	if err != nil {
+		return 0
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil {
+		return 0
+	}
+	if pid == os.Getpid() {
+		return 0
+	}
+	if !sameProcess(pid) {
+		return 0
+	}
+	return pid
+}
+
+func sameProcess(pid int) bool {
+	p, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+	if err := p.Signal(syscall.Signal(0)); err != nil {
+		return false
+	}
+	return true
+}
+
+func isRunnerSupervised() bool {
+	switch runtime.GOOS {
+	case "darwin":
+		out, err := exec.Command("launchctl", "list", launchAgentLabel).CombinedOutput()
+		if err != nil {
+			return false
+		}
+		return !bytes.Contains(out, []byte("Could not find")) &&
+			!bytes.Contains(out, []byte("not found")) &&
+			!bytes.Contains(out, []byte("Operation not permitted"))
+	case "linux":
+		err := exec.Command("systemctl", "--user", "is-enabled", "--quiet", systemdService).Run()
+		return err == nil
+	}
+	return false
 }
 
 func assetNameForRuntime() string {

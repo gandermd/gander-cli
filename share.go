@@ -25,21 +25,19 @@ func runWatchCmd(args []string) error {
 }
 
 func runWatchCmdWithCtx(ctx context.Context, args []string) error {
-	if len(args) != 1 {
-		return fmt.Errorf("usage: gander watch <file.md>")
-	}
-	return runShareWithCtx(ctx, []string{"--watch", args[0]})
+	return runShareWithCtx(ctx, append([]string{"--watch"}, args...))
 }
 
 func runShareWithCtx(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("share", flag.ContinueOnError)
 	watch := fs.Bool("watch", false, "live-update the shared page as the file changes")
+	foreground := fs.Bool("foreground", false, "keep share --watch in-process instead of handing off to the runner")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	rest := fs.Args()
 	if len(rest) != 1 {
-		return fmt.Errorf("usage: gander share [--watch] file.md")
+		return fmt.Errorf("usage: gander share [--watch] [--foreground] file.md")
 	}
 
 	canonical, err := canonicalPath(rest[0])
@@ -74,8 +72,40 @@ func runShareWithCtx(ctx context.Context, args []string) error {
 	}
 	openBrowserURL(sh.URL)
 	if *watch {
-		return runWatchAndPushCtx(ctx, canonical, sh, cfg)
+		if *foreground {
+			return runWatchAndPushCtx(ctx, canonical, sh, cfg)
+		}
+		return handOffShareWatch(ctx, canonical, sh, cfg)
 	}
+	return nil
+}
+
+// handOffShareWatch registers the share with the runner daemon and exits.
+// The daemon owns the fsnotify loop and pushes content updates to gandermd
+// over the watcher's lifetime; the CLI returns immediately.
+func handOffShareWatch(_ context.Context, absPath string, sh *shareResp, cfg Config) error {
+	home, err := runnerHomeForCLI()
+	if err != nil {
+		return err
+	}
+	if _, err := ensureRunner(home); err != nil {
+		return err
+	}
+	resp, err := ipcRoundTrip(home, ipcRequest{
+		Op:       "watch",
+		Path:     absPath,
+		Mode:     "share",
+		UUID:     sh.UUID,
+		ShortID:  sh.ShortID,
+		ShareURL: sh.URL,
+	})
+	if err != nil {
+		return err
+	}
+	if !resp.OK {
+		return fmt.Errorf("runner rejected share watch: %s", resp.Error)
+	}
+	fmt.Printf("runner: pushing changes to %s from %s\n", sh.URL, resp.ID)
 	return nil
 }
 
@@ -108,24 +138,73 @@ func runWatchAndPush(absPath string, sh *shareResp, cfg Config) error {
 }
 
 func runWatchAndPushCtx(ctx context.Context, absPath string, sh *shareResp, cfg Config) error {
-	watcher := &watchPusher{
+	sigCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	runCtx, runCancel := context.WithCancel(ctx)
+	defer runCancel()
+	go func() {
+		select {
+		case <-sigCtx.Done():
+			runCancel()
+		case <-runCtx.Done():
+		}
+	}()
+
+	pusher := &watchPusher{
 		absPath:   absPath,
 		shareUUID: sh.UUID,
 		shortID:   sh.ShortID,
 		cli:       newAPIClient(cfg.APIURL, cfg.APIToken),
-		debounce:  time.Duration(cfg.DebounceMs) * time.Millisecond,
 	}
-	watcher.start()
-	defer watcher.stop()
-
 	fmt.Printf("Watching %s — pushing changes to %s. Press Ctrl+C to stop.\n", absPath, sh.URL)
-	sig := make(chan os.Signal, 1)
-	signalNotify(sig)
-	select {
-	case <-sig:
-	case <-ctx.Done():
+	return serveShareWatcher(runCtx, pusher, absPath, cfg.DebounceMs)
+}
+
+// serveShareWatcher runs fsnotify on absPath and pushes content updates via pusher.push
+// until ctx is cancelled. Returns nil on clean cancellation; an fsnotify init error
+// otherwise. The runner will invoke this from a goroutine per registered watch.
+func serveShareWatcher(ctx context.Context, pusher *watchPusher, absPath string, debounceMs int) error {
+	debounce := time.Duration(debounceMs) * time.Millisecond
+	if debounce < 50*time.Millisecond {
+		debounce = 50 * time.Millisecond
 	}
-	return nil
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Printf("watcher init: %v", err)
+		return err
+	}
+	defer watcher.Close()
+	if err := watcher.Add(absPath); err != nil {
+		log.Printf("watch %s: %v", absPath, err)
+		return err
+	}
+
+	var pending *time.Timer
+	for {
+		select {
+		case <-ctx.Done():
+			if pending != nil {
+				pending.Stop()
+			}
+			return nil
+		case ev, ok := <-watcher.Events:
+			if !ok {
+				return nil
+			}
+			if ev.Op&(fsnotify.Write|fsnotify.Create) == 0 {
+				continue
+			}
+			if pending != nil {
+				pending.Stop()
+			}
+			pending = time.AfterFunc(debounce, pusher.push)
+		case _, ok := <-watcher.Errors:
+			if !ok {
+				return nil
+			}
+		}
+	}
 }
 
 func openBrowserURL(url string) {
@@ -139,63 +218,8 @@ type watchPusher struct {
 	shareUUID string
 	shortID   string
 	cli       *apiClient
-	debounce  time.Duration
 
 	lastHash string
-	mu       chan struct{}
-}
-
-func (w *watchPusher) start() {
-	w.mu = make(chan struct{}, 1)
-	go w.loop()
-}
-
-func (w *watchPusher) stop() {
-	select {
-	case w.mu <- struct{}{}:
-	default:
-	}
-}
-
-func (w *watchPusher) loop() {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		log.Printf("watcher init: %v", err)
-		return
-	}
-	defer watcher.Close()
-	if err := watcher.Add(w.absPath); err != nil {
-		log.Printf("watch %s: %v", w.absPath, err)
-		return
-	}
-
-	debounce := w.debounce
-	if debounce < 50*time.Millisecond {
-		debounce = 50 * time.Millisecond
-	}
-	var pending *time.Timer
-
-	for {
-		select {
-		case <-w.mu:
-			return
-		case ev, ok := <-watcher.Events:
-			if !ok {
-				return
-			}
-			if ev.Op&(fsnotify.Write|fsnotify.Create) == 0 {
-				continue
-			}
-			if pending != nil {
-				pending.Stop()
-			}
-			pending = time.AfterFunc(debounce, w.push)
-		case _, ok := <-watcher.Errors:
-			if !ok {
-				return
-			}
-		}
-	}
 }
 
 func (w *watchPusher) push() {

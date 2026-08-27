@@ -140,9 +140,25 @@ gander -outfile readme.html README.md
 gander --watch README.md
 ```
 
-Especially handy when an agent is writing the file — open the preview once and watch it grow without leaving your browser. On every save the rendered HTML hot-swaps in place and the TOC rebuilds; scroll position is preserved. Press `Ctrl+C` to stop.
+`gander --watch` no longer blocks your terminal: the CLI hands the watch off to a long-lived runner daemon (`gander _serve`) and exits. The daemon owns the HTTP server, the fsnotify loop, and the reload. On every save the rendered HTML hot-swaps in place and the TOC rebuilds; scroll position is preserved.
 
-A local HTTP server is started on a random free port (printed in the output) so the browser can receive change notifications over Server-Sent Events.
+Open the URL once; it stays valid across edits, restarts of the runner, and reboots (the daemon re-loads its watch list from `~/.gander/watches.json`).
+
+```bash
+gander status                # list active watches + URLs
+gander stop README.md       # remove one watch
+gander stop --all            # remove everything
+gander logs <watch-id>       # tail reload events for one watch
+gander logs                  # tail the runner's log
+```
+
+The first `--watch` installs a per-user supervisor unit (LaunchAgent on macOS, `systemctl --user` on Linux) so the daemon auto-starts at login. To opt out: `gander runner uninstall`. To re-install: `gander runner install`.
+
+If you want the old blocking CLI back (Ctrl+C to stop): `gander --watch --foreground README.md`. The daemon is untouched; the foreground process owns a transient server instead.
+
+For other local users on the same machine, the URL is gated by a per-watch unguessable token (`?t=…`). The token survives restarts because it's stored in `~/.gander/watches.json` (mode 0600). Same-user access only — the daemon's UDS is chmod 0600 inside a 0700 directory, and on Linux the daemon additionally checks `SO_PEERCRED` against the connecting UID.
+
+A local HTTP server is started on `127.0.0.1:7821` so the browser can receive change notifications over Server-Sent Events; multiple watches share the port under `/w/<id>`.
 
 > `--watch` and `-outfile` cannot be combined.
 
@@ -205,11 +221,11 @@ CLI flags always override the config. Pass `--watch=false` (or any explicit valu
 
 #### Profiles (`GANDER_CONFIG`)
 
-For pointing a single checkout at a different gandermd instance (local dev, staging, a self-hosted deployment) without disturbing your prod `~/.gander`, set `GANDER_CONFIG=<name>`. The CLI then reads and writes `~/.gander.<name>` instead — fully isolated from the default profile.
+For pointing a single checkout at a different gandermd instance (local dev, staging, a self-hosted deployment) without disturbing your prod `~/.gander`, set `GANDER_CONFIG=<name>`. The CLI then uses `~/.gander.<name>/` (config at `config.json`, runner socket and watches alongside) — fully isolated from the default profile. A legacy JSON file at `~/.gander.<name>` is migrated into that directory on first write or `--watch`.
 
 ```sh
-GANDER_CONFIG=dev gander signup --email dev@example.com    # writes ~/.gander.dev
-GANDER_CONFIG=staging gander list                          # writes ~/.gander.staging
+GANDER_CONFIG=dev gander signup --email dev@example.com    # writes ~/.gander.dev/config.json
+GANDER_CONFIG=staging gander list                          # reads ~/.gander.staging/config.json
 ```
 
 The legacy `~/.mdp` fallback only applies when `GANDER_CONFIG` is unset; named profiles never fall back to `.mdp`. Profile names must be a single path component (no `/`, `\`, `.`, or `..`).
@@ -220,9 +236,13 @@ The legacy `~/.mdp` fallback only applies when `GANDER_CONFIG` is unset; named p
 -outfile string
     Optional: write HTML output to a file instead of opening it in the browser
 -watch
-    Watch the file for changes and live-reload the browser preview
+    Hand the file off to the long-lived runner and live-reload the browser preview.
+    The CLI exits; the daemon owns the watch. Use --foreground for the old
+    blocking behavior.
 -upgrade
-    Download and install the latest release, then exit
+    Download and install the latest release, then exit. The runner is shut
+    down over UDS first, the binary is replaced, then the supervisor (or a
+    fresh spawn) brings the upgraded daemon back up with the same watches.
 ```
 
 Subcommands:
@@ -231,6 +251,10 @@ Subcommands:
 gander signup --email <addr>      Open the signup form in your browser, save the API token
 gander share [--watch] <file>     Upload to gander.md and open the share link
 gander watch <file>               Live-share to gander.md and push every save (alias for share --watch)
+gander status                     Show runner + active watches + URLs
+gander stop [<file>|<id>] [--all] Stop a watch (by file, id, or --all)
+gander logs [<id>]                Tail the runner log (optionally filtered by watch id)
+gander runner install|uninstall   Auto-start the runner at login via LaunchAgent/systemd
 gander remove [--all] [<file>]    Delete a share from gander.md
 gander list                       List shares currently on gander.md
 gander manage                     Open the dashboard in your browser
@@ -239,7 +263,7 @@ gander --version                  Print the version and exit
 gander completion {bash|zsh}      Print a shell completion script
 ```
 
-The subcommands appear in help only after a successful `gander signup` (except `completion`, which is always available).
+The gandermd-bound subcommands appear in help only after a successful `gander signup` (except `completion`, which is always available). The runner-managed subcommands (`status`, `stop`, `logs`, `runner`) are always listed.
 
 ## Releasing
 
@@ -296,4 +320,4 @@ MIT License — see [LICENSE](LICENSE) for details.
 - **HTML sanitization**: uses [bluemonday](https://github.com/microcosm-cc/bluemonday) for security
 - **File watching**: uses [fsnotify](https://github.com/fsnotify/fsnotify) when running with `--watch`
 
-Without `--watch`, the CLI is fire-and-forget: it renders once, opens the result in your browser, and exits. With `--watch`, it starts a tiny localhost HTTP server and pushes hot-swaps over Server-Sent Events on every save.
+Without `--watch`, the CLI is fire-and-forget: it renders once, opens the result in your browser, and exits. With `--watch`, the CLI hands off to a long-lived runner (`gander _serve`, hidden subcommand) that owns the HTTP server on `127.0.0.1:7821` and pushes hot-swaps over Server-Sent Events on every save; the CLI exits cleanly while the daemon keeps the watch alive through reboots (a LaunchAgent on macOS / `systemctl --user` unit on Linux re-launches it on login). All state lives in `~/.gander/watches.json` (mode 0600): the daemon URL under `/w/<id>` carries an unguessable per-watch token, and the daemon's Unix-domain control socket is gated by file mode (and on Linux additionally by `SO_PEERCRED`).

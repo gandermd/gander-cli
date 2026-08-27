@@ -155,15 +155,36 @@ func runWatch(absPath string, cfg Config) error {
 
 	state := newWatchState(absPath, html, contentHTML, headings, hash)
 
-	addr := fmt.Sprintf("127.0.0.1:%d", cfg.Port)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	return serveWatchForever(ctx, state, cfg.Port, cfg.DebounceMs, func(url string) error {
+		fmt.Printf("Preview at: %s\n", url)
+		fmt.Println("Watching for changes. Press Ctrl+C to stop.")
+		openBrowser(url)
+		return nil
+	})
+}
+
+// serveWatchForever binds an HTTP server on 127.0.0.1:port (port 0 = OS-assigned),
+// mounts state.handleIndex/handleEvents on /, and runs the fsnotify reload loop
+// until ctx is cancelled. It invokes onBound synchronously after the listener is
+// bound (and before the http + watcher goroutines start) so the caller can print
+// the URL and open the browser. onBound's error is returned to the caller.
+//
+// The caller is expected to have already constructed state (with rendered HTML)
+// and to own the SIGINT/SIGTERM signal wiring — see runWatch for the canonical
+// caller. Tests dial the HTTP server directly without touching signals.
+func serveWatchForever(ctx context.Context, s *watchState, port, debounceMs int, onBound func(url string) error) error {
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", addr, err)
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", state.handleIndex)
-	mux.HandleFunc("/events", state.handleEvents)
+	mux.HandleFunc("/", s.handleIndex)
+	mux.HandleFunc("/events", s.handleEvents)
 
 	srv := &http.Server{
 		Handler:           mux,
@@ -171,30 +192,27 @@ func runWatch(absPath string, cfg Config) error {
 	}
 
 	url := fmt.Sprintf("http://%s", ln.Addr().String())
-	fmt.Printf("Preview at: %s\n", url)
-	fmt.Println("Watching for changes. Press Ctrl+C to stop.")
-
-	openBrowser(url)
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+	if onBound != nil {
+		if err := onBound(url); err != nil {
+			return err
+		}
+	}
 
 	go func() {
 		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
 			log.Printf("server error: %v", err)
-			stop()
 		}
 	}()
 
-	go watchLoop(ctx, state, absPath, cfg.DebounceMs)
+	go watchLoop(ctx, s, s.absPath, debounceMs)
 
 	<-ctx.Done()
-	fmt.Println("\nStopping...")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		return fmt.Errorf("shutdown: %w", err)
 	}
+	fmt.Println("\nStopping...")
 	return nil
 }
 

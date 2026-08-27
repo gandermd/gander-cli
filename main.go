@@ -20,6 +20,12 @@ func main() {
 
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
+		case "_serve":
+			if err := runRunner(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "_serve: %v\n", err)
+				os.Exit(1)
+			}
+			return
 		case "--version", "version":
 			printVersion(os.Stdout)
 			return
@@ -50,6 +56,30 @@ func main() {
 		case "list":
 			if err := runList(os.Args[2:]); err != nil {
 				fmt.Fprintf(os.Stderr, "list: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		case "status":
+			if err := runStatus(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "status: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		case "stop":
+			if err := runStop(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "stop: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		case "logs":
+			if err := runLogs(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "logs: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		case "runner":
+			if err := runRunnerCmd(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "runner: %v\n", err)
 				os.Exit(1)
 			}
 			return
@@ -90,6 +120,7 @@ func main() {
 
 	outFile := flag.String("outfile", "", "Optional: write HTML output to file instead of opening in browser")
 	watch := flag.Bool("watch", false, "Watch the file for changes and live-reload the browser preview")
+	foreground := flag.Bool("foreground", false, "With --watch, run the blocking watcher in-process (no runner handoff)")
 	upgrade := flag.Bool("upgrade", false, "Download and install the latest release, then exit")
 	flag.Parse()
 
@@ -128,10 +159,15 @@ func main() {
 	}
 
 	if useWatch {
-		if err := runWatch(absPath, cfg); err != nil {
+		if *foreground {
+			if err := runWatch(absPath, cfg); err != nil {
+				log.Fatalf("watch: %v", err)
+			}
+			return
+		}
+		if err := handOffWatch(absPath); err != nil {
 			log.Fatalf("watch: %v", err)
 		}
-		fmt.Println("Stopped.")
 		return
 	}
 
@@ -203,13 +239,18 @@ func printUsage(w io.Writer) {
 		fmt.Fprintln(w, "  gander manage                                               Open the dashboard in your browser")
 		fmt.Fprintln(w, "  gander auth <api_token>                                     Install a new API token (e.g. after rotating in the dashboard)")
 	}
+	fmt.Fprintln(w, "  gander status                  Show runner version + active watches + URLs")
+	fmt.Fprintln(w, "  gander stop [<file>|<id>] [--all]     Remove a watch from the runner")
+	fmt.Fprintln(w, "  gander logs [<id>] [--follow|--no-follow]  Tail the runner log; filter by watch id")
+	fmt.Fprintln(w, "  gander runner install|uninstall  Auto-start the runner at login (LaunchAgent/systemd)")
 	fmt.Fprintln(w, "  gander --upgrade                Download and install the latest release")
 	fmt.Fprintln(w, "  gander --version               Print the version and exit")
 	fmt.Fprintln(w, "  gander completion {bash|zsh}    Print a shell completion script to stdout")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Render options:")
 	fmt.Fprintln(w, "  -outfile string   Write HTML to a file instead of opening in browser")
-	fmt.Fprintln(w, "  -watch            Live-reload the local browser preview on save")
+	fmt.Fprintln(w, "  -watch            Live-reload the local browser preview on save (via the runner)")
+	fmt.Fprintln(w, "  -foreground       With -watch, run the blocking watcher in-process (CI / debug)")
 	if !authed {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "Run `gander signup --email you@example.com` to enable share / watch / remove / list / manage / auth.")
