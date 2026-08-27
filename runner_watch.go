@@ -311,9 +311,38 @@ func (m *watchManager) serveLocal(e *watchEntry, state *watchState) {
 
 func (m *watchManager) runShare(e *watchEntry) {
 	defer close(e.done)
-	log.Printf("runner[%s]: share-mode through the daemon is not yet supported; ignoring", e.info.ID)
+	cfg, err := LoadConfig()
+	if err != nil || cfg.APIToken == "" {
+		log.Printf("runner[%s]: share mode requires ~/.gander with api_token; idling until stop", e.info.ID)
+		select {
+		case <-e.shutdown:
+		}
+		return
+	}
+	pusher := &watchPusher{
+		absPath:   e.info.Path,
+		shareUUID: e.info.UUID,
+		shortID:   e.info.ShortID,
+		cli:       newAPIClient(cfg.APIURL, cfg.APIToken),
+	}
+	log.Printf("runner[%s]: pushing changes to %s (uuid=%s)", e.info.ID, e.info.ShareURL, e.info.UUID)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	m.mu.Lock()
+	e.cancel = cancel
+	m.mu.Unlock()
+
+	doneCh := make(chan struct{})
+	go func() {
+		serveShareWatcher(ctx, pusher, e.info.Path, cfg.DebounceMs)
+		close(doneCh)
+	}()
+
 	select {
 	case <-e.shutdown:
+		cancel()
+		<-doneCh
+	case <-doneCh:
 	}
 }
 
