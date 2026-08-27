@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -122,6 +123,11 @@ func ensureRunner(home string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// `go test` sets os.Executable to gander.test; spawning it as `_serve`
+	// re-runs the suite (fork bomb) instead of main()'s runRunner.
+	if isTestExecutable(exe) {
+		return "", fmt.Errorf("refusing to spawn test binary as runner")
+	}
 	devnull, err := os.Open(os.DevNull)
 	if err != nil {
 		return "", err
@@ -203,6 +209,11 @@ func ipcRoundTrip(home string, req ipcRequest) (ipcResponse, error) {
 // resolution as the daemon — keeps GANDER_CONFIG respected on both sides.
 func runnerHomeForCLI() (string, error) {
 	return runnerHome()
+}
+
+func isTestExecutable(exe string) bool {
+	base := filepath.Base(exe)
+	return strings.HasSuffix(base, ".test") || strings.HasSuffix(base, ".test.exe")
 }
 
 func handOffWatch(path string) error {
