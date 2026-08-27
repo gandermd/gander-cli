@@ -115,7 +115,7 @@ func TestShareWatchFlowEndToEnd(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- runShareWithCtx(ctx, []string{"--watch", mdFile})
+		done <- runShareWithCtx(ctx, []string{"--watch", "--foreground", mdFile})
 	}()
 
 	time.Sleep(500 * time.Millisecond)
@@ -236,7 +236,7 @@ func TestWatchCmdEqualsShareWatch(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- runWatchCmdWithCtx(ctx, []string{mdFile})
+		done <- runWatchCmdWithCtx(ctx, []string{"--foreground", mdFile})
 	}()
 
 	deadline := time.Now().Add(5 * time.Second)
