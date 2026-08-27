@@ -45,6 +45,9 @@ func runRunnerInstall(quiet bool) error {
 	if resolved, err := filepath.EvalSymlinks(bin); err == nil {
 		bin = resolved
 	}
+	if isTestExecutable(bin) {
+		return fmt.Errorf("refusing to install auto-start for test binary %s", bin)
+	}
 	if fi, err := os.Stat(bin); err != nil || fi.Mode()&0111 == 0 {
 		return fmt.Errorf("%s is not an executable", bin)
 	}
@@ -116,6 +119,9 @@ func runRunnerUninstall(quiet bool) error {
 // daemon is up at every login; called from ensureRunner's spawn path.
 // Errors are logged but never block the user's command.
 func autoInstallIfNeeded() {
+	if exe, err := os.Executable(); err != nil || isTestExecutable(exe) {
+		return
+	}
 	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
 		return
 	}

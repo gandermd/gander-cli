@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -8,6 +9,45 @@ import (
 	"strings"
 	"testing"
 )
+
+func TestMain(m *testing.M) {
+	if len(os.Args) > 1 && os.Args[1] == "_serve" {
+		if err := runRunner(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "_serve: %v\n", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+	os.Exit(m.Run())
+}
+
+func TestIsTestExecutable(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{"/tmp/gander.test", true},
+		{"/tmp/gander.test.exe", true},
+		{"/usr/local/bin/gander", false},
+		{"/tmp/gander", false},
+	}
+	for _, tc := range tests {
+		if got := isTestExecutable(tc.path); got != tc.want {
+			t.Errorf("isTestExecutable(%q) = %v, want %v", tc.path, got, tc.want)
+		}
+	}
+}
+
+func TestEnsureRunnerRefusesTestBinary(t *testing.T) {
+	home := t.TempDir()
+	_, err := ensureRunner(home)
+	if err == nil {
+		t.Fatal("expected refusal to spawn the test binary as runner")
+	}
+	if !strings.Contains(err.Error(), "test binary") {
+		t.Errorf("got %v, want test-binary refusal", err)
+	}
+}
 
 func TestWatchManagerLoadRefusesWideMode(t *testing.T) {
 	home := t.TempDir()
