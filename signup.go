@@ -53,7 +53,7 @@ func runSignup(args []string) error {
 	}
 
 	fmt.Printf("Signed up %s.\n", *email)
-	fmt.Printf("API token saved to ~/.gander (chmod 600).\n")
+	fmt.Printf("API token saved to ~/.gander/config.json (chmod 600).\n")
 	fmt.Printf("Your token (also stored on disk): %s\n", token)
 	return nil
 }

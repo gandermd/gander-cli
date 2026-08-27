@@ -23,6 +23,6 @@ func runAuth(args []string) error {
 		return fmt.Errorf("save config: %w", err)
 	}
 
-	fmt.Printf("API token saved to ~/.gander (chmod 600).\n")
+	fmt.Printf("API token saved to ~/.gander/config.json (chmod 600).\n")
 	return nil
 }

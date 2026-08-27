@@ -113,7 +113,7 @@ Print help and exit.
 .B signup
 Open the signup form in your browser, then save the resulting API token
 in
-.IR ~/.gander .
+.IR ~/.gander/config.json .
 The token is required for the other gander.md commands.
 .sp
 .RS
@@ -231,7 +231,7 @@ dashboard. Requires an existing API token (sign up first); the command
 checks the new token against
 .B /api/shares
 before overwriting
-.IR ~/.gander .
+.IR ~/.gander/config.json .
 Email and
 .B api_url
 are preserved.
@@ -251,15 +251,27 @@ checksum, atomically replace the running binary, and exit.
 .SH FILES
 .TP
 .I ~/.gander
-JSON configuration file. Holds the API token (chmod 600), API endpoint,
+Profile directory (mode 0700). Holds
+.IR config.json ,
+.IR watches.json ,
+the runner socket, and logs.
+.TP
+.I ~/.gander/config.json
+JSON configuration (mode 0600). Holds the API token, API endpoint,
 default flags, and the local map of file path \(-> short id.
+A legacy JSON file at
+.I ~/.gander
+is migrated here on first write or
+.BR \-\-watch .
 .TP
 .I ~/.gander.\fIname\fR
 When
 .B GANDER_CONFIG=\fIname\fR
-is set in the environment, the CLI reads and writes this file instead of
+is set in the environment, the CLI uses this directory instead of
 the default
-.IR ~/.gander .
+.IR ~/.gander
+(config at
+.IR ~/.gander.\fIname\fR/config.json ).
 Useful for pointing a single checkout at a local dev or staging instance
 without disturbing the prod profile. The legacy
 .I ~/.mdp
