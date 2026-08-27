@@ -179,7 +179,7 @@ gander auth <api_token>                 # install a rotated/issued API token
 ```
 
 These commands appear in `gander --help` only after a successful signup,
-since they require an API token stored in `~/.gander` (`api_token`,
+since they require an API token stored in `~/.gander/config.json` (`api_token`,
 `api_url`, `email`, plus a `shares` map of local file paths to short IDs).
 The CLI ships with `https://gander.md` as the default endpoint; set
 `api_url` in your config to point at a self-hosted instance.
@@ -187,11 +187,15 @@ The CLI ships with `https://gander.md` as the default endpoint; set
 API tokens can be rotated from the dashboard (`gander manage` → rotate).
 After rotating, install the new token on each machine with
 `gander auth <token>`; the CLI validates it against `/api/shares`
-before overwriting `~/.gander`.
+before overwriting `~/.gander/config.json`.
 
-### Configuration (`~/.gander`)
+### Configuration (`~/.gander/`)
 
-Optional JSON config file at `~/.gander` lets you set defaults. Any field you omit falls back to its default.
+`~/.gander` is a directory (mode 0700). JSON config lives at
+`~/.gander/config.json` (mode 0600). The runner also stores `runner.sock`,
+`watches.json`, and logs there. A legacy JSON file at `~/.gander` is
+migrated into `config.json` on first write or `--watch`. Any field you
+omit falls back to its default.
 
 ```json
 {
@@ -217,7 +221,7 @@ Optional JSON config file at `~/.gander` lets you set defaults. Any field you om
 | `api_token`   | _(empty)_          | Bearer token. Set by `gander signup`. Treat as a password.                 |
 | `shares`      | `{}`               | Map of local file paths to short IDs, maintained by `gander share`.        |
 
-CLI flags always override the config. Pass `--watch=false` (or any explicit value) to override `~/.gander` for a single run.
+CLI flags always override the config. Pass `--watch=false` (or any explicit value) to override `~/.gander/config.json` for a single run.
 
 #### Profiles (`GANDER_CONFIG`)
 
