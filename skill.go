@@ -189,25 +189,32 @@ func withinDir(base, path string) bool {
 }
 
 func skillTreeRoot(dir string) (string, error) {
-	if _, err := os.Stat(filepath.Join(dir, "SKILL.md")); err == nil {
-		return dir, nil
-	}
-	entries, err := os.ReadDir(dir)
+	var found []string
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || d.Name() != "SKILL.md" {
+			return nil
+		}
+		found = append(found, filepath.Dir(path))
+		return nil
+	})
 	if err != nil {
 		return "", err
 	}
-	var dirs []string
-	for _, e := range entries {
-		if e.IsDir() {
-			dirs = append(dirs, filepath.Join(dir, e.Name()))
+	if len(found) == 0 {
+		return "", fmt.Errorf("archive missing SKILL.md")
+	}
+	if len(found) == 1 {
+		return found[0], nil
+	}
+	for _, p := range found {
+		if strings.HasSuffix(filepath.ToSlash(p), "/.agents/skills/gander") {
+			return p, nil
 		}
 	}
-	if len(dirs) == 1 {
-		if _, err := os.Stat(filepath.Join(dirs[0], "SKILL.md")); err == nil {
-			return dirs[0], nil
-		}
-	}
-	return "", fmt.Errorf("archive missing SKILL.md")
+	return "", fmt.Errorf("archive has multiple SKILL.md files")
 }
 
 func replaceDir(dest, src string) error {
