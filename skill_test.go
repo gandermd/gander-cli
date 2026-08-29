@@ -96,6 +96,72 @@ func TestSkillInstallRefusesToClobber(t *testing.T) {
 	}
 }
 
+func TestSkillInstallNestedAgentsLayout(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	serveSkillArchive(t, map[string]string{
+		"gander-skill-main/.agents/skills/gander/SKILL.md":             "# Gander\n",
+		"gander-skill-main/.agents/skills/gander/scripts/save-plan.sh": "#!/bin/sh\n",
+		"gander-skill-main/README.md":                                  "# repo\n",
+		"gander-skill-main/install.sh":                                 "#!/bin/sh\n",
+	})
+
+	if err := runSkillInstall(); err != nil {
+		t.Fatalf("runSkillInstall: %v", err)
+	}
+	skillDir := filepath.Join(home, ".gander", "skill")
+	if _, err := os.Stat(filepath.Join(skillDir, "SKILL.md")); err != nil {
+		t.Fatalf("SKILL.md: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(skillDir, "scripts", "save-plan.sh")); err != nil {
+		t.Fatalf("scripts/save-plan.sh: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(skillDir, "README.md")); !os.IsNotExist(err) {
+		t.Errorf("repo README.md should not be copied into skill dir")
+	}
+	for _, dest := range skillDestPaths(home) {
+		assertSkillLinked(t, dest, skillDir)
+	}
+}
+
+func TestSkillInstallMissingSKILLMD(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	serveSkillArchive(t, map[string]string{
+		"gander-skill-main/README.md": "# repo\n",
+	})
+	err := runSkillInstall()
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "archive missing SKILL.md") {
+		t.Errorf("err = %v", err)
+	}
+}
+
+func TestSkillInstallPrefersAgentsLayout(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	serveSkillArchive(t, map[string]string{
+		"gander-skill-main/SKILL.md":                              "# wrong\n",
+		"gander-skill-main/.agents/skills/gander/SKILL.md":        "# Gander\n",
+		"gander-skill-main/.agents/skills/gander/scripts/keep.sh": "#!/bin/sh\n",
+	})
+	if err := runSkillInstall(); err != nil {
+		t.Fatalf("runSkillInstall: %v", err)
+	}
+	body, err := os.ReadFile(filepath.Join(home, ".gander", "skill", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(body) != "# Gander\n" {
+		t.Errorf("SKILL.md = %q, want nested agents copy", body)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".gander", "skill", "scripts", "keep.sh")); err != nil {
+		t.Errorf("scripts/keep.sh: %v", err)
+	}
+}
+
 func TestSkillRejectsBadUsage(t *testing.T) {
 	err := runSkill([]string{"foo"})
 	if err == nil {
