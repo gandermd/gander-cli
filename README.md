@@ -15,10 +15,10 @@ Render a Markdown file locally with `gander <file>`, or push it to a shareable U
 Install the skill with one command:
 
 ```bash
-git clone https://github.com/gandermd/gander-skill && cd gander-skill && ./install.sh
+gander skill
 ```
 
-That symlinks the skill into `~/.agents/skills/`, `~/.claude/skills/`, and `~/.cursor/skills/` so every supported agent picks it up automatically.
+That downloads [`gandermd/gander-skill`](https://github.com/gandermd/gander-skill) into `~/.gander/skill` and symlinks it into `~/.agents/skills/`, `~/.claude/skills/`, `~/.cursor/skills/`, and `~/.grok/skills/` so every supported agent picks it up automatically. Clone the skill repo only if you want to hack on `scripts/save-plan.sh` or `scripts/watch-markdown.sh` locally.
 
 ## Installation
 
@@ -259,6 +259,7 @@ gander status                     Show runner + active watches + URLs
 gander stop [<file>|<id>] [--all] Stop a watch (by file, id, or --all)
 gander logs [<id>]                Tail the runner log (optionally filtered by watch id)
 gander runner install|uninstall   Auto-start the runner at login via LaunchAgent/systemd
+gander skill [install]            Install the agent skill (OpenCode, Claude, Cursor, Grok)
 gander remove [--all] [<file>]    Delete a share from gander.md
 gander list                       List shares currently on gander.md
 gander manage                     Open the dashboard in your browser
@@ -267,7 +268,7 @@ gander --version                  Print the version and exit
 gander completion {bash|zsh}      Print a shell completion script
 ```
 
-The gandermd-bound subcommands appear in help only after a successful `gander signup` (except `completion`, which is always available). The runner-managed subcommands (`status`, `stop`, `logs`, `runner`) are always listed.
+The gandermd-bound subcommands appear in help only after a successful `gander signup` (except `completion`, which is always available). The runner-managed subcommands (`status`, `stop`, `logs`, `runner`) and `gander skill` are always listed.
 
 ## Releasing
 
