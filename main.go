@@ -101,6 +101,18 @@ func main() {
 				os.Exit(1)
 			}
 			return
+		case "comments":
+			if err := runComments(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "comments: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		case "mcp":
+			if err := runMCP(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "mcp: %v\n", err)
+				os.Exit(1)
+			}
+			return
 		case "--help", "-h", "help":
 			printUsage(os.Stdout)
 			return
@@ -236,6 +248,8 @@ func printUsage(w io.Writer) {
 		fmt.Fprintln(w, "  gander remove [--all|--pick <short_id>|--yes|--non-interactive] <file|short_id|url>")
 		fmt.Fprintln(w, "                                                              Delete a share from gander.md")
 		fmt.Fprintln(w, "  gander list                                                List shares currently on gander.md")
+		fmt.Fprintln(w, "  gander comments [file]                                     List unresolved review comments")
+		fmt.Fprintln(w, "  gander mcp [install]                                       MCP stdio server, or install into agent runtimes")
 		fmt.Fprintln(w, "  gander manage                                               Open the dashboard in your browser")
 		fmt.Fprintln(w, "  gander auth <api_token>                                     Install a new API token (e.g. after rotating in the dashboard)")
 	}
@@ -266,8 +280,6 @@ func flagWasSet(name string) bool {
 	})
 	return found
 }
-
-
 
 func writeHTMLTo(outPath string, content []byte) error {
 	html, headings := renderMarkdownWithIDs(string(content))

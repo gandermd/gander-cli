@@ -36,6 +36,12 @@ gander \- render Markdown locally, optionally share it on gander.md
 .sp
 .B gander list
 .sp
+.B gander comments
+.RI [ file ]
+.sp
+.B gander mcp
+.RB [ install ]
+.sp
 .B gander manage
 .sp
 .B gander auth
@@ -217,6 +223,21 @@ when the argument is ambiguous.
 .B list
 Print a table of every share in the user's gander.md account (short id,
 file, watch flag, last update, URL).
+.SS "Comments"
+.TP
+.B comments
+.RI [ file ]
+Print unresolved review comments. With no argument, lists the inbox across
+all shares on this machine. With a file, lists comments on that share.
+.SS "MCP"
+.TP
+.B mcp
+Run the Gander MCP server on stdio (forked by the agent). Not meant to be
+invoked by hand.
+.TP
+.B mcp install
+Merge a Gander MCP entry into OpenCode, Claude Code, Cursor, and Codex
+config files. Does not clobber other servers.
 .SS "Manage"
 .TP
 .B manage

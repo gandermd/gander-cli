@@ -347,6 +347,10 @@ func (m *watchManager) runShare(e *watchEntry) {
 		serveShareWatcher(ctx, pusher, e.info.Path, cfg.DebounceMs)
 		close(doneCh)
 	}()
+	if e.info.ShareURL != "" {
+		eventsURL := strings.TrimRight(e.info.ShareURL, "/") + "/events"
+		go listenShareComments(ctx, eventsURL, filepath.Base(e.info.Path), shareCommentNotifier)
+	}
 
 	select {
 	case <-e.shutdown:
