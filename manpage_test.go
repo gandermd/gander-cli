@@ -34,6 +34,7 @@ func TestManPageExistsAndRenders(t *testing.T) {
 		"EXIT STATUS", "EXAMPLES",
 		"gander signup", "gander share", "gander watch", "gander remove",
 		"gander list", "gander auth", "gander completion",
+		"gander uninstall",
 		"--upgrade",
 	} {
 		if !strings.Contains(text, want) {
