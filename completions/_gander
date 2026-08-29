@@ -13,6 +13,7 @@ _gander() {
         'list:List shares currently on gander.md'
         'comments:List unresolved review comments'
         'mcp:MCP stdio server, or install into agent runtimes'
+        'skill:Install the agent skill (OpenCode, Claude, Cursor, Grok)'
         'status:Show the runner + active watches + URLs'
         'stop:Stop a watch (by file, id, or --all)'
         'logs:Tail the runner log (optionally filtered by watch id)'
@@ -77,6 +78,9 @@ _gander() {
             _arguments '*:markdown file:_files -g "*.md"'
             ;;
         mcp)
+            _arguments '1:action:(install)'
+            ;;
+        skill)
             _arguments '1:action:(install)'
             ;;
         list)

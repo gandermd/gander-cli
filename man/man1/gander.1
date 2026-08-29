@@ -42,6 +42,9 @@ gander \- render Markdown locally, optionally share it on gander.md
 .B gander mcp
 .RB [ install ]
 .sp
+.B gander skill
+.RB [ install ]
+.sp
 .B gander manage
 .sp
 .B gander auth
@@ -238,6 +241,18 @@ invoked by hand.
 .B mcp install
 Merge a Gander MCP entry into OpenCode, Claude Code, Cursor, and Codex
 config files. Does not clobber other servers.
+.SS "Skill"
+.TP
+.B skill
+.RB [ install ]
+Download
+.B gandermd/gander-skill
+into
+.I ~/.gander/skill
+and symlink it into the agent skill directories used by OpenCode, Claude
+Code, Cursor, and Grok Build. Does not require an API token. Re-running
+refreshes the checkout. Refuses to overwrite a destination that is not a
+symlink.
 .SS "Manage"
 .TP
 .B manage
