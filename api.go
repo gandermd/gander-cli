@@ -37,15 +37,40 @@ type signupIntentPollResp struct {
 }
 
 type shareResp struct {
-	UUID      string `json:"uuid"`
-	ShortID   string `json:"short_id"`
-	Filename  string `json:"filename"`
-	Path      string `json:"path,omitempty"`
-	Watch     bool   `json:"watch"`
-	URL       string `json:"url"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
-	SizeBytes int    `json:"size_bytes"`
+	UUID            string `json:"uuid"`
+	ShortID         string `json:"short_id"`
+	Filename        string `json:"filename"`
+	Path            string `json:"path,omitempty"`
+	Watch           bool   `json:"watch"`
+	URL             string `json:"url"`
+	CreatedAt       string `json:"created_at"`
+	UpdatedAt       string `json:"updated_at"`
+	SizeBytes       int    `json:"size_bytes"`
+	UnresolvedCount int    `json:"unresolved_count"`
+}
+
+type commentView struct {
+	UUID       string `json:"uuid"`
+	AuthorKind string `json:"author_kind"`
+	AuthorName string `json:"author_name"`
+	Body       string `json:"body"`
+	CreatedAt  string `json:"created_at"`
+}
+
+type threadView struct {
+	UUID           string        `json:"uuid"`
+	Anchor         string        `json:"anchor"`
+	CurrentAnchor  string        `json:"current_anchor"`
+	AnchorType     string        `json:"anchor_type"`
+	Quote          string        `json:"quote"`
+	Orphaned       bool          `json:"orphaned"`
+	Resolved       bool          `json:"resolved"`
+	CreatedVersion int           `json:"created_version"`
+	Comments       []commentView `json:"comments"`
+}
+
+type threadsResp struct {
+	Threads []threadView `json:"threads"`
 }
 
 func (c *apiClient) do(method, path string, body, dst any) error {
@@ -113,9 +138,9 @@ func (c *apiClient) PollSignupIntent(id string) (*signupIntentPollResp, error) {
 }
 
 type manageIntentResp struct {
-	IntentID    string `json:"intent_id"`
+	IntentID     string `json:"intent_id"`
 	DashboardURL string `json:"dashboard_url"`
-	ExpiresAt   string `json:"expires_at"`
+	ExpiresAt    string `json:"expires_at"`
 }
 
 func (c *apiClient) OpenManageIntent() (*manageIntentResp, error) {
@@ -171,6 +196,35 @@ func (c *apiClient) ListSharesByFilename(filename string) ([]shareResp, error) {
 		return nil, err
 	}
 	return out, nil
+}
+
+func (c *apiClient) ListComments(shareUUID string, unresolved bool) ([]threadView, error) {
+	path := fmt.Sprintf("/api/shares/%s/comments", shareUUID)
+	if unresolved {
+		path += "?unresolved=1"
+	}
+	var out threadsResp
+	if err := c.do("GET", path, nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Threads, nil
+}
+
+func (c *apiClient) ReplyComment(shareUUID, threadUUID, body string) (*threadView, error) {
+	var out threadView
+	path := fmt.Sprintf("/api/shares/%s/comments/%s/replies", shareUUID, threadUUID)
+	if err := c.do("POST", path, map[string]string{"body": body}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *apiClient) ResolveThread(shareUUID, threadUUID string) error {
+	return c.do("POST", fmt.Sprintf("/api/shares/%s/comments/%s/resolve", shareUUID, threadUUID), nil, nil)
+}
+
+func (c *apiClient) UnresolveThread(shareUUID, threadUUID string) error {
+	return c.do("POST", fmt.Sprintf("/api/shares/%s/comments/%s/unresolve", shareUUID, threadUUID), nil, nil)
 }
 
 func (c *apiClient) GetShareByShortID(shortID string) (*shareResp, error) {

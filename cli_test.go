@@ -761,9 +761,9 @@ func TestRemoveConfigCleanup(t *testing.T) {
 	cfg.APIURL = srv.URL
 	cfg.APIToken = "gmd_t"
 	cfg.Shares = map[string]string{
-		mdFile:        "aBcD1111",
-		"/elsewhere":  "aBcD2222",
-		"/somewhere":   "abc12345",
+		mdFile:       "aBcD1111",
+		"/elsewhere": "aBcD2222",
+		"/somewhere": "abc12345",
 	}
 	if err := WriteConfig(cfg); err != nil {
 		t.Fatal(err)

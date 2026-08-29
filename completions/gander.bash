@@ -8,7 +8,7 @@ _gander_completions() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     if [[ ${COMP_CWORD} -eq 1 ]]; then
-        cmds="signup share watch remove list status stop logs runner manage auth completion --upgrade upgrade --help -h -help help"
+        cmds="signup share watch remove list comments mcp status stop logs runner manage auth completion --upgrade upgrade --help -h -help help"
         COMPREPLY=( $(compgen -W "${cmds}" -- "${cur}") )
         return 0
     fi
@@ -38,6 +38,14 @@ _gander_completions() {
         stop)
             COMPREPLY=( $(compgen -W "--all --yes --non-interactive" -- "${cur}") )
             COMPREPLY+=( $(compgen -f -- "${cur}") )
+            return 0
+            ;;
+        comments)
+            COMPREPLY=( $(compgen -f -- "${cur}") )
+            return 0
+            ;;
+        mcp)
+            COMPREPLY=( $(compgen -W "install" -- "${cur}") )
             return 0
             ;;
         logs)

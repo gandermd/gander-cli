@@ -10,13 +10,13 @@ import (
 )
 
 type ipcRequest struct {
-	Op      string `json:"op"`
-	ID      string `json:"id,omitempty"`
-	Path    string `json:"path,omitempty"`
-	Mode    string `json:"mode,omitempty"`
-	All     bool   `json:"all,omitempty"`
-	ShortID string `json:"short_id,omitempty"`
-	UUID    string `json:"uuid,omitempty"`
+	Op       string `json:"op"`
+	ID       string `json:"id,omitempty"`
+	Path     string `json:"path,omitempty"`
+	Mode     string `json:"mode,omitempty"`
+	All      bool   `json:"all,omitempty"`
+	ShortID  string `json:"short_id,omitempty"`
+	UUID     string `json:"uuid,omitempty"`
 	ShareURL string `json:"share_url,omitempty"`
 }
 

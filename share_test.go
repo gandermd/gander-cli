@@ -62,12 +62,12 @@ func TestCreateShareSendsPathField(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"uuid":      "11111111-1111-1111-1111-111111111111",
-			"short_id":  "abc12345",
-			"filename":  capturedBody["filename"],
-			"path":      capturedBody["path"],
-			"watch":     false,
-			"url":       "https://gander.md/s/abc12345",
+			"uuid":       "11111111-1111-1111-1111-111111111111",
+			"short_id":   "abc12345",
+			"filename":   capturedBody["filename"],
+			"path":       capturedBody["path"],
+			"watch":      false,
+			"url":        "https://gander.md/s/abc12345",
 			"created_at": "2026-01-01T00:00:00Z",
 			"updated_at": "2026-01-01T00:00:00Z",
 		})
@@ -119,11 +119,11 @@ func TestCreateShareReturnsCreatedFlagOnUpdate(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(status)
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"uuid":      "11111111-1111-1111-1111-111111111111",
-			"short_id":  "abc12345",
-			"filename":  "doc.md",
-			"watch":     false,
-			"url":       "https://gander.md/s/abc12345",
+			"uuid":       "11111111-1111-1111-1111-111111111111",
+			"short_id":   "abc12345",
+			"filename":   "doc.md",
+			"watch":      false,
+			"url":        "https://gander.md/s/abc12345",
 			"created_at": "2026-01-01T00:00:00Z",
 			"updated_at": "2026-01-01T00:00:00Z",
 		})
@@ -200,11 +200,11 @@ func TestRunListShowsDashForMissingPath(t *testing.T) {
 	mux.HandleFunc("/api/shares", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode([]map[string]any{
 			{
-				"uuid":     "22222222-2222-2222-2222-222222222222",
-				"short_id": "legacy01",
-				"filename": "old.md",
-				"watch":    false,
-				"url":      "https://gander.md/s/legacy01",
+				"uuid":       "22222222-2222-2222-2222-222222222222",
+				"short_id":   "legacy01",
+				"filename":   "old.md",
+				"watch":      false,
+				"url":        "https://gander.md/s/legacy01",
 				"created_at": "2025-01-01T00:00:00Z",
 				"updated_at": "2025-01-01T00:00:00Z",
 				"size_bytes": 50,
