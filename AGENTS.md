@@ -37,6 +37,7 @@ self-updates from GitHub Releases.
   | `upgrade.go`                  | `--upgrade` self-update via GitHub Releases API; coordinates with the runner (shutdown over UDS, replace binary, supervisor restarts under the new code) |
   | `completion.go`               | `gander completion {bash\|zsh}`                          |
   | `skill.go`                    | `gander skill [install]` — fetch gander-skill into `~/.gander/skill`, symlink into agent skill dirs |
+  | `uninstall.go`                | `gander uninstall` — reverse MCP/skill/runner/binary and optionally `~/.gander` |
   | `*_test.go`                   | Unit tests                                               |
   | `install.sh`                  | Installer: downloads the latest release, source fallback |
   | `scripts/release.sh`          | Release automation (see below)                           |

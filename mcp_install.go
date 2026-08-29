@@ -89,6 +89,75 @@ func mergeMCPServersJSON(path, exe string, env map[string]string) error {
 	return writeJSONMap(path, root)
 }
 
+func unmergeOpenCodeMCP(path string) (bool, error) {
+	return unmergeJSONKey(path, "mcp", "gander")
+}
+
+func unmergeMCPServersJSON(path string) (bool, error) {
+	return unmergeJSONKey(path, "mcpServers", "gander")
+}
+
+func unmergeJSONKey(path, parentKey, childKey string) (bool, error) {
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	root, err := readJSONMap(path)
+	if err != nil {
+		return false, err
+	}
+	parent, _ := root[parentKey].(map[string]any)
+	if parent == nil {
+		return false, nil
+	}
+	if _, ok := parent[childKey]; !ok {
+		return false, nil
+	}
+	delete(parent, childKey)
+	return true, writeJSONMap(path, root)
+}
+
+func unmergeCodexTOML(path string) (bool, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	stripped, changed := stripCodexGanderTables(string(data))
+	if !changed {
+		return false, nil
+	}
+	return true, os.WriteFile(path, []byte(stripped), 0600)
+}
+
+func stripCodexGanderTables(body string) (string, bool) {
+	lines := strings.Split(body, "\n")
+	out := make([]string, 0, len(lines))
+	skip := false
+	changed := false
+	for _, line := range lines {
+		trim := strings.TrimSpace(line)
+		if strings.HasPrefix(trim, "[") && strings.HasSuffix(trim, "]") {
+			name := trim[1 : len(trim)-1]
+			if name == "mcp_servers.gander" || strings.HasPrefix(name, "mcp_servers.gander.") {
+				skip = true
+				changed = true
+				continue
+			}
+			skip = false
+		}
+		if skip {
+			continue
+		}
+		out = append(out, line)
+	}
+	return strings.Join(out, "\n"), changed
+}
+
 func mergeCodexTOML(path, exe string, env map[string]string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err

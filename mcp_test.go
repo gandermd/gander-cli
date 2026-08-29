@@ -100,3 +100,21 @@ func TestMCPInstallMerges(t *testing.T) {
 		t.Errorf("codex toml duplicated: %s", codex2)
 	}
 }
+
+func TestStripCodexGanderTables(t *testing.T) {
+	in := "[mcp_servers.other]\ncommand = \"x\"\n\n[mcp_servers.gander]\ncommand = \"g\"\nargs = [\"mcp\"]\n\n[mcp_servers.gander.env]\n\"GANDER_CONFIG\" = \"dev\"\n"
+	got, changed := stripCodexGanderTables(in)
+	if !changed {
+		t.Fatal("expected change")
+	}
+	if strings.Contains(got, "mcp_servers.gander") {
+		t.Errorf("gander tables remain: %s", got)
+	}
+	if !strings.Contains(got, "[mcp_servers.other]") {
+		t.Errorf("lost unrelated table: %s", got)
+	}
+	_, changed = stripCodexGanderTables(got)
+	if changed {
+		t.Errorf("second strip changed: %s", got)
+	}
+}

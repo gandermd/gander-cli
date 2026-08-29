@@ -45,6 +45,10 @@ gander \- render Markdown locally, optionally share it on gander.md
 .B gander skill
 .RB [ install ]
 .sp
+.B gander uninstall
+.RB [ \-\-yes ]
+.RB [ \-\-keep\-config ]
+.sp
 .B gander manage
 .sp
 .B gander auth
@@ -279,6 +283,40 @@ Takes a single argument naming the shell. Supported:
 .RB \(lq bash \(rq
 and
 .RB \(lq zsh \(rq.
+.SS "Uninstall"
+.TP
+.B uninstall
+Tear down everything gander installed on this machine: stop watches and
+shut down the runner, remove the LaunchAgent or systemd user unit, strip
+MCP
+.B gander
+entries from OpenCode, Claude, Cursor, and Codex configs, remove skill
+symlinks and
+.IR ~/.gander/skill ,
+and delete the running binary unless it is Homebrew\-managed.
+Without
+.B \-\-keep\-config
+the profile directory
+.I ~/.gander
+is removed last.
+.IP
+.B \-\-yes
+Skip the confirmation prompt.
+.B \-\-non\-interactive
+is an alias.
+Without
+.B \-\-yes
+on a non\-TTY the command refuses to run.
+.IP
+.B \-\-keep\-config
+Leave
+.I ~/.gander
+in place so a reinstall can reuse the API token and share map.
+.IP
+Homebrew\-managed binaries are not deleted; the command prints a hint to
+run
+.B brew uninstall gander
+instead.
 .SS "Self\-update"
 .TP
 .BR \-\-upgrade

@@ -228,6 +228,72 @@ func replaceDir(dest, src string) error {
 	return nil
 }
 
+func removeSkillInstall() (removed []string, skipped []string, err error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, nil, err
+	}
+	skillDir := filepath.Join(home, ".gander", "skill")
+	var errs []string
+	for _, d := range skillDests {
+		dest := filepath.Join(home, d.rel)
+		action, e := removeSkillDest(dest, skillDir)
+		if e != nil {
+			errs = append(errs, e.Error())
+			continue
+		}
+		switch action {
+		case "removed":
+			removed = append(removed, dest)
+		case "skipped":
+			skipped = append(skipped, dest)
+		}
+	}
+	if e := os.RemoveAll(skillDir); e != nil {
+		errs = append(errs, e.Error())
+	}
+	if len(errs) > 0 {
+		return removed, skipped, fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return removed, skipped, nil
+}
+
+func removeSkillDest(dest, skillDir string) (string, error) {
+	fi, err := os.Lstat(dest)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "missing", nil
+		}
+		return "", err
+	}
+	if fi.Mode()&os.ModeSymlink == 0 {
+		return "skipped", nil
+	}
+	if !isOurSkillLink(dest, skillDir) {
+		return "skipped", nil
+	}
+	if err := os.Remove(dest); err != nil {
+		return "", err
+	}
+	return "removed", nil
+}
+
+func isOurSkillLink(dest, skillDir string) bool {
+	target, err := os.Readlink(dest)
+	if err != nil {
+		return false
+	}
+	if !filepath.IsAbs(target) {
+		target = filepath.Join(filepath.Dir(dest), target)
+	}
+	target = filepath.Clean(target)
+	skillDir = filepath.Clean(skillDir)
+	if target == skillDir || strings.HasPrefix(target, skillDir+string(os.PathSeparator)) {
+		return true
+	}
+	return filepath.Base(target) == "gander-skill"
+}
+
 func linkSkill(src, dest string) error {
 	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
 		return err

@@ -29,7 +29,7 @@ brew tap gandermd/gander
 brew install gander
 ```
 
-This installs `gander` on your `$PATH` for macOS and Linux (via Linuxbrew), registers `gander(1)` under `$(brew --prefix)/share/man/man1`, and ships bash + zsh completions under `$(brew --prefix)/share`. Upgrade alongside everything else with `brew upgrade`, and uninstall cleanly with `brew uninstall gander`. `gander --upgrade` keeps working for in-place binary upgrades.
+This installs `gander` on your `$PATH` for macOS and Linux (via Linuxbrew), registers `gander(1)` under `$(brew --prefix)/share/man/man1`, and ships bash + zsh completions under `$(brew --prefix)/share`. Upgrade alongside everything else with `brew upgrade`. `gander --upgrade` keeps working for in-place binary upgrades.
 
 ### One-liner (fallback / non-Homebrew systems)
 
@@ -82,6 +82,16 @@ gander --upgrade
 Downloads the latest release binary that matches your OS/arch, verifies its SHA256 checksum, and atomically replaces the running binary. Sets `GITHUB_TOKEN` in the environment to raise the API rate limit on shared networks.
 
 If you built from source the old-fashioned way, re-run `install.sh` (or `git pull && ./install.sh --source`).
+
+### Uninstalling
+
+```bash
+gander uninstall          # interactive; prompts before deleting ~/.gander
+gander uninstall --yes --keep-config
+brew uninstall gander     # after the above, if the binary came from Homebrew
+```
+
+`gander uninstall` stops the runner, removes the auto-start unit, strips MCP `gander` entries, removes skill symlinks and `~/.gander/skill`, and deletes `~/.gander` (skip with `--keep-config`). Homebrew-managed binaries are left in place with a hint to run `brew uninstall gander`.
 
 ### Man page
 
@@ -260,6 +270,7 @@ gander stop [<file>|<id>] [--all] Stop a watch (by file, id, or --all)
 gander logs [<id>]                Tail the runner log (optionally filtered by watch id)
 gander runner install|uninstall   Auto-start the runner at login via LaunchAgent/systemd
 gander skill [install]            Install the agent skill (OpenCode, Claude, Cursor, Grok)
+gander uninstall [--yes] [--keep-config]  Remove CLI, MCP, skill, runner (and optionally ~/.gander)
 gander remove [--all] [<file>]    Delete a share from gander.md
 gander list                       List shares currently on gander.md
 gander manage                     Open the dashboard in your browser
@@ -268,7 +279,7 @@ gander --version                  Print the version and exit
 gander completion {bash|zsh}      Print a shell completion script
 ```
 
-The gandermd-bound subcommands appear in help only after a successful `gander signup` (except `completion`, which is always available). The runner-managed subcommands (`status`, `stop`, `logs`, `runner`) and `gander skill` are always listed.
+The gandermd-bound subcommands appear in help only after a successful `gander signup` (except `completion`, which is always available). The runner-managed subcommands (`status`, `stop`, `logs`, `runner`), `gander skill`, and `gander uninstall` are always listed.
 
 ## Releasing
 

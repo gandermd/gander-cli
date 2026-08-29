@@ -14,6 +14,7 @@ _gander() {
         'comments:List unresolved review comments'
         'mcp:MCP stdio server, or install into agent runtimes'
         'skill:Install the agent skill (OpenCode, Claude, Cursor, Grok)'
+        'uninstall:Remove CLI, MCP, skill, runner, and optionally ~/.gander'
         'status:Show the runner + active watches + URLs'
         'stop:Stop a watch (by file, id, or --all)'
         'logs:Tail the runner log (optionally filtered by watch id)'
@@ -82,6 +83,12 @@ _gander() {
             ;;
         skill)
             _arguments '1:action:(install)'
+            ;;
+        uninstall)
+            _arguments \
+                '--yes[Skip the confirmation prompt]' \
+                '--non-interactive[Skip the confirmation prompt]' \
+                '--keep-config[Leave the profile directory in place]'
             ;;
         list)
             _arguments
