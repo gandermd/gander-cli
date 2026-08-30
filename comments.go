@@ -18,6 +18,15 @@ type inboxItem struct {
 	Threads       []threadView `json:"threads"`
 }
 
+type inboxSummary struct {
+	Path            string `json:"path"`
+	Filename        string `json:"filename"`
+	ShareURL        string `json:"share_url"`
+	ShareUUID       string `json:"share_uuid"`
+	Watching        bool   `json:"watching"`
+	UnresolvedCount int    `json:"unresolved_count"`
+}
+
 func runComments(args []string) error {
 	cfg, err := requireAuth()
 	if err != nil {
@@ -69,16 +78,53 @@ func runComments(args []string) error {
 	return nil
 }
 
+func shareLookup(cfg Config) (pathByShort map[string]string, watching map[string]struct{}) {
+	pathByShort = map[string]string{}
+	for p, sid := range cfg.Shares {
+		pathByShort[sid] = p
+	}
+	return pathByShort, shareWatchingSet()
+}
+
+func localSharePath(sh shareResp, pathByShort map[string]string) string {
+	if local := pathByShort[sh.ShortID]; local != "" {
+		return local
+	}
+	return sh.Path
+}
+
+func loadInboxSummary(cli *apiClient, cfg Config) ([]inboxSummary, error) {
+	all, err := cli.ListShares()
+	if err != nil {
+		return nil, fmt.Errorf("list shares: %w", err)
+	}
+	pathByShort, watching := shareLookup(cfg)
+	var items []inboxSummary
+	for i := range all {
+		sh := all[i]
+		if sh.UnresolvedCount == 0 {
+			continue
+		}
+		local := localSharePath(sh, pathByShort)
+		_, isWatching := watching[local]
+		items = append(items, inboxSummary{
+			Path:            local,
+			Filename:        sh.Filename,
+			ShareURL:        sh.URL,
+			ShareUUID:       sh.UUID,
+			Watching:        isWatching,
+			UnresolvedCount: sh.UnresolvedCount,
+		})
+	}
+	return items, nil
+}
+
 func loadInbox(cli *apiClient, cfg Config, filterPath string) ([]inboxItem, error) {
 	all, err := cli.ListShares()
 	if err != nil {
 		return nil, fmt.Errorf("list shares: %w", err)
 	}
-	pathByShort := map[string]string{}
-	for p, sid := range cfg.Shares {
-		pathByShort[sid] = p
-	}
-	watching := shareWatchingSet()
+	pathByShort, watching := shareLookup(cfg)
 
 	var filterCan string
 	if filterPath != "" {
@@ -91,10 +137,7 @@ func loadInbox(cli *apiClient, cfg Config, filterPath string) ([]inboxItem, erro
 	var items []inboxItem
 	for i := range all {
 		sh := all[i]
-		local := pathByShort[sh.ShortID]
-		if local == "" {
-			local = sh.Path
-		}
+		local := localSharePath(sh, pathByShort)
 		if filterCan != "" {
 			if local != filterCan && sh.Filename != filepath.Base(filterPath) {
 				continue
@@ -184,6 +227,20 @@ func findShareForThread(cli *apiClient, cfg Config, threadID string) (shareUUID,
 func inboxJSON(items []inboxItem) string {
 	type wrap struct {
 		Inbox []inboxItem `json:"inbox"`
+	}
+	b, err := json.Marshal(wrap{Inbox: items})
+	if err != nil {
+		return `{"inbox":[]}`
+	}
+	return string(b)
+}
+
+func inboxSummaryJSON(items []inboxSummary) string {
+	type wrap struct {
+		Inbox []inboxSummary `json:"inbox"`
+	}
+	if items == nil {
+		items = []inboxSummary{}
 	}
 	b, err := json.Marshal(wrap{Inbox: items})
 	if err != nil {
