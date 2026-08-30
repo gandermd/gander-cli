@@ -11,6 +11,15 @@ import (
 	"testing"
 )
 
+func TestMCPInstructionsDoNotAutoResolve(t *testing.T) {
+	if strings.Contains(mcpInstructions, "then gander_resolve_thread") {
+		t.Fatal("mcpInstructions must not tell agents to resolve every thread")
+	}
+	if !strings.Contains(mcpInstructions, "simple doc edit") {
+		t.Fatal("mcpInstructions must restrict resolve to simple doc edits")
+	}
+}
+
 func TestHandleMCPInitializeAndToolsList(t *testing.T) {
 	init := handleMCP(rpcReq{JSONRPC: "2.0", ID: json.RawMessage(`1`), Method: "initialize"})
 	if init.Error != nil {

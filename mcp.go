@@ -11,7 +11,8 @@ import (
 const mcpProtocolVersion = "2024-11-05"
 
 const mcpInstructions = `At the start of every turn, call gander_list_comments with no path.
-- If the user's request involves a file that has unresolved comments, address them before other work: edit the file and/or gander_reply_comment, then gander_resolve_thread. If watching is false, run gander watch <path> first so the reviewer sees live updates.
+- If the user's request involves a file that has unresolved comments, address them before other work: edit the file and/or gander_reply_comment. If watching is false, run gander watch <path> first so the reviewer sees live updates.
+- Do not gander_resolve_thread unless the work was a simple doc edit (typo, wording, one-line fix). After questions, design discussion, or multi-section edits, reply and leave the thread unresolved so the reviewer can still read it. Never resolve just because you replied.
 - If unresolved comments exist on other files, mention them (filename, count, share URL) and continue with the user's request unless they ask you to handle the review.
 - Empty inbox: do not mention Gander.
 - Do not ask the user to paste comments. Do not wait to be told to check Gander.`
@@ -132,7 +133,7 @@ func mcpTools() []mcpTool {
 		},
 		{
 			Name:        "gander_resolve_thread",
-			Description: "Mark a Gander comment thread resolved.",
+			Description: "Mark a Gander comment thread resolved. Use only after a simple doc edit (typo, wording, one-line fix). Do not resolve after a reply the reviewer still needs to read.",
 			InputSchema: obj(map[string]any{
 				"thread_id": map[string]any{"type": "string"},
 			}, []string{"thread_id"}),
