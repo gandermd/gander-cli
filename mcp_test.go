@@ -44,6 +44,28 @@ func TestMCPInstructionsDoNotAutoResolve(t *testing.T) {
 	t.Fatal("gander_list_comments tool missing")
 }
 
+func TestMCPInstructionsGrokClaudeLoop(t *testing.T) {
+	for _, want := range []string{
+		"/loop 5m",
+		"Grok Build and Claude Code",
+		"Other agents",
+		"Do not stack duplicate loops",
+		"At the start of every turn, call gander_list_comments",
+	} {
+		if !strings.Contains(mcpInstructions, want) {
+			t.Errorf("mcpInstructions missing %q", want)
+		}
+	}
+	grok := strings.Index(mcpInstructions, "Grok Build and Claude Code")
+	other := strings.Index(mcpInstructions, "Other agents")
+	if grok < 0 || other < 0 || other <= grok {
+		t.Fatal("Grok/Claude polling block must appear before Other agents")
+	}
+	if strings.Contains(mcpInstructions[grok:other], "every turn") {
+		t.Fatal("Grok/Claude polling must not require every-turn inbox checks")
+	}
+}
+
 func TestHandleMCPInitializeAndToolsList(t *testing.T) {
 	init := handleMCP(rpcReq{JSONRPC: "2.0", ID: json.RawMessage(`1`), Method: "initialize"})
 	if init.Error != nil {
