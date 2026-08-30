@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -44,6 +45,87 @@ func TestLoadInboxSkipsZeroCount(t *testing.T) {
 	}
 	if len(items) != 1 || items[0].Filename != "b.md" || items[0].Threads[0].UUID != "t1" {
 		t.Fatalf("inbox = %+v", items)
+	}
+}
+
+func TestLoadInboxSummaryOmitsThreads(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/shares", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode([]shareResp{
+			{UUID: "u1", ShortID: "aaaaaaaa", Filename: "a.md", URL: "https://gander.md/s/aaaaaaaa", UnresolvedCount: 0},
+			{UUID: "u2", ShortID: "bbbbbbbb", Filename: "b.md", URL: "https://gander.md/s/bbbbbbbb", UnresolvedCount: 2},
+		})
+	})
+	mux.HandleFunc("/api/shares/", func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("summary must not fetch comments: %s", r.URL.Path)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	if err := os.WriteFile(filepath.Join(tmp, ".gander"), []byte(`{"api_url":"`+srv.URL+`","api_token":"gmd_x"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cli := newAPIClient(cfg.APIURL, cfg.APIToken)
+	items, err := loadInboxSummary(cli, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].Filename != "b.md" || items[0].UnresolvedCount != 2 {
+		t.Fatalf("summary = %+v", items)
+	}
+	raw := inboxSummaryJSON(items)
+	for _, ban := range []string{`"threads"`, `"body"`, `"author_name"`} {
+		if strings.Contains(raw, ban) {
+			t.Errorf("summary JSON contains %s: %s", ban, raw)
+		}
+	}
+}
+
+func TestRunCommentsPrintsBodies(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/shares", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode([]shareResp{
+			{UUID: "u2", ShortID: "bbbbbbbb", Filename: "b.md", URL: "https://gander.md/s/bbbbbbbb", UnresolvedCount: 1},
+		})
+	})
+	mux.HandleFunc("/api/shares/u2/comments", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(threadsResp{Threads: []threadView{{
+			UUID: "t1", Quote: "hello", Comments: []commentView{{AuthorName: "Pat", Body: "looks off", AuthorKind: "reviewer"}},
+		}}})
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	if err := os.WriteFile(filepath.Join(tmp, ".gander"), []byte(`{"api_url":"`+srv.URL+`","api_token":"gmd_x"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := os.Stdout
+	os.Stdout = w
+	runErr := runComments(nil)
+	_ = w.Close()
+	os.Stdout = old
+	out, _ := io.ReadAll(r)
+	_ = r.Close()
+	if runErr != nil {
+		t.Fatal(runErr)
+	}
+	got := string(out)
+	if !strings.Contains(got, "Pat: looks off") {
+		t.Errorf("human CLI must print bodies, got %q", got)
+	}
+	if strings.Contains(got, "UNTRUSTED") {
+		t.Errorf("human CLI must not wrap with untrusted preamble: %q", got)
 	}
 }
 
