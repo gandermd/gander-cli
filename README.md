@@ -79,7 +79,7 @@ mv gander ~/go/bin/gander  # or any directory in your PATH
 gander --upgrade
 ```
 
-Downloads the latest release binary that matches your OS/arch, verifies its SHA256 checksum, and atomically replaces the running binary. Sets `GITHUB_TOKEN` in the environment to raise the API rate limit on shared networks.
+Downloads the latest release binary that matches your OS/arch, verifies its SHA256 checksum, and atomically replaces the running binary. If `~/.gander/skill` is already installed, the same command also pulls the latest [`gandermd/gander-skill`](https://github.com/gandermd/gander-skill) and re-links agent dests. Sets `GITHUB_TOKEN` in the environment to raise the API rate limit on shared networks.
 
 If you built from source the old-fashioned way, re-run `install.sh` (or `git pull && ./install.sh --source`).
 
@@ -257,6 +257,7 @@ The legacy `~/.mdp` fallback only applies when `GANDER_CONFIG` is unset; named p
     Download and install the latest release, then exit. The runner is shut
     down over UDS first, the binary is replaced, then the supervisor (or a
     fresh spawn) brings the upgraded daemon back up with the same watches.
+    If the agent skill is already installed, also refreshes ~/.gander/skill.
 ```
 
 Subcommands:

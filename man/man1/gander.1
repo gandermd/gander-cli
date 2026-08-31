@@ -117,6 +117,8 @@ or debugging the watcher itself.
 .TP
 .BR \-upgrade ", " \-\-upgrade
 Download and install the latest release, then exit.
+If the agent skill is already installed, also refresh
+.IR ~/.gander/skill .
 .TP
 .BR \-\-help ", " \-h
 Print help and exit.
@@ -322,6 +324,15 @@ instead.
 .BR \-\-upgrade
 Download the latest release binary for the current platform, verify its
 checksum, atomically replace the running binary, and exit.
+If
+.I ~/.gander/skill
+(or a dest symlink pointing at it) is already present, also pull the
+latest
+.B gandermd/gander-skill
+and re-link the agent skill directories, matching
+.BR "gander skill" .
+A skill refresh failure does not undo a successful binary replace; the
+command still exits non-zero.
 .SH FILES
 .TP
 .I ~/.gander
