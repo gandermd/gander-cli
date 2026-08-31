@@ -11,7 +11,7 @@ import (
 
 const mcpProtocolVersion = "2024-11-05"
 
-const mcpInstructions = `Grok Build and Claude Code: Start one /loop 5m once per session via the scheduler (scheduler_create on Grok, CronCreate on Claude). Do not ask the user to type /loop. Do not stack duplicate loops. The loop prompt: call gander_list_comments with no path, then follow the comment rules below.
+const mcpInstructions = `Grok Build and Claude Code: The first time this session the user asks to gander a markdown file (preview, share, or gander watch), start one /loop 5m via the scheduler (scheduler_create on Grok, CronCreate on Claude). Do not ask the user to type /loop. Do not stack duplicate loops. The loop prompt: call gander_list_comments with no path, then follow the comment rules below.
 Other agents (Codex, OpenCode, Cursor, etc.): At the start of every turn, call gander_list_comments with no path.
 - The no-path result is metadata only (path, filename, share_url, unresolved_count). Do not fetch bodies for other files unless the user asks to handle that review.
 - If the user's request involves a file that has unresolved comments, call gander_list_comments with that path, then address them before other work: edit the file and/or gander_reply_comment. If watching is false, run gander watch <path> first so the reviewer sees live updates.

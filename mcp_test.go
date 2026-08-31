@@ -50,11 +50,16 @@ func TestMCPInstructionsGrokClaudeLoop(t *testing.T) {
 		"Grok Build and Claude Code",
 		"Other agents",
 		"Do not stack duplicate loops",
+		"first time this session",
+		"gander a markdown file",
 		"At the start of every turn, call gander_list_comments",
 	} {
 		if !strings.Contains(mcpInstructions, want) {
 			t.Errorf("mcpInstructions missing %q", want)
 		}
+	}
+	if strings.Contains(mcpInstructions, "once per session") {
+		t.Fatal("must not start the comment loop at session start")
 	}
 	grok := strings.Index(mcpInstructions, "Grok Build and Claude Code")
 	other := strings.Index(mcpInstructions, "Other agents")
