@@ -52,7 +52,6 @@ func TestMCPInstructionsGrokClaudeLoop(t *testing.T) {
 		"Do not stack duplicate loops",
 		"first time this session",
 		"gander a markdown file",
-		"At the start of every turn, call gander_list_comments",
 	} {
 		if !strings.Contains(mcpInstructions, want) {
 			t.Errorf("mcpInstructions missing %q", want)
@@ -68,6 +67,28 @@ func TestMCPInstructionsGrokClaudeLoop(t *testing.T) {
 	}
 	if strings.Contains(mcpInstructions[grok:other], "every turn") {
 		t.Fatal("Grok/Claude polling must not require every-turn inbox checks")
+	}
+}
+
+func TestMCPInstructionsOtherAgentsInbox(t *testing.T) {
+	other := strings.Index(mcpInstructions, "Other agents")
+	rules := strings.Index(mcpInstructions, "- The no-path result")
+	if other < 0 || rules < 0 || rules <= other {
+		t.Fatal("Other agents polling block must appear before the shared comment rules")
+	}
+	block := mcpInstructions[other:rules]
+	for _, want := range []string{
+		"first time this session",
+		"gander a markdown file",
+		"every subsequent turn",
+		"gander_list_comments",
+	} {
+		if !strings.Contains(block, want) {
+			t.Errorf("Other agents block missing %q", want)
+		}
+	}
+	if strings.Contains(block, "/loop") {
+		t.Fatal("Other agents must not start a /loop")
 	}
 }
 
