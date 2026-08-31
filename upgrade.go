@@ -61,42 +61,42 @@ func runUpgrade() error {
 
 	if Version != "dev" && rel.TagName == Version {
 		fmt.Println("Already on the latest version.")
-		return nil
+	} else {
+		assetName := assetNameForRuntime()
+		asset, ok := findAsset(rel.Assets, assetName)
+		if !ok {
+			return fmt.Errorf("no release asset named %s in %s; available: %s",
+				assetName, rel.HTMLURL, listAssetNames(rel.Assets))
+		}
+
+		fmt.Printf("Found %s, downloading %s...\n", rel.TagName, assetName)
+
+		binPath, err := downloadToTemp(asset.BrowserDownloadURL)
+		if err != nil {
+			return fmt.Errorf("download: %w", err)
+		}
+		defer os.Remove(binPath)
+
+		sum, err := downloadSha256(asset.BrowserDownloadURL + ".sha256")
+		if err != nil {
+			return fmt.Errorf("download checksum: %w", err)
+		}
+
+		if err := verifySha256(binPath, sum); err != nil {
+			return fmt.Errorf("checksum mismatch: %w", err)
+		}
+
+		if err := installBinary(binPath, exePath); err != nil {
+			return fmt.Errorf("install: %w", err)
+		}
+
+		fmt.Printf("Upgraded %s -> %s\n", Version, rel.TagName)
+		fmt.Printf("Release notes: %s\n", rel.HTMLURL)
+
+		restartDaemonAfterUpgrade(exePath)
 	}
 
-	assetName := assetNameForRuntime()
-	asset, ok := findAsset(rel.Assets, assetName)
-	if !ok {
-		return fmt.Errorf("no release asset named %s in %s; available: %s",
-			assetName, rel.HTMLURL, listAssetNames(rel.Assets))
-	}
-
-	fmt.Printf("Found %s, downloading %s...\n", rel.TagName, assetName)
-
-	binPath, err := downloadToTemp(asset.BrowserDownloadURL)
-	if err != nil {
-		return fmt.Errorf("download: %w", err)
-	}
-	defer os.Remove(binPath)
-
-	sum, err := downloadSha256(asset.BrowserDownloadURL + ".sha256")
-	if err != nil {
-		return fmt.Errorf("download checksum: %w", err)
-	}
-
-	if err := verifySha256(binPath, sum); err != nil {
-		return fmt.Errorf("checksum mismatch: %w", err)
-	}
-
-	if err := installBinary(binPath, exePath); err != nil {
-		return fmt.Errorf("install: %w", err)
-	}
-
-	fmt.Printf("Upgraded %s -> %s\n", Version, rel.TagName)
-	fmt.Printf("Release notes: %s\n", rel.HTMLURL)
-
-	restartDaemonAfterUpgrade(exePath)
-	return nil
+	return refreshSkillIfInstalled()
 }
 
 // stopDaemonForUpgrade asks the live runner to shut down over IPC so the

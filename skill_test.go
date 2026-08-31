@@ -162,6 +162,44 @@ func TestSkillInstallPrefersAgentsLayout(t *testing.T) {
 	}
 }
 
+func TestSkillAlreadyInstalled(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if skillAlreadyInstalled() {
+		t.Fatal("want false when nothing installed")
+	}
+
+	skillDir := filepath.Join(home, ".gander", "skill")
+	if err := os.MkdirAll(skillDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if skillAlreadyInstalled() {
+		t.Fatal("empty skill dir without SKILL.md is not installed")
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# Gander\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if !skillAlreadyInstalled() {
+		t.Fatal("want true when ~/.gander/skill/SKILL.md exists")
+	}
+}
+
+func TestSkillAlreadyInstalledDestSymlink(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	skillDir := filepath.Join(home, ".gander", "skill")
+	dest := filepath.Join(home, ".claude", "skills", "gander")
+	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(skillDir, dest); err != nil {
+		t.Fatal(err)
+	}
+	if !skillAlreadyInstalled() {
+		t.Fatal("want true when a dest is our skill symlink")
+	}
+}
+
 func TestSkillRejectsBadUsage(t *testing.T) {
 	err := runSkill([]string{"foo"})
 	if err == nil {

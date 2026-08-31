@@ -33,6 +33,33 @@ func runSkill(args []string) error {
 	return fmt.Errorf("usage: gander skill [install]")
 }
 
+func skillAlreadyInstalled() bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	skillDir := filepath.Join(home, ".gander", "skill")
+	if _, err := os.Stat(filepath.Join(skillDir, "SKILL.md")); err == nil {
+		return true
+	}
+	for _, d := range skillDests {
+		if isOurSkillLink(filepath.Join(home, d.rel), skillDir) {
+			return true
+		}
+	}
+	return false
+}
+
+func refreshSkillIfInstalled() error {
+	if !skillAlreadyInstalled() {
+		return nil
+	}
+	if err := runSkillInstall(); err != nil {
+		return fmt.Errorf("skill: %w", err)
+	}
+	return nil
+}
+
 func runSkillInstall() error {
 	home, err := os.UserHomeDir()
 	if err != nil {
