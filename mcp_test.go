@@ -52,6 +52,12 @@ func TestMCPInstructionsGrokClaudeLoop(t *testing.T) {
 		"Do not stack duplicate loops",
 		"first time this session",
 		"gander a markdown file",
+		"15 minutes",
+		"stop time",
+		"scheduler_delete",
+		"CronDelete",
+		"new comments",
+		"Comment polling lasts 15 minutes",
 	} {
 		if !strings.Contains(mcpInstructions, want) {
 			t.Errorf("mcpInstructions missing %q", want)
@@ -60,28 +66,40 @@ func TestMCPInstructionsGrokClaudeLoop(t *testing.T) {
 	if strings.Contains(mcpInstructions, "once per session") {
 		t.Fatal("must not start the comment loop at session start")
 	}
+	if strings.Contains(mcpInstructions, "30 minutes") {
+		t.Fatal("must not keep a 30-minute poll window")
+	}
 	grok := strings.Index(mcpInstructions, "Grok Build and Claude Code")
 	other := strings.Index(mcpInstructions, "Other agents")
 	if grok < 0 || other < 0 || other <= grok {
 		t.Fatal("Grok/Claude polling block must appear before Other agents")
 	}
-	if strings.Contains(mcpInstructions[grok:other], "every turn") {
+	block := mcpInstructions[grok:other]
+	if strings.Contains(block, "every turn") {
 		t.Fatal("Grok/Claude polling must not require every-turn inbox checks")
+	}
+	for _, want := range []string{"stop time", "scheduler_delete", "CronDelete", "move the stop time"} {
+		if !strings.Contains(block, want) {
+			t.Errorf("Grok/Claude block missing %q", want)
+		}
 	}
 }
 
 func TestMCPInstructionsOtherAgentsInbox(t *testing.T) {
 	other := strings.Index(mcpInstructions, "Other agents")
-	rules := strings.Index(mcpInstructions, "- The no-path result")
-	if other < 0 || rules < 0 || rules <= other {
-		t.Fatal("Other agents polling block must appear before the shared comment rules")
+	window := strings.Index(mcpInstructions, "Comment polling lasts")
+	if other < 0 || window < 0 || window <= other {
+		t.Fatal("Other agents polling block must appear before the shared window rule")
 	}
-	block := mcpInstructions[other:rules]
+	block := mcpInstructions[other:window]
 	for _, want := range []string{
 		"first time this session",
 		"gander a markdown file",
 		"every subsequent turn",
 		"gander_list_comments",
+		"15 minutes",
+		"skip the inbox check",
+		"restart the 15-minute window",
 	} {
 		if !strings.Contains(block, want) {
 			t.Errorf("Other agents block missing %q", want)
