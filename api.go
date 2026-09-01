@@ -37,16 +37,17 @@ type signupIntentPollResp struct {
 }
 
 type shareResp struct {
-	UUID            string `json:"uuid"`
-	ShortID         string `json:"short_id"`
-	Filename        string `json:"filename"`
-	Path            string `json:"path,omitempty"`
-	Watch           bool   `json:"watch"`
-	URL             string `json:"url"`
-	CreatedAt       string `json:"created_at"`
-	UpdatedAt       string `json:"updated_at"`
-	SizeBytes       int    `json:"size_bytes"`
-	UnresolvedCount int    `json:"unresolved_count"`
+	UUID                 string `json:"uuid"`
+	ShortID              string `json:"short_id"`
+	Filename             string `json:"filename"`
+	Path                 string `json:"path,omitempty"`
+	Watch                bool   `json:"watch"`
+	URL                  string `json:"url"`
+	CreatedAt            string `json:"created_at"`
+	UpdatedAt            string `json:"updated_at"`
+	SizeBytes            int    `json:"size_bytes"`
+	UnresolvedCount      int    `json:"unresolved_count"`
+	AgentUnresolvedCount int    `json:"agent_unresolved_count"`
 }
 
 type commentView struct {
@@ -198,10 +199,17 @@ func (c *apiClient) ListSharesByFilename(filename string) ([]shareResp, error) {
 	return out, nil
 }
 
-func (c *apiClient) ListComments(shareUUID string, unresolved bool) ([]threadView, error) {
+func (c *apiClient) ListComments(shareUUID string, unresolved, forAgent bool) ([]threadView, error) {
 	path := fmt.Sprintf("/api/shares/%s/comments", shareUUID)
+	q := url.Values{}
 	if unresolved {
-		path += "?unresolved=1"
+		q.Set("unresolved", "1")
+	}
+	if forAgent {
+		q.Set("for_agent", "1")
+	}
+	if enc := q.Encode(); enc != "" {
+		path += "?" + enc
 	}
 	var out threadsResp
 	if err := c.do("GET", path, nil, &out); err != nil {

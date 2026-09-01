@@ -104,7 +104,7 @@ func handleCommentEvent(raw []byte, filename string, n *commentNotifier) {
 		return
 	}
 	last := payload.Thread.Comments[len(payload.Thread.Comments)-1]
-	if last.AuthorKind == "author" {
+	if last.AuthorKind == "author" || last.AuthorKind == "agent" {
 		return
 	}
 	name := last.AuthorName
