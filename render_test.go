@@ -1,6 +1,7 @@
 package main
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -249,6 +250,8 @@ func TestBuildHTMLCSSIncludesNewClasses(t *testing.T) {
 		".gander-md-viewer-logo",
 		".gander-toc-logo",
 		".gander-toc-wordmark",
+		".gander-md-chrome",
+		".gander-theme-toggle",
 	} {
 		if !strings.Contains(page, cls) {
 			t.Errorf("buildHTML CSS missing %q", cls)
@@ -306,5 +309,201 @@ func TestBuildHTMLMermaidScopesToContentBody(t *testing.T) {
 	}
 	if strings.Contains(page, "getElementById('content') || document.body") {
 		t.Error("mermaid init script should not scope to the old #content id")
+	}
+}
+
+func TestThemeBootScriptInHeadBeforeStyle(t *testing.T) {
+	page := buildHTML("<p>x</p>", nil, false)
+	boot := strings.Index(page, "gander-theme")
+	style := strings.Index(page, "<style>")
+	if boot < 0 {
+		t.Fatal("page missing gander-theme boot script")
+	}
+	if style < 0 {
+		t.Fatal("page missing <style>")
+	}
+	if boot > style {
+		t.Error("theme boot script must run before <style>")
+	}
+	head := page[:style]
+	if !strings.Contains(head, `name="color-scheme"`) {
+		t.Error("color-scheme meta must appear before <style>")
+	}
+	if !strings.Contains(head, "data-theme") {
+		t.Error("boot script must set data-theme before <style>")
+	}
+}
+
+func TestThemeTokensPresent(t *testing.T) {
+	page := buildHTML("<p>x</p>", nil, false)
+	for _, want := range []string{
+		"--gander-bg",
+		"--gander-fg",
+		"--gander-canvas",
+		`html[data-theme="dark"]`,
+		`html[data-theme="light"]`,
+		"color-scheme",
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("page missing %q", want)
+		}
+	}
+	if !strings.Contains(page, "background-color: var(--gander-bg)") {
+		t.Error("viewer body must use var(--gander-bg)")
+	}
+}
+
+func TestCssStyleHexLeak(t *testing.T) {
+	re := regexp.MustCompile(`#([0-9a-fA-F]{3,8})\b|rgba?\(`)
+	if loc := re.FindString(cssStyle); loc != "" {
+		t.Errorf("cssStyle leaked raw color %q; use var(--gander-*)", loc)
+	}
+}
+
+func TestLogoUsesCurrentColor(t *testing.T) {
+	if strings.Contains(viewerLogoSVG, `fill="#1b283f"`) {
+		t.Error("viewerLogoSVG must not hardcode fill #1b283f")
+	}
+	if !strings.Contains(viewerLogoSVG, `fill="currentColor"`) {
+		t.Error("viewerLogoSVG path must use fill=\"currentColor\"")
+	}
+}
+
+func TestNoRuntimePrefersColorScheme(t *testing.T) {
+	if strings.Contains(cssStyle, "prefers-color-scheme") {
+		t.Error("cssStyle must not use prefers-color-scheme; tokens carry dark values")
+	}
+	css := themeTokensCSS()
+	idx := strings.Index(css, "@media (prefers-color-scheme: dark)")
+	if idx < 0 {
+		t.Fatal("themeTokensCSS missing no-JS dark fallback")
+	}
+	fallback := css[idx:]
+	if !strings.Contains(fallback, `:root:not([data-theme])`) {
+		t.Error("prefers-color-scheme may only wrap :root:not([data-theme])")
+	}
+}
+
+func TestThemeToggleOutsideContentBody(t *testing.T) {
+	_, headings := renderMarkdownWithIDs("# A\n\n## B\n\nbody")
+	page := buildHTML("<p>x</p>", headings, true)
+
+	bodyOpen := strings.Index(page, `<div id="content-body">`)
+	if bodyOpen < 0 {
+		t.Fatal("page missing #content-body")
+	}
+	bodyClose := strings.Index(page[bodyOpen:], `</div>`)
+	if bodyClose < 0 {
+		t.Fatal("page #content-body not closed")
+	}
+	bodyInner := page[bodyOpen : bodyOpen+bodyClose]
+	if strings.Contains(bodyInner, "gander-theme-toggle") {
+		t.Error("theme toggle must sit outside #content-body so watch reloads do not eat it")
+	}
+	if strings.Contains(bodyInner, "gander-md-chrome") {
+		t.Error("chrome cluster must sit outside #content-body")
+	}
+	if strings.Contains(page, "gander-theme-toggle--toc") {
+		t.Error("theme toggle must not live in the TOC")
+	}
+	if !strings.Contains(page, `class="gander-md-chrome"`) {
+		t.Error("page should render the top-right chrome cluster")
+	}
+	if !strings.Contains(page, `class="gander-theme-toggle"`) {
+		t.Error("chrome should contain the theme toggle")
+	}
+}
+
+func TestThemeToggleWithoutTOC(t *testing.T) {
+	page := buildHTML("<p>x</p>", nil, false)
+	if strings.Contains(page, "gander-theme-toggle--toc") {
+		t.Error("no-TOC pages should not render a TOC toggle")
+	}
+	if !strings.Contains(page, `class="gander-md-meta gander-md-meta--chrome-only"`) {
+		t.Error("no-TOC pages still need the chrome-only header")
+	}
+	if !strings.Contains(page, `class="gander-theme-toggle"`) {
+		t.Error("no-TOC pages should render the theme toggle")
+	}
+}
+
+func TestThemeToggleAccessible(t *testing.T) {
+	page := buildHTML("<p>x</p>", nil, false)
+	if !strings.Contains(page, `aria-label="Dark mode"`) {
+		t.Error("toggle must have aria-label=\"Dark mode\"")
+	}
+	if !strings.Contains(page, `aria-pressed="false"`) {
+		t.Error("toggle must use aria-pressed")
+	}
+	if strings.Contains(page, ">Dark mode</button>") {
+		t.Error("toggle must be icon-only; the accessible name is aria-label")
+	}
+	if strings.Contains(page, "Switch to light mode") {
+		t.Error("do not mix aria-pressed with action names like Switch to light mode")
+	}
+	if !strings.Contains(page, ":focus-visible") {
+		t.Error("toggle CSS must include :focus-visible")
+	}
+	if !strings.Contains(page, `type="button"`) {
+		t.Error("toggle must be type=button")
+	}
+	if !strings.Contains(page, "gander-theme-toggle-knob") || !strings.Contains(page, "border-radius: 999px") {
+		t.Error("toggle must be the pill switch")
+	}
+}
+
+func TestThemeChromeCluster(t *testing.T) {
+	if !strings.Contains(cssStyle, ".gander-md-chrome") {
+		t.Fatal("cssStyle missing .gander-md-chrome")
+	}
+	if strings.Contains(cssStyle, ".gander-md-toolbar") {
+		t.Error("CLI preview should use the chrome cluster, not a leftover toolbar")
+	}
+}
+
+func TestMermaidHonorsTheme(t *testing.T) {
+	page := buildHTML("<p>x</p>", nil, false)
+	for _, want := range []string{
+		"mermaid.initialize",
+		"'dark'",
+		"data-gander-mermaid",
+		"inflight",
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("mermaid init missing %q", want)
+		}
+	}
+	if !strings.Contains(mermaidInitScript, "inflight.catch") || !strings.Contains(mermaidInitScript, ".then(") {
+		t.Error("overlapping mermaid.run calls must serialize on an inflight Promise")
+	}
+}
+
+func TestThemeTokensCoverLightAndDark(t *testing.T) {
+	css := themeTokensCSS()
+	lightStart := strings.Index(css, `:root, html[data-theme="light"]`)
+	darkStart := strings.Index(css, `html[data-theme="dark"]`)
+	fallbackStart := strings.Index(css, `:root:not([data-theme])`)
+	if lightStart < 0 || darkStart < 0 || fallbackStart < 0 {
+		t.Fatal("themeTokensCSS missing light, dark, or no-JS fallback block")
+	}
+	lightBlock := css[lightStart:darkStart]
+	darkBlock := css[darkStart:fallbackStart]
+	fallbackBlock := css[fallbackStart:]
+	re := regexp.MustCompile(`--gander-[a-z0-9-]+`)
+	seen := map[string]bool{}
+	for _, tok := range re.FindAllString(lightBlock, -1) {
+		if seen[tok] {
+			continue
+		}
+		seen[tok] = true
+		if !strings.Contains(darkBlock, tok) {
+			t.Errorf("dark block missing %s", tok)
+		}
+		if !strings.Contains(fallbackBlock, tok) {
+			t.Errorf("no-JS fallback missing %s", tok)
+		}
+	}
+	if len(seen) != len(themeTokenTable) {
+		t.Errorf("light block has %d unique tokens, table has %d", len(seen), len(themeTokenTable))
 	}
 }
