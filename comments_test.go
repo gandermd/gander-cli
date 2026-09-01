@@ -39,7 +39,7 @@ func TestLoadInboxSkipsZeroCount(t *testing.T) {
 		t.Fatal(err)
 	}
 	cli := newAPIClient(cfg.APIURL, cfg.APIToken)
-	items, err := loadInbox(cli, cfg, "")
+	items, err := loadInbox(cli, cfg, "", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,8 +54,8 @@ func TestLoadInboxSummaryOmitsThreads(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/shares", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode([]shareResp{
-			{UUID: "u1", ShortID: "aaaaaaaa", Filename: "a.md", URL: "https://gander.md/s/aaaaaaaa", UnresolvedCount: 0},
-			{UUID: "u2", ShortID: "bbbbbbbb", Filename: "b.md", URL: "https://gander.md/s/bbbbbbbb", UnresolvedCount: 2},
+			{UUID: "u1", ShortID: "aaaaaaaa", Filename: "a.md", URL: "https://gander.md/s/aaaaaaaa", UnresolvedCount: 2, AgentUnresolvedCount: 0},
+			{UUID: "u2", ShortID: "bbbbbbbb", Filename: "b.md", URL: "https://gander.md/s/bbbbbbbb", UnresolvedCount: 2, AgentUnresolvedCount: 2},
 		})
 	})
 	mux.HandleFunc("/api/shares/", func(w http.ResponseWriter, r *http.Request) {
@@ -75,14 +75,17 @@ func TestLoadInboxSummaryOmitsThreads(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(items) != 1 || items[0].Filename != "b.md" || items[0].UnresolvedCount != 2 {
+	if len(items) != 1 || items[0].Filename != "b.md" || items[0].AgentUnresolvedCount != 2 {
 		t.Fatalf("summary = %+v", items)
 	}
 	raw := inboxSummaryJSON(items)
-	for _, ban := range []string{`"threads"`, `"body"`, `"author_name"`} {
+	for _, ban := range []string{`"threads"`, `"body"`, `"author_name"`, `"unresolved_count"`} {
 		if strings.Contains(raw, ban) {
 			t.Errorf("summary JSON contains %s: %s", ban, raw)
 		}
+	}
+	if !strings.Contains(raw, `"agent_unresolved_count":2`) {
+		t.Errorf("summary JSON missing agent_unresolved_count: %s", raw)
 	}
 }
 
@@ -170,6 +173,46 @@ func TestReplyAndResolveViaAPI(t *testing.T) {
 	}
 }
 
+func TestLoadInboxForAgentRequestsForAgentFilter(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/shares", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode([]shareResp{
+			{UUID: "u1", ShortID: "aaaaaaaa", Filename: "a.md", URL: "https://gander.md/s/aaaaaaaa", UnresolvedCount: 1, AgentUnresolvedCount: 0},
+			{UUID: "u2", ShortID: "bbbbbbbb", Filename: "b.md", URL: "https://gander.md/s/bbbbbbbb", UnresolvedCount: 1, AgentUnresolvedCount: 1},
+		})
+	})
+	mux.HandleFunc("/api/shares/u1/comments", func(w http.ResponseWriter, r *http.Request) {
+		t.Error("human-only share must not be fetched for agent inbox")
+	})
+	mux.HandleFunc("/api/shares/u2/comments", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("for_agent") != "1" {
+			t.Errorf("expected for_agent=1, got %s", r.URL.RawQuery)
+		}
+		_ = json.NewEncoder(w).Encode(threadsResp{Threads: []threadView{{
+			UUID: "t1", Quote: "hello", Comments: []commentView{{AuthorName: "Pat", Body: "@agent please fix", AuthorKind: "reviewer"}},
+		}}})
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	if err := os.WriteFile(filepath.Join(tmp, ".gander"), []byte(`{"api_url":"`+srv.URL+`","api_token":"gmd_x"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cli := newAPIClient(cfg.APIURL, cfg.APIToken)
+	items, err := loadInbox(cli, cfg, "", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].Filename != "b.md" || items[0].Threads[0].UUID != "t1" {
+		t.Fatalf("agent inbox = %+v", items)
+	}
+}
+
 func TestHandleCommentEventSkipsAuthor(t *testing.T) {
 	raw := []byte(`{"op":"replied","thread":{"comments":[{"author_kind":"author","author_name":"Ada","body":"ok"}]}}`)
 	n := newCommentNotifier()
@@ -179,6 +222,18 @@ func TestHandleCommentEventSkipsAuthor(t *testing.T) {
 	n.mu.Unlock()
 	if ok {
 		t.Fatal("should skip author replies")
+	}
+}
+
+func TestHandleCommentEventSkipsAgent(t *testing.T) {
+	raw := []byte(`{"op":"replied","thread":{"comments":[{"author_kind":"agent","author_name":"agent","body":"done"}]}}`)
+	n := newCommentNotifier()
+	handleCommentEvent(raw, "plan.md", n)
+	n.mu.Lock()
+	_, ok := n.pending["plan.md"]
+	n.mu.Unlock()
+	if ok {
+		t.Fatal("should skip agent replies")
 	}
 }
 

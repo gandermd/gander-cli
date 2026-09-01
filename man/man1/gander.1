@@ -242,7 +242,10 @@ all shares on this machine. With a file, lists comments on that share.
 .TP
 .B mcp
 Run the Gander MCP server on stdio (forked by the agent). Not meant to be
-invoked by hand.
+invoked by hand. The comment inbox only surfaces threads with an
+unanswered comment that starts with
+.BR @agent ;
+human-to-human threads stay off the agent inbox.
 .TP
 .B mcp install
 Merge a Gander MCP entry into OpenCode, Claude Code, Cursor, and Codex

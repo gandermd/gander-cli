@@ -19,12 +19,12 @@ type inboxItem struct {
 }
 
 type inboxSummary struct {
-	Path            string `json:"path"`
-	Filename        string `json:"filename"`
-	ShareURL        string `json:"share_url"`
-	ShareUUID       string `json:"share_uuid"`
-	Watching        bool   `json:"watching"`
-	UnresolvedCount int    `json:"unresolved_count"`
+	Path                 string `json:"path"`
+	Filename             string `json:"filename"`
+	ShareURL             string `json:"share_url"`
+	ShareUUID            string `json:"share_uuid"`
+	Watching             bool   `json:"watching"`
+	AgentUnresolvedCount int    `json:"agent_unresolved_count"`
 }
 
 func runComments(args []string) error {
@@ -40,7 +40,7 @@ func runComments(args []string) error {
 		filter = args[0]
 	}
 	cli := newAPIClient(cfg.APIURL, cfg.APIToken)
-	items, err := loadInbox(cli, cfg, filter)
+	items, err := loadInbox(cli, cfg, filter, false)
 	if err != nil {
 		return err
 	}
@@ -102,24 +102,24 @@ func loadInboxSummary(cli *apiClient, cfg Config) ([]inboxSummary, error) {
 	var items []inboxSummary
 	for i := range all {
 		sh := all[i]
-		if sh.UnresolvedCount == 0 {
+		if sh.AgentUnresolvedCount == 0 {
 			continue
 		}
 		local := localSharePath(sh, pathByShort)
 		_, isWatching := watching[local]
 		items = append(items, inboxSummary{
-			Path:            local,
-			Filename:        sh.Filename,
-			ShareURL:        sh.URL,
-			ShareUUID:       sh.UUID,
-			Watching:        isWatching,
-			UnresolvedCount: sh.UnresolvedCount,
+			Path:                 local,
+			Filename:             sh.Filename,
+			ShareURL:             sh.URL,
+			ShareUUID:            sh.UUID,
+			Watching:             isWatching,
+			AgentUnresolvedCount: sh.AgentUnresolvedCount,
 		})
 	}
 	return items, nil
 }
 
-func loadInbox(cli *apiClient, cfg Config, filterPath string) ([]inboxItem, error) {
+func loadInbox(cli *apiClient, cfg Config, filterPath string, forAgent bool) ([]inboxItem, error) {
 	all, err := cli.ListShares()
 	if err != nil {
 		return nil, fmt.Errorf("list shares: %w", err)
@@ -142,10 +142,14 @@ func loadInbox(cli *apiClient, cfg Config, filterPath string) ([]inboxItem, erro
 			if local != filterCan && sh.Filename != filepath.Base(filterPath) {
 				continue
 			}
+		} else if forAgent {
+			if sh.AgentUnresolvedCount == 0 {
+				continue
+			}
 		} else if sh.UnresolvedCount == 0 {
 			continue
 		}
-		threads, err := cli.ListComments(sh.UUID, true)
+		threads, err := cli.ListComments(sh.UUID, true, forAgent)
 		if err != nil {
 			return nil, fmt.Errorf("comments %s: %w", sh.ShortID, err)
 		}
@@ -195,7 +199,7 @@ func shareWatchingSet() map[string]struct{} {
 }
 
 func findShareForThread(cli *apiClient, cfg Config, threadID string) (shareUUID, path string, err error) {
-	items, err := loadInbox(cli, cfg, "")
+	items, err := loadInbox(cli, cfg, "", false)
 	if err != nil {
 		return "", "", err
 	}
@@ -211,7 +215,7 @@ func findShareForThread(cli *apiClient, cfg Config, threadID string) (shareUUID,
 		return "", "", err
 	}
 	for i := range all {
-		threads, err := cli.ListComments(all[i].UUID, false)
+		threads, err := cli.ListComments(all[i].UUID, false, false)
 		if err != nil {
 			continue
 		}
