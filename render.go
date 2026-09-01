@@ -235,12 +235,20 @@ const themeToggleScript = `(function(){
 	}
 })();`
 
+const themeSunSVG = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="2.5"/><path d="M8 1.75v1.5M8 12.75v1.5M1.75 8h1.5M12.75 8h1.5M3.4 3.4l1.06 1.06M11.54 11.54l1.06 1.06M3.4 12.6l1.06-1.06M11.54 4.46l1.06-1.06"/></svg>`
+
+const themeMoonSVG = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.25 10.1A5.5 5.5 0 0 1 5.9 2.75 5.5 5.5 0 1 0 13.25 10.1z"/></svg>`
+
 func themeToggleButton(extraClass string) string {
 	class := "gander-theme-toggle"
 	if extraClass != "" {
 		class += " " + extraClass
 	}
-	return `<button type="button" class="` + class + `" aria-label="Dark mode" aria-pressed="false">Dark mode</button>`
+	return `<button type="button" class="` + class + `" aria-label="Dark mode" aria-pressed="false">` +
+		`<span class="gander-theme-toggle-sun" aria-hidden="true">` + themeSunSVG + `</span>` +
+		`<span class="gander-theme-toggle-moon" aria-hidden="true">` + themeMoonSVG + `</span>` +
+		`<span class="gander-theme-toggle-knob" aria-hidden="true"></span>` +
+		`</button>`
 }
 
 func themeHead(pageCSS string) string {
@@ -383,28 +391,74 @@ li + li { margin-top: 0.25em; }
 }
 .gander-md-viewer-logo svg { display: block; }
 
-.gander-md-toolbar {
+.gander-md-meta {
 	display: flex;
-	justify-content: flex-start;
-	margin: 0 0 1rem 0;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	margin: 0 0 1.5rem 0;
+	padding-bottom: 1rem;
+	border-bottom: 1px solid var(--gander-border);
+}
+.gander-md-meta--chrome-only {
+	justify-content: flex-end;
+	border-bottom: none;
+	padding-bottom: 0;
+	margin-bottom: 1rem;
+}
+.gander-md-chrome {
+	display: flex;
+	align-items: center;
+	gap: 0.45rem;
+	flex-shrink: 0;
+	margin-left: auto;
 }
 .gander-theme-toggle {
-	background: transparent;
+	position: relative;
+	width: 52px;
+	height: 28px;
+	padding: 0;
 	border: 1px solid var(--gander-border-control);
-	border-radius: 4px;
-	color: var(--gander-subtle);
-	font-family: inherit;
-	font-size: 0.85em;
-	padding: 0.15rem 0.5rem;
+	border-radius: 999px;
+	background: var(--gander-control-hover-bg);
+	color: var(--gander-muted);
 	cursor: pointer;
+	flex-shrink: 0;
 }
-.gander-theme-toggle:hover {
-	background: var(--gander-pre-bg);
-}
-.gander-theme-toggle--toc { margin: 0 0 1.25rem 0; }
 .gander-theme-toggle:focus-visible {
 	outline: 2px solid var(--gander-link);
 	outline-offset: 2px;
+}
+.gander-theme-toggle-sun,
+.gander-theme-toggle-moon {
+	position: absolute;
+	top: 50%;
+	width: 14px;
+	height: 14px;
+	transform: translateY(-50%);
+	pointer-events: none;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.gander-theme-toggle-sun { left: 7px; }
+.gander-theme-toggle-moon { right: 7px; }
+.gander-theme-toggle svg { display: block; }
+.gander-theme-toggle-knob {
+	position: absolute;
+	top: 3px;
+	left: 3px;
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	background: var(--gander-on-primary);
+	box-shadow: 0 1px 2px var(--gander-shadow);
+	transition: transform 0.18s ease;
+	pointer-events: none;
+}
+html[data-theme="dark"] .gander-theme-toggle-knob {
+	transform: translateX(24px);
 }
 
 @media (min-width: 950px) {
@@ -413,9 +467,6 @@ li + li { margin-top: 0.25em; }
 	}
 	.gander-layout:not(.gander-layout--no-toc) .gander-toc {
 		display: block;
-	}
-	.gander-layout:not(.gander-layout--no-toc) .gander-md-toolbar {
-		display: none;
 	}
 	.gander-layout.gander-layout--no-toc .gander-content {
 		margin: 0 auto;
@@ -429,7 +480,6 @@ li + li { margin-top: 0.25em; }
 	.gander-layout .gander-toc {
 		display: none !important;
 	}
-	.gander-theme-toggle--toc { display: none; }
 	.gander-content {
 		padding: 2rem 1.5rem;
 	}
@@ -581,10 +631,9 @@ func buildHTML(content string, headings []Heading, withLiveReload bool) string {
 	if len(headings) >= 2 {
 		tocHTML = fmt.Sprintf(`<nav class="gander-toc" id="toc">
 <a href="https://gander.md/" class="gander-toc-logo">%s<span class="gander-toc-wordmark">gander</span></a>
-%s
 <div class="gander-toc-title">On this page</div>
 <ul id="toc-list"></ul>
-</nav>`, viewerLogoSVG, themeToggleButton("gander-theme-toggle--toc"))
+</nav>`, viewerLogoSVG)
 		layoutClass = "gander-layout"
 	}
 
@@ -593,7 +642,7 @@ func buildHTML(content string, headings []Heading, withLiveReload bool) string {
 		script = tocScript + reloadScript
 	}
 
-	toolbarHTML := `<div class="gander-md-toolbar">` + themeToggleButton("gander-theme-toggle--main") + `</div>`
+	toolbarHTML := `<div class="gander-md-meta gander-md-meta--chrome-only"><div class="gander-md-chrome">` + themeToggleButton("") + `</div></div>`
 	ctaHTML := fmt.Sprintf(`<div class="gander-md-cta"><div class="gander-md-viewer-logo">%s</div>Get your gander at <a href="https://gander.md/cli">gander.md/cli</a></div>`, viewerLogoSVG)
 
 	return fmt.Sprintf(`<!DOCTYPE html>

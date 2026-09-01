@@ -250,7 +250,7 @@ func TestBuildHTMLCSSIncludesNewClasses(t *testing.T) {
 		".gander-md-viewer-logo",
 		".gander-toc-logo",
 		".gander-toc-wordmark",
-		".gander-md-toolbar",
+		".gander-md-chrome",
 		".gander-theme-toggle",
 	} {
 		if !strings.Contains(page, cls) {
@@ -400,30 +400,30 @@ func TestThemeToggleOutsideContentBody(t *testing.T) {
 	if strings.Contains(bodyInner, "gander-theme-toggle") {
 		t.Error("theme toggle must sit outside #content-body so watch reloads do not eat it")
 	}
-	if strings.Contains(bodyInner, "gander-md-toolbar") {
-		t.Error("toolbar must sit outside #content-body")
+	if strings.Contains(bodyInner, "gander-md-chrome") {
+		t.Error("chrome cluster must sit outside #content-body")
 	}
-	if !strings.Contains(page, `class="gander-theme-toggle gander-theme-toggle--toc"`) {
-		t.Error("TOC pages should render a Dark mode toggle under the logo")
+	if strings.Contains(page, "gander-theme-toggle--toc") {
+		t.Error("theme toggle must not live in the TOC")
 	}
-	if !strings.Contains(page, `class="gander-md-toolbar"`) {
-		t.Error("page should render a left-aligned toolbar for no-TOC / mobile")
+	if !strings.Contains(page, `class="gander-md-chrome"`) {
+		t.Error("page should render the top-right chrome cluster")
 	}
-	if !strings.Contains(page, `class="gander-theme-toggle gander-theme-toggle--main"`) {
-		t.Error("toolbar should contain the main Dark mode toggle")
+	if !strings.Contains(page, `class="gander-theme-toggle"`) {
+		t.Error("chrome should contain the theme toggle")
 	}
 }
 
 func TestThemeToggleWithoutTOC(t *testing.T) {
 	page := buildHTML("<p>x</p>", nil, false)
-	if strings.Contains(page, `class="gander-theme-toggle gander-theme-toggle--toc"`) {
-		t.Error("no-TOC pages should not render the TOC toggle")
+	if strings.Contains(page, "gander-theme-toggle--toc") {
+		t.Error("no-TOC pages should not render a TOC toggle")
 	}
-	if !strings.Contains(page, `class="gander-md-toolbar"`) {
-		t.Error("no-TOC pages still need the toolbar toggle")
+	if !strings.Contains(page, `class="gander-md-meta gander-md-meta--chrome-only"`) {
+		t.Error("no-TOC pages still need the chrome-only header")
 	}
-	if !strings.Contains(page, `class="gander-theme-toggle gander-theme-toggle--main"`) {
-		t.Error("no-TOC pages should render the main Dark mode toggle")
+	if !strings.Contains(page, `class="gander-theme-toggle"`) {
+		t.Error("no-TOC pages should render the theme toggle")
 	}
 }
 
@@ -435,8 +435,8 @@ func TestThemeToggleAccessible(t *testing.T) {
 	if !strings.Contains(page, `aria-pressed="false"`) {
 		t.Error("toggle must use aria-pressed")
 	}
-	if !strings.Contains(page, ">Dark mode</button>") {
-		t.Error("visible label must be the stable string Dark mode")
+	if strings.Contains(page, ">Dark mode</button>") {
+		t.Error("toggle must be icon-only; the accessible name is aria-label")
 	}
 	if strings.Contains(page, "Switch to light mode") {
 		t.Error("do not mix aria-pressed with action names like Switch to light mode")
@@ -447,14 +447,17 @@ func TestThemeToggleAccessible(t *testing.T) {
 	if !strings.Contains(page, `type="button"`) {
 		t.Error("toggle must be type=button")
 	}
+	if !strings.Contains(page, "gander-theme-toggle-knob") || !strings.Contains(page, "border-radius: 999px") {
+		t.Error("toggle must be the pill switch")
+	}
 }
 
-func TestToolbarFlexStart(t *testing.T) {
-	if !strings.Contains(cssStyle, ".gander-md-toolbar") {
-		t.Fatal("cssStyle missing .gander-md-toolbar")
+func TestThemeChromeCluster(t *testing.T) {
+	if !strings.Contains(cssStyle, ".gander-md-chrome") {
+		t.Fatal("cssStyle missing .gander-md-chrome")
 	}
-	if !strings.Contains(cssStyle, "justify-content: flex-start") {
-		t.Error("toolbar must be left-aligned (flex-start), not flex-end")
+	if strings.Contains(cssStyle, ".gander-md-toolbar") {
+		t.Error("CLI preview should use the chrome cluster, not a leftover toolbar")
 	}
 }
 
