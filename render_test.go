@@ -422,6 +422,9 @@ func TestThemeToggleWithoutTOC(t *testing.T) {
 	if !strings.Contains(page, `class="gander-md-meta gander-md-meta--chrome-only"`) {
 		t.Error("no-TOC pages still need the chrome-only header")
 	}
+	if strings.Contains(page, "select text to comment") || strings.Contains(page, "gander-md-meta-hint") {
+		t.Error("local preview must not show a select-text-to-comment hint")
+	}
 	if !strings.Contains(page, `class="gander-theme-toggle"`) {
 		t.Error("no-TOC pages should render the theme toggle")
 	}
