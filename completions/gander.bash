@@ -18,12 +18,22 @@ _gander_completions() {
             COMPREPLY=( $(compgen -W "--email --force" -- "${cur}") )
             return 0
             ;;
-        share)
-            COMPREPLY=( $(compgen -W "--watch" -- "${cur}") )
-            return 0
-            ;;
-        watch)
-            COMPREPLY=( $(compgen -W "--foreground" -- "${cur}") )
+        share|watch)
+            case "${prev}" in
+                --comments)
+                    COMPREPLY=( $(compgen -W "anyone team" -- "${cur}") )
+                    return 0
+                    ;;
+                --comment-visibility)
+                    COMPREPLY=( $(compgen -W "public team" -- "${cur}") )
+                    return 0
+                    ;;
+            esac
+            local share_flags="--watch --foreground --comments --comment-visibility --private --no-comments"
+            if [[ "${COMP_WORDS[1]}" == "watch" ]]; then
+                share_flags="--foreground --comments --comment-visibility --private --no-comments"
+            fi
+            COMPREPLY=( $(compgen -W "${share_flags}" -- "${cur}") )
             COMPREPLY+=( $(compgen -f -- "${cur}") )
             return 0
             ;;

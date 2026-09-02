@@ -11,9 +11,17 @@ gander \- render Markdown locally, optionally share it on gander.md
 .sp
 .B gander share
 .RB [ \-watch ]
+.RB [ \-\-comments =\fIanyone\fR|\fIteam\fR]
+.RB [ \-\-comment\-visibility =\fIpublic\fR|\fIteam\fR]
+.RB [ \-\-private ]
+.RB [ \-\-no\-comments ]
 .IR file.md
 .sp
 .B gander watch
+.RB [ \-\-comments =\fIanyone\fR|\fIteam\fR]
+.RB [ \-\-comment\-visibility =\fIpublic\fR|\fIteam\fR]
+.RB [ \-\-private ]
+.RB [ \-\-no\-comments ]
 .IR file.md
 .sp
 .B gander status
@@ -142,11 +150,40 @@ The address to register. Required.
 Upload
 .IR file.md
 to gander.md, print the share link, and open it in the browser.
+Omit each policy flag to leave the stored value alone on an upsert
+(new shares default to anyone may comment, public threads, public doc).
 .sp
 .RS
 .TP
 .B \-watch
 Continuously push local changes to the remote share until interrupted.
+.TP
+.BR \-\-comments =\fIanyone\fR|\fIteam
+Who may write comments.
+.I team
+limits writes to the author and members with a comment grant.
+Omitting thread visibility with
+.B \-\-comments team
+lets the server default threads to team\-only.
+.TP
+.BR \-\-comment\-visibility =\fIpublic\fR|\fIteam
+Who may see comment threads.
+.TP
+.B \-\-private
+Make the document private. The share URL is no longer a read
+credential; viewers must be signed in as the owner or hold a read/comment
+grant. Omitting the other policy flags lets the server default comment
+access and thread visibility to team.
+.TP
+.B \-\-no\-comments
+Alias for
+.BR "\-\-comments team" :
+hide threads from the public; the author's team can still comment.
+Cannot be combined with
+.BR "\-\-comments anyone" .
+.B \-\-private
+cannot be combined with
+.BR "\-\-comments anyone" .
 .RE
 .SS "Watch"
 .TP
@@ -157,6 +194,15 @@ Shorthand for
 .IR file.md
 to gander.md and live\-update the remote share on every save. The
 share is owned by the runner daemon and survives the CLI's lifetime.
+Accepts the same
+.BR \-\-comments ","
+.BR \-\-comment\-visibility ","
+.BR \-\-private ","
+and
+.B \-\-no\-comments
+flags as
+.BR share .
+Content pushes send only the markdown body and never clobber policy.
 .SS "Status"
 .TP
 .B status
@@ -231,7 +277,8 @@ when the argument is ambiguous.
 .TP
 .B list
 Print a table of every share in the user's gander.md account (short id,
-file, watch flag, last update, URL).
+file, watch flag, comment access, thread visibility, private, last
+update, URL).
 .SS "Comments"
 .TP
 .B comments

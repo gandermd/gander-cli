@@ -40,11 +40,20 @@ _gander() {
         share)
             _arguments \
                 '--watch[Live-update the shared page as the file changes]' \
+                '--foreground[Keep share --watch in-process instead of handing off to the runner]' \
+                '--comments[Who may comment]:access:(anyone team)' \
+                '--comment-visibility[Who may see comment threads]:visibility:(public team)' \
+                '--private[Make the document private (team access + team-only threads)]' \
+                '--no-comments[Hide comments from the public (alias for --comments team)]' \
                 '*:markdown file:_files -g "*.md"'
             ;;
         watch)
             _arguments \
                 '--foreground[Run the foreground blocking watcher instead of handing off to the runner]' \
+                '--comments[Who may comment]:access:(anyone team)' \
+                '--comment-visibility[Who may see comment threads]:visibility:(public team)' \
+                '--private[Make the document private (team access + team-only threads)]' \
+                '--no-comments[Hide comments from the public (alias for --comments team)]' \
                 '*:markdown file:_files -g "*.md"'
             ;;
         remove)

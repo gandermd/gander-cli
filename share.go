@@ -28,16 +28,27 @@ func runWatchCmdWithCtx(ctx context.Context, args []string) error {
 	return runShareWithCtx(ctx, append([]string{"--watch"}, args...))
 }
 
+const shareUsage = "usage: gander share [--watch] [--foreground] [--comments=anyone|team] [--comment-visibility=public|team] [--private] [--no-comments] file.md"
+
 func runShareWithCtx(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("share", flag.ContinueOnError)
 	watch := fs.Bool("watch", false, "live-update the shared page as the file changes")
 	foreground := fs.Bool("foreground", false, "keep share --watch in-process instead of handing off to the runner")
+	comments := fs.String("comments", "", "who may comment: anyone or team")
+	commentVis := fs.String("comment-visibility", "", "who may see comment threads: public or team")
+	private := fs.Bool("private", false, "make the document private (team access + team-only threads)")
+	noComments := fs.Bool("no-comments", false, "hide comments from the public (alias for --comments team)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	rest := fs.Args()
 	if len(rest) != 1 {
-		return fmt.Errorf("usage: gander share [--watch] [--foreground] file.md")
+		return fmt.Errorf("%s", shareUsage)
+	}
+
+	opts, err := shareOptsFromFlags(fs, *comments, *commentVis, *private, *noComments)
+	if err != nil {
+		return err
 	}
 
 	canonical, err := canonicalPath(rest[0])
@@ -57,9 +68,12 @@ func runShareWithCtx(ctx context.Context, args []string) error {
 
 	cli := newAPIClient(cfg.APIURL, cfg.APIToken)
 	_, hadLocal := cfg.Shares[canonical]
-	sh, created, err := cli.CreateShare(filepath.Base(canonical), canonical, string(content), *watch)
+	sh, created, err := cli.CreateShare(filepath.Base(canonical), canonical, string(content), *watch, opts)
 	if err != nil {
 		return fmt.Errorf("create: %w", err)
+	}
+	if err := checkSharePolicyEcho(opts, sh); err != nil {
+		return err
 	}
 	cfg.Shares[canonical] = sh.ShortID
 	if err := WriteConfig(cfg); err != nil {
@@ -255,6 +269,81 @@ func requireAuth() (Config, error) {
 		return cfg, fmt.Errorf("not signed up — run `gander signup --email you@example.com` first")
 	}
 	return cfg, nil
+}
+
+func flagSetVisited(fs *flag.FlagSet, name string) bool {
+	found := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			found = true
+		}
+	})
+	return found
+}
+
+func shareOptsFromFlags(fs *flag.FlagSet, comments, commentVis string, private, noComments bool) (shareOpts, error) {
+	commentsSet := flagSetVisited(fs, "comments")
+	visSet := flagSetVisited(fs, "comment-visibility")
+
+	if commentsSet {
+		switch comments {
+		case "anyone", "team":
+		default:
+			return shareOpts{}, fmt.Errorf("--comments must be anyone or team")
+		}
+	}
+	if visSet {
+		switch commentVis {
+		case "public", "team":
+		default:
+			return shareOpts{}, fmt.Errorf("--comment-visibility must be public or team")
+		}
+	}
+
+	access := ""
+	if commentsSet {
+		access = comments
+	} else if noComments {
+		access = "team"
+	}
+
+	if noComments && access == "anyone" {
+		return shareOpts{}, fmt.Errorf("--no-comments cannot be combined with --comments anyone")
+	}
+	if private && access == "anyone" {
+		return shareOpts{}, fmt.Errorf("--private cannot be combined with --comments anyone")
+	}
+	if visSet && commentVis == "team" && access == "anyone" {
+		return shareOpts{}, fmt.Errorf("--comments anyone cannot be combined with --comment-visibility team")
+	}
+	if private && visSet && commentVis == "public" {
+		return shareOpts{}, fmt.Errorf("--private cannot be combined with --comment-visibility public")
+	}
+
+	opts := shareOpts{}
+	if access != "" {
+		opts.CommentAccess = access
+	}
+	if visSet {
+		opts.CommentVisibility = commentVis
+	}
+	if private {
+		opts.DocVisibility = "private"
+	}
+	return opts, nil
+}
+
+func checkSharePolicyEcho(opts shareOpts, sh *shareResp) error {
+	if opts.CommentAccess != "" && sh.CommentAccess == "" {
+		return fmt.Errorf("gandermd does not support --comments; upgrade the server")
+	}
+	if opts.CommentVisibility != "" && sh.CommentVisibility == "" {
+		return fmt.Errorf("gandermd does not support --comment-visibility; upgrade the server")
+	}
+	if opts.DocVisibility != "" && sh.DocVisibility == "" {
+		return fmt.Errorf("gandermd does not support --private; upgrade the server")
+	}
+	return nil
 }
 
 var _ = context.Background
