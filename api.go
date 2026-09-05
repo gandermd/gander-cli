@@ -43,11 +43,20 @@ type shareResp struct {
 	Path                 string `json:"path,omitempty"`
 	Watch                bool   `json:"watch"`
 	URL                  string `json:"url"`
+	CommentAccess        string `json:"comment_access"`
+	DocVisibility        string `json:"doc_visibility"`
 	CreatedAt            string `json:"created_at"`
 	UpdatedAt            string `json:"updated_at"`
 	SizeBytes            int    `json:"size_bytes"`
 	UnresolvedCount      int    `json:"unresolved_count"`
 	AgentUnresolvedCount int    `json:"agent_unresolved_count"`
+}
+
+// shareOpts are POST /api/shares policy fields. Empty strings are omitted so
+// an upsert does not clobber stored values (server omitted = no-touch).
+type shareOpts struct {
+	CommentAccess string
+	DocVisibility string
 }
 
 type commentView struct {
@@ -152,14 +161,21 @@ func (c *apiClient) OpenManageIntent() (*manageIntentResp, error) {
 	return &out, nil
 }
 
-func (c *apiClient) CreateShare(filename, path, content string, watch bool) (*shareResp, bool, error) {
+func (c *apiClient) CreateShare(filename, path, content string, watch bool, opts shareOpts) (*shareResp, bool, error) {
 	var out shareResp
-	status, err := c.doStatus("POST", "/api/shares", map[string]any{
+	body := map[string]any{
 		"filename": filename,
 		"path":     path,
 		"content":  content,
 		"watch":    watch,
-	}, &out)
+	}
+	if opts.CommentAccess != "" {
+		body["comment_access"] = opts.CommentAccess
+	}
+	if opts.DocVisibility != "" {
+		body["doc_visibility"] = opts.DocVisibility
+	}
+	status, err := c.doStatus("POST", "/api/shares", body, &out)
 	if err != nil {
 		return nil, false, err
 	}

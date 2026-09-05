@@ -11,9 +11,17 @@ gander \- render Markdown locally, optionally share it on gander.md
 .sp
 .B gander share
 .RB [ \-watch ]
+.RB [ \-\-visibility =\fIanyone|private|hidden\fR]
+.RB [ \-\-private ]
+.RB [ \-\-comments =\fIanyone|private|disabled\fR]
+.RB [ \-\-no\-comments ]
 .IR file.md
 .sp
 .B gander watch
+.RB [ \-\-visibility =\fIanyone|private|hidden\fR]
+.RB [ \-\-private ]
+.RB [ \-\-comments =\fIanyone|private|disabled\fR]
+.RB [ \-\-no\-comments ]
 .IR file.md
 .sp
 .B gander status
@@ -142,11 +150,38 @@ The address to register. Required.
 Upload
 .IR file.md
 to gander.md, print the share link, and open it in the browser.
+Each policy flag is omitted from the request unless set, so a content
+refresh does not reset visibility or commenting. The same flags are
+accepted by
+.BR watch .
 .sp
 .RS
 .TP
 .B \-watch
 Continuously push local changes to the remote share until interrupted.
+Watch
+.B PUT
+updates send content only.
+.TP
+.BI \-\-visibility =\fIanyone|private|hidden\fR
+Who may see the markdown. Default on insert is anyone.
+.B hidden
+unpublishes the viewer URL (404 for everyone, including the owner);
+the CLI still prints the URL but does not open the browser.
+.TP
+.B \-\-private
+Alias for
+.BR \-\-visibility = private .
+.TP
+.BI \-\-comments =\fIanyone|private|disabled\fR
+Who may view and write comments. Default on insert is private.
+.B anyone
+is only valid when visibility is anyone.
+.TP
+.B \-\-no\-comments
+Alias for
+.BR \-\-comments = disabled .
+Not an alias for private commenting.
 .RE
 .SS "Watch"
 .TP
@@ -157,6 +192,14 @@ Shorthand for
 .IR file.md
 to gander.md and live\-update the remote share on every save. The
 share is owned by the runner daemon and survives the CLI's lifetime.
+Accepts the same
+.BR \-\-visibility ","
+.BR \-\-private ","
+.BR \-\-comments ","
+and
+.B \-\-no\-comments
+flags as
+.BR share .
 .SS "Status"
 .TP
 .B status
@@ -231,7 +274,7 @@ when the argument is ambiguous.
 .TP
 .B list
 Print a table of every share in the user's gander.md account (short id,
-file, watch flag, last update, URL).
+file, path, watch flag, commenting, visibility, last update, URL).
 .SS "Comments"
 .TP
 .B comments
@@ -403,6 +446,16 @@ Push the same file to gander.md and open the share link:
 .RS
 .nf
 gander share README.md
+.fi
+.RE
+.PP
+Share privately, or turn commenting off:
+.PP
+.RS
+.nf
+gander share README.md \-\-private
+gander share README.md \-\-no\-comments
+gander share README.md \-\-comments anyone
 .fi
 .RE
 .PP

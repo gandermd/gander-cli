@@ -36,10 +36,14 @@ func TestManPageExistsAndRenders(t *testing.T) {
 		"gander list", "gander auth", "gander completion",
 		"gander uninstall",
 		"--upgrade",
+		"--visibility", "--comments", "--private", "--no-comments",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("rendered man page missing %q", want)
 		}
+	}
+	if strings.Contains(text, "comment-visibility") {
+		t.Errorf("man page still mentions --comment-visibility")
 	}
 }
 

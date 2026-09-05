@@ -181,7 +181,11 @@ gander signup --email you@example.com   # opens browser form, polls for API toke
 gander share README.md                  # opens https://gander.md/s/xK7m2pQa
 gander watch README.md                  # upload + live-update the remote viewer on save
 gander share README.md --watch          # same as `watch`, spelled out
-gander list                             # table of active shares
+gander share README.md --comments anyone  # public review comments (opt-in; default is private)
+gander share README.md --no-comments    # hide viewer threads (comment_access=disabled)
+gander share README.md --private        # only the author and invited team can read the doc
+gander share README.md --visibility=hidden  # unpublish the viewer URL (404); still listed
+gander list                             # table of active shares (includes COMMENTING + VISIBILITY)
 gander remove README.md                 # 404s the short link
 gander remove --all                     # remove every share in your account
 gander manage                           # opens the dashboard in your browser
@@ -264,8 +268,8 @@ Subcommands:
 
 ```
 gander signup --email <addr>      Open the signup form in your browser, save the API token
-gander share [--watch] <file>     Upload to gander.md and open the share link
-gander watch <file>               Live-share to gander.md and push every save (alias for share --watch)
+gander share [--watch] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] <file>
+gander watch [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] <file>
 gander status                     Show runner + active watches + URLs
 gander stop [<file>|<id>] [--all] Stop a watch (by file, id, or --all)
 gander logs [<id>]                Tail the runner log (optionally filtered by watch id)
