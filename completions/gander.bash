@@ -19,11 +19,31 @@ _gander_completions() {
             return 0
             ;;
         share)
-            COMPREPLY=( $(compgen -W "--watch" -- "${cur}") )
+            case "${prev}" in
+                --comments)
+                    COMPREPLY=( $(compgen -W "anyone private disabled" -- "${cur}") )
+                    return 0
+                    ;;
+                --visibility)
+                    COMPREPLY=( $(compgen -W "anyone private hidden" -- "${cur}") )
+                    return 0
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "--watch --foreground --visibility --comments --private --no-comments" -- "${cur}") )
             return 0
             ;;
         watch)
-            COMPREPLY=( $(compgen -W "--foreground" -- "${cur}") )
+            case "${prev}" in
+                --comments)
+                    COMPREPLY=( $(compgen -W "anyone private disabled" -- "${cur}") )
+                    return 0
+                    ;;
+                --visibility)
+                    COMPREPLY=( $(compgen -W "anyone private hidden" -- "${cur}") )
+                    return 0
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "--foreground --visibility --comments --private --no-comments" -- "${cur}") )
             COMPREPLY+=( $(compgen -f -- "${cur}") )
             return 0
             ;;

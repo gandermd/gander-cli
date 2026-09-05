@@ -35,10 +35,13 @@ func TestRunCompletionBashNonEmpty(t *testing.T) {
 	if out == "" {
 		t.Fatal("bash completion is empty")
 	}
-	for _, want := range []string{"complete -F", "signup", "share", "remove", "completion"} {
+	for _, want := range []string{"complete -F", "signup", "share", "remove", "completion", "--visibility", "--comments", "--private", "--no-comments"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("bash completion missing %q\n%s", want, out)
 		}
+	}
+	if strings.Contains(out, "comment-visibility") {
+		t.Errorf("bash completion still mentions --comment-visibility")
 	}
 }
 
@@ -69,10 +72,13 @@ func TestRunCompletionZshNonEmpty(t *testing.T) {
 	if out == "" {
 		t.Fatal("zsh completion is empty")
 	}
-	for _, want := range []string{"#compdef gander", "_gander", "signup", "share", "remove", "completion"} {
+	for _, want := range []string{"#compdef gander", "_gander", "signup", "share", "remove", "completion", "--visibility", "--comments", "--private", "--no-comments"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("zsh completion missing %q\n%s", want, out)
 		}
+	}
+	if strings.Contains(out, "comment-visibility") {
+		t.Errorf("zsh completion still mentions --comment-visibility")
 	}
 }
 

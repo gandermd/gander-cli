@@ -28,16 +28,27 @@ func runWatchCmdWithCtx(ctx context.Context, args []string) error {
 	return runShareWithCtx(ctx, append([]string{"--watch"}, args...))
 }
 
+const shareUsage = "usage: gander share [--watch] [--foreground] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] file.md"
+
 func runShareWithCtx(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("share", flag.ContinueOnError)
 	watch := fs.Bool("watch", false, "live-update the shared page as the file changes")
 	foreground := fs.Bool("foreground", false, "keep share --watch in-process instead of handing off to the runner")
+	comments := fs.String("comments", "", "who may comment: anyone, private, or disabled")
+	visibility := fs.String("visibility", "", "who may see the document: anyone, private, or hidden")
+	private := fs.Bool("private", false, "make the document private (alias for --visibility private)")
+	noComments := fs.Bool("no-comments", false, "turn off commenting (alias for --comments disabled)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	rest := fs.Args()
 	if len(rest) != 1 {
-		return fmt.Errorf("usage: gander share [--watch] [--foreground] file.md")
+		return fmt.Errorf("%s", shareUsage)
+	}
+
+	opts, err := shareOptsFromFlags(fs, *comments, *visibility, *private, *noComments)
+	if err != nil {
+		return err
 	}
 
 	canonical, err := canonicalPath(rest[0])
@@ -57,9 +68,12 @@ func runShareWithCtx(ctx context.Context, args []string) error {
 
 	cli := newAPIClient(cfg.APIURL, cfg.APIToken)
 	_, hadLocal := cfg.Shares[canonical]
-	sh, created, err := cli.CreateShare(filepath.Base(canonical), canonical, string(content), *watch)
+	sh, created, err := cli.CreateShare(filepath.Base(canonical), canonical, string(content), *watch, opts)
 	if err != nil {
 		return fmt.Errorf("create: %w", err)
+	}
+	if err := checkSharePolicyEcho(opts, sh); err != nil {
+		return err
 	}
 	cfg.Shares[canonical] = sh.ShortID
 	if err := WriteConfig(cfg); err != nil {
@@ -70,7 +84,9 @@ func runShareWithCtx(ctx context.Context, args []string) error {
 	} else {
 		fmt.Printf("Shared %s as %s\n", canonical, sh.URL)
 	}
-	openBrowserURL(sh.URL)
+	if opts.DocVisibility != "hidden" {
+		openBrowserURL(sh.URL)
+	}
 	if *watch {
 		if *foreground {
 			return runWatchAndPushCtx(ctx, canonical, sh, cfg)
@@ -255,6 +271,76 @@ func requireAuth() (Config, error) {
 		return cfg, fmt.Errorf("not signed up — run `gander signup --email you@example.com` first")
 	}
 	return cfg, nil
+}
+
+func flagSetVisited(fs *flag.FlagSet, name string) bool {
+	found := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			found = true
+		}
+	})
+	return found
+}
+
+func shareOptsFromFlags(fs *flag.FlagSet, comments, visibility string, private, noComments bool) (shareOpts, error) {
+	commentsSet := flagSetVisited(fs, "comments")
+	visibilitySet := flagSetVisited(fs, "visibility")
+
+	if commentsSet {
+		switch comments {
+		case "anyone", "private", "disabled":
+		default:
+			return shareOpts{}, fmt.Errorf("--comments must be anyone, private, or disabled")
+		}
+	}
+	if visibilitySet {
+		switch visibility {
+		case "anyone", "private", "hidden":
+		default:
+			return shareOpts{}, fmt.Errorf("--visibility must be anyone, private, or hidden")
+		}
+	}
+
+	if noComments && commentsSet && comments != "disabled" {
+		return shareOpts{}, fmt.Errorf("--no-comments cannot be combined with --comments %s", comments)
+	}
+	if private && visibilitySet && visibility != "private" {
+		return shareOpts{}, fmt.Errorf("--private cannot be combined with --visibility %s", visibility)
+	}
+
+	access := ""
+	if commentsSet {
+		access = comments
+	} else if noComments {
+		access = "disabled"
+	}
+
+	doc := ""
+	if visibilitySet {
+		doc = visibility
+	} else if private {
+		doc = "private"
+	}
+
+	if access == "anyone" && (doc == "private" || doc == "hidden") {
+		if private && !visibilitySet {
+			return shareOpts{}, fmt.Errorf("--comments anyone cannot be combined with --private")
+		}
+		return shareOpts{}, fmt.Errorf("--comments anyone cannot be combined with --visibility %s", doc)
+	}
+
+	return shareOpts{CommentAccess: access, DocVisibility: doc}, nil
+}
+
+func checkSharePolicyEcho(opts shareOpts, sh *shareResp) error {
+	if opts.CommentAccess != "" && sh.CommentAccess == "" {
+		return fmt.Errorf("gandermd does not support --comments; upgrade the server")
+	}
+	if opts.DocVisibility != "" && sh.DocVisibility == "" {
+		return fmt.Errorf("gandermd does not support --visibility; upgrade the server")
+	}
+	return nil
 }
 
 var _ = context.Background

@@ -27,7 +27,7 @@ func runList(_ []string) error {
 	}
 
 	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "SHORT ID\tFILE\tPATH\tWATCH\tUPDATED\tURL")
+	fmt.Fprintln(tw, "SHORT ID\tFILE\tPATH\tWATCH\tCOMMENTING\tVISIBILITY\tUPDATED\tURL")
 	for i := range all {
 		watch := "no"
 		if all[i].Watch {
@@ -38,11 +38,13 @@ func runList(_ []string) error {
 			path = "-"
 		}
 		updated, _ := time.Parse(time.RFC3339, all[i].UpdatedAt)
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			all[i].ShortID,
 			all[i].Filename,
 			path,
 			watch,
+			all[i].CommentAccess,
+			all[i].DocVisibility,
 			updated.Format("2006-01-02 15:04 MST"),
 			all[i].URL,
 		)
