@@ -49,6 +49,47 @@ func TestInstallShHelpListsOptOuts(t *testing.T) {
 	}
 }
 
+func TestInstallShDryRunUsesDownloadMirror(t *testing.T) {
+	home := installShHome(t)
+	out, err := runInstallSh(t, home, "--dry-run")
+	if err != nil {
+		t.Fatalf("--dry-run: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "https://release.gander.md/latest/gander-") {
+		t.Errorf("--dry-run missing Spaces URL:\n%s", out)
+	}
+	if strings.Contains(out, "github.com/gandermd/gander-cli/releases") {
+		t.Errorf("--dry-run printed GitHub URL as primary:\n%s", out)
+	}
+}
+
+func TestInstallShDryRunHonorsDownloadBase(t *testing.T) {
+	home := installShHome(t)
+	cmd := exec.Command("bash", installShPath(t), "--dry-run")
+	cmd.Env = append(os.Environ(), "HOME="+home, "GANDER_DOWNLOAD_BASE=https://example.test/dl")
+	raw, err := cmd.CombinedOutput()
+	out := string(raw)
+	if err != nil {
+		t.Fatalf("--dry-run: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "https://example.test/dl/latest/gander-") {
+		t.Errorf("--dry-run missing override URL:\n%s", out)
+	}
+}
+
+func TestInstallShHelpMentionsDownloadBase(t *testing.T) {
+	out, err := runInstallSh(t, installShHome(t), "--help")
+	if err != nil {
+		t.Fatalf("--help: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "GANDER_DOWNLOAD_BASE") {
+		t.Errorf("--help missing GANDER_DOWNLOAD_BASE:\n%s", out)
+	}
+	if !strings.Contains(out, "https://release.gander.md") {
+		t.Errorf("--help missing default download origin:\n%s", out)
+	}
+}
+
 func TestInstallShDryRunPrintsPostSteps(t *testing.T) {
 	home := installShHome(t)
 	dest := filepath.Join(home, "go", "bin", "gander")

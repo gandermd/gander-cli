@@ -36,7 +36,8 @@ What it does:
   4. Waits for the "release" GitHub Actions workflow to finish.
   5. Unless --no-homebrew, runs scripts/bump-homebrew.sh to open a
      Homebrew formula bump PR.
-  6. Prints the release URL, asset URLs, and the Homebrew PR URL.
+  6. Prints the release URL, GitHub asset URLs, Spaces mirror URLs,
+     and the Homebrew PR URL.
 
 Requirements: bash, git, gh (authenticated with repo scope), and a clean
 working tree on the branch you want to release from.
@@ -261,12 +262,16 @@ if [[ "$DRY_RUN" -eq 0 ]]; then
   fi
 fi
 
+DOWNLOAD_BASE="${GANDER_DOWNLOAD_BASE:-https://release.gander.md}"
+DOWNLOAD_BASE="${DOWNLOAD_BASE%/}"
+
 if [[ "$DRY_RUN" -eq 1 ]]; then
   echo "Would run:"
   echo "  git tag -a $TAG -m 'Release $TAG'"
   echo "  git push origin $TAG"
   echo "  gh run watch <run-id> --repo $REPO --exit-status"
   echo "  gh release view $TAG --repo $REPO --json url,name,assets"
+  echo "  curl -fsSI $DOWNLOAD_BASE/latest.json"
   if [[ "$HOMEBREW" -eq 1 ]]; then
     echo "  scripts/bump-homebrew.sh $VERSION"
   fi
@@ -301,6 +306,25 @@ echo
 echo "Workflow finished. Fetching release info..."
 gh release view "$TAG" --repo "$REPO" --json url,name,assets \
   --jq '"URL:    \(.url)\nName:   \(.name)\nAssets:\n" + ([.assets[] | "  - \(.name)\n    \(.url)"] | join(""))'
+
+echo
+echo "Spaces mirror:"
+echo "  $DOWNLOAD_BASE/latest.json"
+echo "  $DOWNLOAD_BASE/latest/gander-darwin-arm64"
+echo "  $DOWNLOAD_BASE/$TAG/gander-darwin-arm64"
+mirror_ok=0
+for _ in $(seq 1 15); do
+  if curl -fsSI "$DOWNLOAD_BASE/latest.json" >/dev/null 2>&1; then
+    mirror_ok=1
+    break
+  fi
+  sleep 2
+done
+if [[ "$mirror_ok" -eq 1 ]]; then
+  echo "  latest.json: ok"
+else
+  echo "warning: $DOWNLOAD_BASE/latest.json not reachable yet; check the Spaces publish step" >&2
+fi
 
 if [[ "$HOMEBREW" -eq 1 ]]; then
   IS_DRAFT=$(gh release view "$TAG" --repo "$REPO" --json isDraft -q .isDraft)

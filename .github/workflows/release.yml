@@ -102,3 +102,29 @@ jobs:
             release-assets/gander-linux-arm64.sha256
             release-assets/gander-man.tar.gz
             release-assets/gander-completions.tar.gz
+
+  spaces:
+    name: publish to Spaces
+    needs: release
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.SPACES_ACCESS_KEY }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_KEY }}
+      SPACES_BUCKET: ${{ vars.SPACES_BUCKET }}
+      SPACES_REGION: ${{ vars.SPACES_REGION }}
+      SPACES_ENDPOINT: ${{ vars.SPACES_ENDPOINT }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      - name: Flatten artifacts
+        run: |
+          mkdir -p release-assets
+          find artifacts -type f -name 'gander-*' -exec cp {} release-assets/ \;
+          ls -la release-assets
+
+      - name: Upload to Spaces
+        run: scripts/publish-spaces.sh "${{ github.ref_name }}" release-assets

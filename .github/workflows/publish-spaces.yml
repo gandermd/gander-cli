@@ -1,0 +1,69 @@
+name: publish-spaces
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - install.sh
+      - scripts/publish-spaces.sh
+      - .github/workflows/publish-spaces.yml
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to mirror (empty = latest GitHub release)
+        required: false
+        type: string
+      install_sh_only:
+        description: Only upload install.sh
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: publish to Spaces
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.SPACES_ACCESS_KEY }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_KEY }}
+      SPACES_BUCKET: ${{ vars.SPACES_BUCKET }}
+      SPACES_REGION: ${{ vars.SPACES_REGION }}
+      SPACES_ENDPOINT: ${{ vars.SPACES_ENDPOINT }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Upload install.sh only
+        if: ${{ github.event_name == 'push' || inputs.install_sh_only == true }}
+        run: scripts/publish-spaces.sh --install-sh-only
+
+      - name: Resolve tag
+        id: tag
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.install_sh_only != true }}
+        run: |
+          tag="${{ inputs.tag }}"
+          if [[ -z "$tag" ]]; then
+            tag="$(gh release view --repo "${{ github.repository }}" --json tagName -q .tagName)"
+          fi
+          if [[ -z "$tag" ]]; then
+            echo "error: could not resolve a release tag" >&2
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Mirroring $tag"
+
+      - name: Download GitHub release assets
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.install_sh_only != true }}
+        run: |
+          mkdir -p release-assets
+          gh release download "${{ steps.tag.outputs.tag }}" \
+            --repo "${{ github.repository }}" \
+            --dir release-assets \
+            --pattern 'gander-*'
+
+      - name: Upload release assets
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.install_sh_only != true }}
+        run: scripts/publish-spaces.sh "${{ steps.tag.outputs.tag }}" release-assets

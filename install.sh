@@ -3,9 +3,11 @@ set -euo pipefail
 
 REPO="gandermd/gander-cli"
 ASSET_PREFIX="gander"
+DOWNLOAD_BASE="${GANDER_DOWNLOAD_BASE:-https://release.gander.md}"
+DOWNLOAD_BASE="${DOWNLOAD_BASE%/}"
 
 usage() {
-  cat <<'USAGE'
+  cat <<USAGE
 Usage: install.sh [options]
 
 Installs gander to ~/go/bin (or /usr/local/bin if ~/go/bin is missing/unwritable).
@@ -23,10 +25,10 @@ Options:
 
 Default behavior:
   1. Detect OS/arch and pick the matching release asset (gander-{goos}-{goarch}).
-  2. Download it from https://github.com/<repo>/releases/latest/download/...
+  2. Download it from ${DOWNLOAD_BASE}/latest/... (GitHub Releases fallback).
   3. Verify SHA256 against the .sha256 sidecar.
   4. Install atomically to ~/go/bin/gander (or /usr/local/bin/gander).
-  5. Run "$dest skill" then "$dest mcp install" (non-fatal; opt out with
+  5. Run "\$dest skill" then "\$dest mcp install" (non-fatal; opt out with
      --no-skill / --no-mcp).
 
 If the download fails and --source is not set, the script falls back to
@@ -34,8 +36,8 @@ cloning the repo and building with Go (when go is available), then runs
 the same post-steps against the built binary.
 
 Environment:
-  GITHUB_TOKEN       Optional. Used to raise the GitHub API rate limit when
-                     looking up the latest release tag.
+  GANDER_DOWNLOAD_BASE  Optional. Override the download origin
+                        (default: https://release.gander.md).
 USAGE
 }
 
@@ -94,28 +96,27 @@ require_cmd() {
   fi
 }
 
-resolve_latest_tag() {
-  local api="https://api.github.com/repos/$REPO/releases/latest"
-  local auth=()
-  if [[ -n "${GITHUB_TOKEN:-}" ]]; then
-    auth=(-H "Authorization: Bearer $GITHUB_TOKEN")
-  fi
-  local body
-  if ! body=$(curl -fsSL "${auth[@]}" -H 'Accept: application/vnd.github+json' "$api" 2>/dev/null); then
+download_asset() {
+  local url="$1" tmp="$2" asset="$3"
+  if ! curl -fsSL -o "$tmp/$asset" "$url"; then
     return 1
   fi
-  echo "$body" | grep -oE '"tag_name":[[:space:]]*"[^"]+"' | head -1 | sed -E 's/.*"([^"]+)"$/\1/'
+  if ! curl -fsSL -o "$tmp/$asset.sha256" "$url.sha256"; then
+    return 1
+  fi
+  return 0
 }
 
 download_and_install() {
   local platform="$1" install_dir="$2" tag="$3"
   local asset="$ASSET_PREFIX-$platform"
-  local base="https://github.com/$REPO/releases"
-  local url
+  local url fallback
   if [[ "$tag" == "latest" ]]; then
-    url="$base/latest/download/$asset"
+    url="$DOWNLOAD_BASE/latest/$asset"
+    fallback="https://github.com/$REPO/releases/latest/download/$asset"
   else
-    url="$base/download/$tag/$asset"
+    url="$DOWNLOAD_BASE/$tag/$asset"
+    fallback="https://github.com/$REPO/releases/download/$tag/$asset"
   fi
 
   local dest="$install_dir/$(basename "$ASSET_PREFIX")"
@@ -133,14 +134,12 @@ download_and_install() {
   tmp=$(mktemp -d)
   trap "rm -rf '$tmp'" EXIT
 
-  if ! curl -fsSL -o "$tmp/$asset" "$url"; then
-    err "download failed (is the asset published for $platform?)"
-    return 1
-  fi
-
-  if ! curl -fsSL -o "$tmp/$asset.sha256" "$url.sha256"; then
-    err "checksum download failed"
-    return 1
+  if ! download_asset "$url" "$tmp" "$asset"; then
+    log "mirror download failed; trying GitHub Releases"
+    if ! download_asset "$fallback" "$tmp" "$asset"; then
+      err "download failed (is the asset published for $platform?)"
+      return 1
+    fi
   fi
 
   local want

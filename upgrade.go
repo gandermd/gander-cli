@@ -22,7 +22,16 @@ import (
 
 var Version = "dev"
 
-const releasesAPI = "https://api.github.com/repos/gandermd/gander-cli/releases/latest"
+var downloadBaseURL = "https://release.gander.md"
+
+var releasesAPI = "https://api.github.com/repos/gandermd/gander-cli/releases/latest"
+
+var releaseAssetNames = []string{
+	"gander-darwin-arm64",
+	"gander-darwin-amd64",
+	"gander-linux-amd64",
+	"gander-linux-arm64",
+}
 
 type releaseAsset struct {
 	Name               string `json:"name"`
@@ -232,7 +241,67 @@ func httpClient() *http.Client {
 	return &http.Client{Timeout: 2 * time.Minute}
 }
 
-var fetchLatestRelease = func() (*releaseInfo, error) {
+var fetchLatestRelease = fetchLatestReleaseDefault
+
+func effectiveDownloadBase() string {
+	if v := strings.TrimRight(strings.TrimSpace(os.Getenv("GANDER_DOWNLOAD_BASE")), "/"); v != "" {
+		return v
+	}
+	return strings.TrimRight(downloadBaseURL, "/")
+}
+
+func spacesAssetURL(tag, name string) string {
+	return effectiveDownloadBase() + "/" + tag + "/" + name
+}
+
+func spacesReleaseInfo(tag string) *releaseInfo {
+	assets := make([]releaseAsset, 0, len(releaseAssetNames))
+	for _, name := range releaseAssetNames {
+		assets = append(assets, releaseAsset{
+			Name:               name,
+			BrowserDownloadURL: spacesAssetURL(tag, name),
+		})
+	}
+	return &releaseInfo{
+		TagName: tag,
+		Assets:  assets,
+		HTMLURL: "https://github.com/gandermd/gander-cli/releases/tag/" + tag,
+	}
+}
+
+type spacesLatest struct {
+	Tag string `json:"tag"`
+}
+
+func fetchLatestFromSpaces() (*releaseInfo, error) {
+	url := effectiveDownloadBase() + "/latest.json"
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "gander-upgrade/"+Version)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := httpClient().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("download mirror returned %s", resp.Status)
+	}
+
+	var latest spacesLatest
+	if err := json.NewDecoder(resp.Body).Decode(&latest); err != nil {
+		return nil, fmt.Errorf("decode latest.json: %w", err)
+	}
+	if latest.Tag == "" {
+		return nil, fmt.Errorf("latest.json missing tag")
+	}
+	return spacesReleaseInfo(latest.Tag), nil
+}
+
+func fetchLatestFromGitHub() (*releaseInfo, error) {
 	req, err := http.NewRequest(http.MethodGet, releasesAPI, nil)
 	if err != nil {
 		return nil, err
@@ -264,6 +333,18 @@ var fetchLatestRelease = func() (*releaseInfo, error) {
 		return nil, fmt.Errorf("no release published yet; check %s", "https://github.com/gandermd/gander-cli/releases")
 	}
 	return &rel, nil
+}
+
+func fetchLatestReleaseDefault() (*releaseInfo, error) {
+	rel, err := fetchLatestFromSpaces()
+	if err == nil {
+		return rel, nil
+	}
+	gh, ghErr := fetchLatestFromGitHub()
+	if ghErr == nil {
+		return gh, nil
+	}
+	return nil, fmt.Errorf("mirror: %v; github: %w", err, ghErr)
 }
 
 func downloadToTemp(url string) (string, error) {
