@@ -5,9 +5,18 @@ import (
 	"os"
 )
 
-func runManage(args []string) error {
+func isManageCmd(arg string) bool {
+	switch arg {
+	case "manage", "dashboard", "dash", "--d":
+		return true
+	default:
+		return false
+	}
+}
+
+func runManage(cmd string, args []string) error {
 	if len(args) > 0 {
-		return fmt.Errorf("usage: gander manage")
+		return fmt.Errorf("usage: gander %s", cmd)
 	}
 
 	cfg, err := requireAuth()

@@ -58,6 +58,12 @@ gander \- render Markdown locally, optionally share it on gander.md
 .RB [ \-\-keep\-config ]
 .sp
 .B gander manage
+.br
+.B gander dashboard
+.br
+.B gander dash
+.br
+.B gander \-\-d
 .sp
 .B gander auth
 .IR api_token
@@ -308,9 +314,18 @@ symlink.
 .SS "Manage"
 .TP
 .B manage
+.TQ
+.B dashboard
+.TQ
+.B dash
+.TQ
+.B \-\-d
 Open the gander.md dashboard in your browser. Requires an existing API
 token (sign up first). The dashboard shows your shares, rotates your API
 token, and lets you attach a password to log in via the web.
+.BR dashboard ", " dash ", and " \-\-d
+are aliases of
+.BR manage .
 .SS "Auth"
 .TP
 .B auth

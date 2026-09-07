@@ -114,7 +114,7 @@ source <(gander completion bash)
 eval "$(gander completion zsh)"
 ```
 
-Homebrew installs the bash + zsh scripts under `$(brew --prefix)/share/...` automatically. The bundled scripts cover every current subcommand (`signup`, `share`, `remove`, `list`, `manage`, `completion`, `--upgrade`, `--version`) and render flag. They're also attached to every release as `gander-completions.tar.gz`.
+Homebrew installs the bash + zsh scripts under `$(brew --prefix)/share/...` automatically. The bundled scripts cover every current subcommand (`signup`, `share`, `remove`, `list`, `manage`, `dashboard`, `dash`, `--d`, `completion`, `--upgrade`, `--version`) and render flag. They're also attached to every release as `gander-completions.tar.gz`.
 
 ### Prerequisites
 
@@ -189,6 +189,9 @@ gander list                             # table of active shares (includes COMME
 gander remove README.md                 # 404s the short link
 gander remove --all                     # remove every share in your account
 gander manage                           # opens the dashboard in your browser
+gander dashboard                         # same as manage
+gander dash                              # same as manage
+gander --d                               # same as manage
 gander auth <api_token>                 # install a rotated/issued API token
 ```
 
@@ -198,7 +201,7 @@ since they require an API token stored in `~/.gander/config.json` (`api_token`,
 The CLI ships with `https://gander.md` as the default endpoint; set
 `api_url` in your config to point at a self-hosted instance.
 
-API tokens can be rotated from the dashboard (`gander manage` → rotate).
+API tokens can be rotated from the dashboard (`gander manage` / `gander dash` → rotate).
 After rotating, install the new token on each machine with
 `gander auth <token>`; the CLI validates it against `/api/shares`
 before overwriting `~/.gander/config.json`.
@@ -278,7 +281,7 @@ gander skill [install]            Install the agent skill (OpenCode, Claude, Cur
 gander uninstall [--yes] [--keep-config]  Remove CLI, MCP, skill, runner (and optionally ~/.gander)
 gander remove [--all] [<file>]    Delete a share from gander.md
 gander list                       List shares currently on gander.md
-gander manage                     Open the dashboard in your browser
+gander manage | dashboard | dash | --d   Open the dashboard in your browser
 gander auth <api_token>           Install a new API token (e.g. after rotating)
 gander --version                  Print the version and exit
 gander completion {bash|zsh}      Print a shell completion script

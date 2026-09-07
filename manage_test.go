@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,21 @@ import (
 	"testing"
 )
 
+var manageCmds = []string{"manage", "dashboard", "dash", "--d"}
+
+func TestIsManageCmd(t *testing.T) {
+	for _, cmd := range manageCmds {
+		if !isManageCmd(cmd) {
+			t.Errorf("%q should dispatch to manage", cmd)
+		}
+	}
+	for _, cmd := range []string{"-d", "manages", "dashboards", "--dashboard", "help"} {
+		if isManageCmd(cmd) {
+			t.Errorf("%q should not dispatch to manage", cmd)
+		}
+	}
+}
+
 func TestRunManageRequiresAuth(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
@@ -18,12 +34,16 @@ func TestRunManageRequiresAuth(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := runManage([]string{})
-	if err == nil {
-		t.Fatal("expected auth error")
-	}
-	if !strings.Contains(err.Error(), "not signed up") {
-		t.Errorf("err = %v", err)
+	for _, cmd := range manageCmds {
+		t.Run(cmd, func(t *testing.T) {
+			err := runManage(cmd, []string{})
+			if err == nil {
+				t.Fatal("expected auth error")
+			}
+			if !strings.Contains(err.Error(), "not signed up") {
+				t.Errorf("err = %v", err)
+			}
+		})
 	}
 }
 
@@ -33,12 +53,19 @@ func TestRunManageRejectsArgs(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(tmp, ".gander"), []byte(`{"api_url":"https://gander.md","api_token":"gmd_t"}`), 0600); err != nil {
 		t.Fatal(err)
 	}
-	err := runManage([]string{"extra"})
-	if err == nil {
-		t.Fatal("expected error for extra args")
-	}
-	if !strings.Contains(err.Error(), "usage") {
-		t.Errorf("err = %v", err)
+	for _, cmd := range manageCmds {
+		t.Run(cmd, func(t *testing.T) {
+			err := runManage(cmd, []string{"extra"})
+			if err == nil {
+				t.Fatal("expected error for extra args")
+			}
+			if !strings.Contains(err.Error(), "usage") {
+				t.Errorf("err = %v", err)
+			}
+			if !strings.Contains(err.Error(), "gander "+cmd) {
+				t.Errorf("err = %v, want usage mentioning %q", err, cmd)
+			}
+		})
 	}
 }
 
@@ -65,21 +92,26 @@ func TestRunManageOpensDashboard(t *testing.T) {
 	}
 
 	prev := openBrowser
-	var openedURL string
-	openBrowser = func(url string) error {
-		openedURL = url
-		return nil
-	}
 	defer func() { openBrowser = prev }()
 
-	if err := runManage([]string{}); err != nil {
-		t.Fatalf("manage: %v", err)
-	}
-	if pathHit != "/api/manage/intent" {
-		t.Errorf("path = %q, want /api/manage/intent", pathHit)
-	}
-	if !strings.Contains(openedURL, "/dashboard?intent=intent-mgmt-1") {
-		t.Errorf("openedURL = %q", openedURL)
+	for _, cmd := range manageCmds {
+		t.Run(cmd, func(t *testing.T) {
+			pathHit = ""
+			var openedURL string
+			openBrowser = func(url string) error {
+				openedURL = url
+				return nil
+			}
+			if err := runManage(cmd, []string{}); err != nil {
+				t.Fatalf("manage: %v", err)
+			}
+			if pathHit != "/api/manage/intent" {
+				t.Errorf("path = %q, want /api/manage/intent", pathHit)
+			}
+			if !strings.Contains(openedURL, "/dashboard?intent=intent-mgmt-1") {
+				t.Errorf("openedURL = %q", openedURL)
+			}
+		})
 	}
 }
 
@@ -100,11 +132,29 @@ func TestRunManageServerError(t *testing.T) {
 	openBrowser = func(url string) error { return nil }
 	defer func() { openBrowser = prev }()
 
-	err := runManage([]string{})
+	err := runManage("manage", []string{})
 	if err == nil {
 		t.Fatal("expected error")
 	}
 	if !strings.Contains(err.Error(), "manage") {
 		t.Errorf("err = %v", err)
+	}
+}
+
+func TestPrintUsageAuthedListsManageAliases(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	t.Setenv("GANDER_CONFIG", "")
+	if err := os.WriteFile(filepath.Join(tmp, ".gander"), []byte(`{"api_url":"https://gander.md","api_token":"gmd_t"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	printUsage(&buf)
+	out := buf.String()
+	if !strings.Contains(out, "gander manage | dashboard | dash | --d") {
+		t.Errorf("authed usage missing manage aliases:\n%s", out)
+	}
+	if strings.Count(out, "gander manage") != 1 {
+		t.Errorf("expected a single manage usage line:\n%s", out)
 	}
 }
