@@ -14,7 +14,7 @@ Uploads gander release assets and/or install.sh to DigitalOcean Spaces.
 Environment:
   SPACES_ACCESS_KEY / AWS_ACCESS_KEY_ID       Required.
   SPACES_SECRET_KEY / AWS_SECRET_ACCESS_KEY   Required.
-  SPACES_BUCKET      Default: gander-releases
+  SPACES_BUCKET      Default: gander
   SPACES_REGION      Default: nyc3
   SPACES_ENDPOINT    Default: https://$SPACES_REGION.digitaloceanspaces.com
 USAGE
@@ -52,7 +52,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 ACCESS_KEY="${SPACES_ACCESS_KEY:-${AWS_ACCESS_KEY_ID:-}}"
 SECRET_KEY="${SPACES_SECRET_KEY:-${AWS_SECRET_ACCESS_KEY:-}}"
-BUCKET="${SPACES_BUCKET:-gander-releases}"
+BUCKET="${SPACES_BUCKET:-gander}"
 REGION="${SPACES_REGION:-nyc3}"
 ENDPOINT="${SPACES_ENDPOINT:-https://${REGION}.digitaloceanspaces.com}"
 

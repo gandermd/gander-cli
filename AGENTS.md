@@ -159,7 +159,7 @@ The release workflow also runs `scripts/publish-spaces.sh` so the same
 `gander-{goos}-{goarch}` binaries, checksums, `install.sh`, and `latest.json`
 land at `https://release.gander.md`. Repo secrets `SPACES_ACCESS_KEY` /
 `SPACES_SECRET_KEY` are required; optional Actions variables `SPACES_BUCKET`
-(default `gander-releases`), `SPACES_REGION` (default `nyc3`), and
+(default `gander`), `SPACES_REGION` (default `nyc3`), and
 `SPACES_ENDPOINT` override the bucket. `workflow_dispatch` on
 `publish-spaces.yml` backfills an existing GitHub Release. Pushes to `main`
 that touch `install.sh` re-upload that file only.
