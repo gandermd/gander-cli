@@ -39,13 +39,21 @@ Use this on systems without Homebrew or in CI environments that can't tap a form
 curl -fsSL https://raw.githubusercontent.com/gandermd/gander-cli/main/install.sh | bash
 ```
 
-Downloads the latest release binary for your OS/arch from GitHub Releases, verifies its SHA256 checksum, and installs to `~/go/bin/gander` (or `/usr/local/bin/gander` if `~/go/bin` doesn't exist). If the download fails (no network, no release for your platform), the script falls back to building from source.
+Downloads the latest release binary for your OS/arch from GitHub Releases, verifies its SHA256 checksum, and installs to `~/go/bin/gander` (or `/usr/local/bin/gander` if `~/go/bin` doesn't exist). After the binary is in place, the script runs `gander skill` and `gander mcp install` so agent runners pick up the skill and MCP server automatically. If those post-steps fail (including older `--version` tags that lack the subcommands), the script warns and still exits 0 — the binary install already succeeded. If the download fails (no network, no release for your platform), the script falls back to building from source and runs the same post-steps against the built binary.
 
 Flags:
 
 - `--version v0.2.1` — install a specific release instead of the latest.
 - `--source` — skip the download and always build from source.
-- `--dry-run` — print what would happen without doing it.
+- `--dry-run` — print what would happen without downloading, writing, or running post-steps.
+- `--no-skill` — skip `gander skill`.
+- `--no-mcp` — skip `gander mcp install`.
+
+Pass both `--no-skill` and `--no-mcp` for a binary-only install (the previous default). When piping the script, put flags after `--`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/gandermd/gander-cli/main/install.sh | bash -s -- --no-skill --no-mcp
+```
 
 The installer requires `curl` and `git` (only for the source fallback). Set `GITHUB_TOKEN` to raise the GitHub API rate limit on shared networks.
 
