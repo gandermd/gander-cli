@@ -161,6 +161,33 @@ func (c *apiClient) OpenManageIntent() (*manageIntentResp, error) {
 	return &out, nil
 }
 
+type inviteResp struct {
+	InviteURL string `json:"invite_url"`
+	ExpiresAt string `json:"expires_at"`
+	Email     string `json:"email,omitempty"`
+	ShortID   string `json:"short_id,omitempty"`
+}
+
+func (c *apiClient) CreateInvite(email, shortID string) (*inviteResp, error) {
+	var body any
+	if email != "" || shortID != "" {
+		m := map[string]string{}
+		if email != "" {
+			m["email"] = email
+		}
+		if shortID != "" {
+			m["short_id"] = shortID
+		}
+		body = m
+	}
+	var out inviteResp
+	status, err := c.doStatus("POST", "/api/invites", body, &out)
+	if err != nil {
+		return nil, mapInviteAPIError(status, err)
+	}
+	return &out, nil
+}
+
 func (c *apiClient) CreateShare(filename, path, content string, watch bool, opts shareOpts) (*shareResp, bool, error) {
 	var out shareResp
 	body := map[string]any{

@@ -8,7 +8,7 @@ _gander_completions() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     if [[ ${COMP_CWORD} -eq 1 ]]; then
-        cmds="signup share watch remove list comments mcp skill uninstall status stop logs runner manage dashboard dash --d auth completion --upgrade upgrade --help -h -help help"
+        cmds="signup share watch remove list invite comments mcp skill uninstall status stop logs runner manage dashboard dash --d auth completion --upgrade upgrade --help -h -help help"
         COMPREPLY=( $(compgen -W "${cmds}" -- "${cur}") )
         return 0
     fi
@@ -49,6 +49,10 @@ _gander_completions() {
             ;;
         remove)
             COMPREPLY=( $(compgen -W "--all --pick --yes --non-interactive" -- "${cur}") )
+            return 0
+            ;;
+        invite)
+            COMPREPLY=( $(compgen -W "--email --share" -- "${cur}") )
             return 0
             ;;
         status)

@@ -33,7 +33,7 @@ func TestManPageExistsAndRenders(t *testing.T) {
 		"NAME", "SYNOPSIS", "DESCRIPTION", "OPTIONS", "COMMANDS", "FILES",
 		"EXIT STATUS", "EXAMPLES",
 		"gander signup", "gander share", "gander watch", "gander remove",
-		"gander list", "gander auth", "gander completion",
+		"gander list", "gander invite", "gander auth", "gander completion",
 		"gander dashboard", "gander dash", "--d",
 		"gander uninstall",
 		"--upgrade",

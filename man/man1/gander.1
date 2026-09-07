@@ -44,6 +44,10 @@ gander \- render Markdown locally, optionally share it on gander.md
 .sp
 .B gander list
 .sp
+.B gander invite
+.RB [ \-\-email \ \fIaddr\fR]
+.RB [ \-\-share \ \fIshort_id\fR]
+.sp
 .B gander comments
 .RI [ file ]
 .sp
@@ -86,6 +90,7 @@ the
 .BR watch ","
 .BR remove ","
 .B list ,
+.B invite ,
 and
 .B manage
 subcommands upload Markdown to
@@ -281,6 +286,28 @@ when the argument is ambiguous.
 .B list
 Print a table of every share in the user's gander.md account (short id,
 file, path, watch flag, commenting, visibility, last update, URL).
+.SS "Invite"
+.TP
+.B invite
+Mint a team invite link and print it once to standard output. Does not
+open a browser. Requires an existing API token (sign up first). Listing,
+revoking, and re\-inviting stay on the dashboard
+.RB ( gander \ manage ).
+.sp
+.RS
+.TP
+.BI \-\-email " addr"
+Bind the invite to
+.IR addr
+(trimmed and lowercased). Omit for an open link anyone with the URL can
+accept.
+.TP
+.BI \-\-share " short_id"
+Embed a private share you own as the invite origin. After the invitee
+accepts they are taken to that share. Also accepts a
+.I https://gander.md/s/<short_id>
+URL.
+.RE
 .SS "Comments"
 .TP
 .B comments
