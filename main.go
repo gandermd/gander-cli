@@ -66,6 +66,12 @@ func main() {
 				os.Exit(1)
 			}
 			return
+		case "invite":
+			if err := runInvite(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "invite: %v\n", err)
+				os.Exit(1)
+			}
+			return
 		case "status":
 			if err := runStatus(os.Args[2:]); err != nil {
 				fmt.Fprintf(os.Stderr, "status: %v\n", err)
@@ -265,6 +271,7 @@ func printUsage(w io.Writer) {
 		fmt.Fprintln(w, "  gander remove [--all|--pick <short_id>|--yes|--non-interactive] <file|short_id|url>")
 		fmt.Fprintln(w, "                                                              Delete a share from gander.md")
 		fmt.Fprintln(w, "  gander list                                                List shares currently on gander.md")
+		fmt.Fprintln(w, "  gander invite [--email <addr>] [--share <short_id>]        Mint a team invite link")
 		fmt.Fprintln(w, "  gander comments [file]                                     List unresolved review comments")
 		fmt.Fprintln(w, "  gander mcp [install]                                       MCP stdio server, or install into agent runtimes")
 		fmt.Fprintln(w, "  gander manage | dashboard | dash | --d                      Open the dashboard in your browser")
@@ -286,7 +293,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  -foreground       With -watch, run the blocking watcher in-process (CI / debug)")
 	if !authed {
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, "Run `gander signup --email you@example.com` to enable share / watch / remove / list / manage / auth.")
+		fmt.Fprintln(w, "Run `gander signup --email you@example.com` to enable share / watch / remove / list / invite / manage / auth.")
 	}
 }
 

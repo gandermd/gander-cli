@@ -114,7 +114,7 @@ source <(gander completion bash)
 eval "$(gander completion zsh)"
 ```
 
-Homebrew installs the bash + zsh scripts under `$(brew --prefix)/share/...` automatically. The bundled scripts cover every current subcommand (`signup`, `share`, `remove`, `list`, `manage`, `dashboard`, `dash`, `--d`, `completion`, `--upgrade`, `--version`) and render flag. They're also attached to every release as `gander-completions.tar.gz`.
+Homebrew installs the bash + zsh scripts under `$(brew --prefix)/share/...` automatically. The bundled scripts cover every current subcommand (`signup`, `share`, `remove`, `list`, `invite`, `manage`, `dashboard`, `dash`, `--d`, `completion`, `--upgrade`, `--version`) and render flag. They're also attached to every release as `gander-completions.tar.gz`.
 
 ### Prerequisites
 
@@ -174,7 +174,7 @@ A local HTTP server is started on `127.0.0.1:7821` so the browser can receive ch
 
 ### Share on gander.md
 
-If you're running an agent that streams markdown to a file, `gander watch` is the shortest path from the agent's writes to your browser — open the URL once and every connected viewer sees the latest version in real time. `gander.md` is the public hosting service for gander. Once you sign up, you can `share`, `watch`, `list`, and `remove` markdown from your terminal, and viewers see the same live-reload preview you'd see locally.
+If you're running an agent that streams markdown to a file, `gander watch` is the shortest path from the agent's writes to your browser — open the URL once and every connected viewer sees the latest version in real time. `gander.md` is the public hosting service for gander. Once you sign up, you can `share`, `watch`, `list`, and `remove` markdown from your terminal, mint team invites with `gander invite`, and viewers see the same live-reload preview you'd see locally.
 
 ```bash
 gander signup --email you@example.com   # opens browser form, polls for API token
@@ -188,6 +188,9 @@ gander share README.md --visibility=hidden  # unpublish the viewer URL (404); st
 gander list                             # table of active shares (includes COMMENTING + VISIBILITY)
 gander remove README.md                 # 404s the short link
 gander remove --all                     # remove every share in your account
+gander invite                           # print a team invite URL (shown once)
+gander invite --email you@example.com   # bind the invite to that address
+gander invite --share xK7m2pQa          # after accept, land on that private share
 gander manage                           # opens the dashboard in your browser
 gander dashboard                         # same as manage
 gander dash                              # same as manage
@@ -233,7 +236,7 @@ omit falls back to its default.
 | `watch`       | `false`            | Default to live-reload mode when the flag is not explicitly set.           |
 | `debounce_ms` | `150`              | Coalesce file-change events within this window before re-rendering.        |
 | `port`        | `0`                | HTTP port for the watch server (`0` = OS-assigned free port).              |
-| `api_url`     | `https://gander.md` | gandermd endpoint; used by `signup`, `share`, `remove`, `list`, `manage`.  |
+| `api_url`     | `https://gander.md` | gandermd endpoint; used by `signup`, `share`, `remove`, `list`, `invite`, `manage`.  |
 | `email`       | _(empty)_          | Email address registered with gandermd.                                   |
 | `api_token`   | _(empty)_          | Bearer token. Set by `gander signup`. Treat as a password.                 |
 | `shares`      | `{}`               | Map of local file paths to short IDs, maintained by `gander share`.        |
@@ -281,6 +284,7 @@ gander skill [install]            Install the agent skill (OpenCode, Claude, Cur
 gander uninstall [--yes] [--keep-config]  Remove CLI, MCP, skill, runner (and optionally ~/.gander)
 gander remove [--all] [<file>]    Delete a share from gander.md
 gander list                       List shares currently on gander.md
+gander invite [--email <addr>] [--share <short_id>]  Mint a team invite link
 gander manage | dashboard | dash | --d   Open the dashboard in your browser
 gander auth <api_token>           Install a new API token (e.g. after rotating)
 gander --version                  Print the version and exit

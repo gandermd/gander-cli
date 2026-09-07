@@ -11,6 +11,7 @@ _gander() {
         'watch:Live-share to gander.md and push every save (alias for share --watch)'
         'remove:Delete a share from gander.md'
         'list:List shares currently on gander.md'
+        'invite:Mint a team invite link'
         'comments:List unresolved review comments'
         'mcp:MCP stdio server, or install into agent runtimes'
         'skill:Install the agent skill (OpenCode, Claude, Cursor, Grok)'
@@ -104,6 +105,11 @@ _gander() {
             ;;
         list)
             _arguments
+            ;;
+        invite)
+            _arguments \
+                '--email[Bind the invite to this address]:email:' \
+                '--share[Embed this share as the invite origin]:short_id:'
             ;;
         manage|dashboard|dash|--d)
             _arguments

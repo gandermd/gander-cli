@@ -32,8 +32,8 @@ self-updates from GitHub Releases.
   | `status.go`                   | `gander status` — list runner + watches via IPC         |
   | `stop.go`                     | `gander stop [<file>\|<id>] [--all]`                   |
   | `logs.go`                     | `gander logs [<id>] [--follow\|--no-follow]` tail file  |
-  | `api.go`                      | gandermd HTTP client (signup, share CRUD, manage intent) |
-  | `signup.go`/`auth.go`/`list.go`/`remove.go`/`manage.go` | gandermd account subcommands |
+  | `api.go`                      | gandermd HTTP client (signup, share CRUD, manage intent, invites) |
+  | `signup.go`/`auth.go`/`list.go`/`remove.go`/`manage.go`/`invite.go` | gandermd account subcommands |
   | `upgrade.go`                  | `--upgrade` self-update via GitHub Releases API; coordinates with the runner (shutdown over UDS, replace binary, supervisor restarts under the new code) |
   | `completion.go`               | `gander completion {bash\|zsh}`                          |
   | `skill.go`                    | `gander skill [install]` — fetch gander-skill into `~/.gander/skill`, symlink into agent skill dirs |
