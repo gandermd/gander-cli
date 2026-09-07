@@ -6,13 +6,14 @@ Operating notes for AI coding agents (and humans) working on **gander**.
 
 `gander` is a Go CLI that renders a Markdown file to HTML and opens it in the
 browser. Optional `--watch` mode hot-reloads on save. Optional `--upgrade`
-self-updates from GitHub Releases.
+self-updates from `https://release.gander.md` (GitHub Releases fallback).
 
 - **Language:** Go 1.23
 - **Module:** `gander` (see `go.mod`)
 - **Entry point:** `main.go`
-- **Distribution:** prebuilt binaries in `dist/` (for `install.sh`) and
-  GitHub Releases (for `gander --upgrade`).
+- **Distribution:** prebuilt binaries in `dist/` (for `install.sh`), GitHub
+  Releases (Homebrew + fallback), and the Spaces mirror at
+  `https://release.gander.md` (one-liner and `gander --upgrade`).
 - **Source layout:**
   | File                          | Purpose                                                  |
   | ----------------------------- | -------------------------------------------------------- |
@@ -34,15 +35,16 @@ self-updates from GitHub Releases.
   | `logs.go`                     | `gander logs [<id>] [--follow\|--no-follow]` tail file  |
   | `api.go`                      | gandermd HTTP client (signup, share CRUD, manage intent, invites) |
   | `signup.go`/`auth.go`/`list.go`/`remove.go`/`manage.go`/`invite.go` | gandermd account subcommands |
-  | `upgrade.go`                  | `--upgrade` self-update via GitHub Releases API; coordinates with the runner (shutdown over UDS, replace binary, supervisor restarts under the new code) |
+  | `upgrade.go`                  | `--upgrade` self-update via `https://release.gander.md/latest.json` (GitHub Releases API fallback); coordinates with the runner (shutdown over UDS, replace binary, supervisor restarts under the new code) |
   | `completion.go`               | `gander completion {bash\|zsh}`                          |
   | `skill.go`                    | `gander skill [install]` — fetch gander-skill into `~/.gander/skill`, symlink into agent skill dirs |
   | `uninstall.go`                | `gander uninstall` — reverse MCP/skill/runner/binary and optionally `~/.gander` |
   | `*_test.go`                   | Unit tests                                               |
-  | `install.sh`                  | Installer: downloads the latest release, source fallback |
+  | `install.sh`                  | Installer: downloads from `https://release.gander.md`, GitHub then source fallback |
   | `scripts/release.sh`          | Release automation (see below)                           |
+  | `scripts/publish-spaces.sh`   | Upload binaries / `install.sh` / `latest.json` to DigitalOcean Spaces |
   | `plans/`                      | Agent-authored plans (untracked; not part of releases)   |
-  | `.github/workflows/`          | CI (currently just `release.yml`)                        |
+  | `.github/workflows/`          | CI (`ci.yml`, `release.yml`, `publish-spaces.yml`)       |
 
 - **Runner architecture (Phases 0–6 of `plans/2026-08-26-persistent-runner-process-for-gander.md`):**
   `gander --watch <file>` hands the file off to a long-lived daemon (`gander _serve`) and exits. The daemon owns the HTTP server on `127.0.0.1:7821`, the fsnotify loop, and `~/.gander/watches.json` (chmod 0600, atomic temp-rename writes, refuses to load with broader modes). Watches survive the CLI's lifetime and reboots — the daemon is auto-launched at login by `gander runner install` (LaunchAgent on macOS, `systemctl --user` on Linux). The CLI surfaces are `gander status`, `gander stop`, `gander logs`, `gander runner {install|uninstall}`; the old blocking behavior is preserved behind `gander --watch --foreground`. Security defaults: UDS gated by `~/.gander/runner.sock` mode 0600 inside `~/.gander` mode 0700, plus `SO_PEERCRED` peer-UID on Linux; per-watch and daemon tokens (32 hex from `crypto/rand`) compared with `crypto/subtle.ConstantTimeCompare`; `watches.json` mode at most 0600 — the daemon refuses to start if it's wider. `gander --upgrade` reads `~/.gander/runner.pid`, verifies the recorded PID is still a live same-user process, sends `{"op":"shutdown"}` over UDS, replaces the binary, and lets the supervisor (or `ensureRunner` when unsupervised) bring the new binary back up — `watches.json` is reloaded by the new process so the upgrade is invisible to open viewers.
@@ -96,7 +98,9 @@ On every `v*` tag push:
    `CGO_ENABLED=0`. Version is injected via `-ldflags -X main.Version`.
 2. **Checksums** generate a `.sha256` sidecar for each binary.
 3. **Release** job downloads all artifacts and publishes a GitHub Release
-   (via `softprops/action-gh-release@v2`) with auto-generated notes.
+   (via `softprops/action-gh-release@v3`) with auto-generated notes.
+4. **Spaces** job runs `scripts/publish-spaces.sh` so binaries, checksums,
+   `install.sh`, and `latest.json` are public at `https://release.gander.md`.
 
 The asset naming `gander-{goos}-{goarch}` is load-bearing — `gander --upgrade`
 matches on it. Don't rename without updating `assetNameForRuntime` in
@@ -121,7 +125,7 @@ asks for a `y/N` confirm, then runs the whole release end-to-end:
    workflow finishes.
 5. Runs `scripts/bump-homebrew.sh` to open the Homebrew formula bump PR
    against `gandermd/homebrew-gander`.
-6. Prints the GitHub Release URL, per-asset URLs, and the Homebrew PR URL.
+6. Prints the GitHub Release URL, per-asset URLs, Spaces mirror URLs, and the Homebrew PR URL.
 
 Useful flags:
 
@@ -151,10 +155,18 @@ git push origin v0.2.0
 # then watch: https://github.com/gandermd/gander-cli/actions/workflows/release.yml
 ```
 
+The release workflow also runs `scripts/publish-spaces.sh` so the same
+`gander-{goos}-{goarch}` binaries, checksums, `install.sh`, and `latest.json`
+land at `https://release.gander.md`. Repo secrets `SPACES_ACCESS_KEY` /
+`SPACES_SECRET_KEY` are required; optional Actions variables `SPACES_BUCKET`
+(default `gander`), `SPACES_REGION` (default `nyc3`), and
+`SPACES_ENDPOINT` override the bucket. `workflow_dispatch` on
+`publish-spaces.yml` backfills an existing GitHub Release. Pushes to `main`
+that touch `install.sh` re-upload that file only.
+
 ### After a release
 
-- Users pick it up with `gander --upgrade` (rate-limited; set `GITHUB_TOKEN`
-  to raise the limit).
+- Users pick it up with `gander --upgrade` (Spaces mirror; GitHub API fallback).
 - Source-build users run `git pull && CGO_ENABLED=0 go build -o ~/go/bin/gander .`.
 - The first `gander --upgrade` after install is a chicken-and-egg: the binary
   has to be a release build (i.e., built with `-ldflags -X main.Version=…`).

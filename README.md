@@ -36,10 +36,16 @@ This installs `gander` on your `$PATH` for macOS and Linux (via Linuxbrew), regi
 Use this on systems without Homebrew or in CI environments that can't tap a formula:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gandermd/gander-cli/main/install.sh | bash
+curl -fsSL https://release.gander.md/install.sh | bash
 ```
 
-Downloads the latest release binary for your OS/arch from GitHub Releases, verifies its SHA256 checksum, and installs to `~/go/bin/gander` (or `/usr/local/bin/gander` if `~/go/bin` doesn't exist). After the binary is in place, the script runs `gander skill` and `gander mcp install` so agent runners pick up the skill and MCP server automatically. If those post-steps fail (including older `--version` tags that lack the subcommands), the script warns and still exits 0 — the binary install already succeeded. If the download fails (no network, no release for your platform), the script falls back to building from source and runs the same post-steps against the built binary.
+Downloads the latest release binary for your OS/arch from `https://release.gander.md`, verifies its SHA256 checksum, and installs to `~/go/bin/gander` (or `/usr/local/bin/gander` if `~/go/bin` doesn't exist). After the binary is in place, the script runs `gander skill` and `gander mcp install` so agent runners pick up the skill and MCP server automatically. If those post-steps fail (including older `--version` tags that lack the subcommands), the script warns and still exits 0 — the binary install already succeeded. If the mirror is unreachable, the script falls back to GitHub Releases, then to building from source, and runs the same post-steps against the built binary.
+
+The GitHub copy of the script still works if you prefer not to hit the CDN:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/gandermd/gander-cli/main/install.sh | bash
+```
 
 Flags:
 
@@ -52,10 +58,10 @@ Flags:
 Pass both `--no-skill` and `--no-mcp` for a binary-only install (the previous default). When piping the script, put flags after `--`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gandermd/gander-cli/main/install.sh | bash -s -- --no-skill --no-mcp
+curl -fsSL https://release.gander.md/install.sh | bash -s -- --no-skill --no-mcp
 ```
 
-The installer requires `curl` and `git` (only for the source fallback). Set `GITHUB_TOKEN` to raise the GitHub API rate limit on shared networks.
+The installer requires `curl` and `git` (only for the source fallback). Override the download origin with `GANDER_DOWNLOAD_BASE` if you need to.
 
 ### Clone + run
 
@@ -87,7 +93,7 @@ mv gander ~/go/bin/gander  # or any directory in your PATH
 gander --upgrade
 ```
 
-Downloads the latest release binary that matches your OS/arch, verifies its SHA256 checksum, and atomically replaces the running binary. If `~/.gander/skill` is already installed, the same command also pulls the latest [`gandermd/gander-skill`](https://github.com/gandermd/gander-skill) and re-links agent dests. Sets `GITHUB_TOKEN` in the environment to raise the API rate limit on shared networks.
+Downloads the latest release binary that matches your OS/arch from `https://release.gander.md`, verifies its SHA256 checksum, and atomically replaces the running binary. Falls back to the GitHub Releases API if the mirror is unreachable. If `~/.gander/skill` is already installed, the same command also pulls the latest [`gandermd/gander-skill`](https://github.com/gandermd/gander-skill) and re-links agent dests.
 
 If you built from source the old-fashioned way, re-run `install.sh` (or `git pull && ./install.sh --source`).
 
@@ -324,7 +330,7 @@ Useful flags:
 - `--no-homebrew` — release only; skip the Homebrew PR step.
 - `--dry-run` — print what would happen without tagging or pushing.
 
-The release workflow (`.github/workflows/release.yml`) builds matrix binaries (`gander-{darwin,linux}-{amd64,arm64}`), generates a SHA256 sidecar for each, and attaches them to a GitHub Release with auto-generated notes. Existing users pick up the new version with `gander --upgrade`.
+The release workflow (`.github/workflows/release.yml`) builds matrix binaries (`gander-{darwin,linux}-{amd64,arm64}`), generates a SHA256 sidecar for each, attaches them to a GitHub Release with auto-generated notes, and mirrors the binaries plus `install.sh` and `latest.json` to `https://release.gander.md`. Existing users pick up the new version with `gander --upgrade`. Homebrew still installs from GitHub Release assets.
 
 `scripts/bump-homebrew.sh` also runs standalone for re-bumps after a manual fix:
 
