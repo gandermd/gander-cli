@@ -20,6 +20,9 @@ _gander() {
         'logs:Tail the runner log (optionally filtered by watch id)'
         'runner:Install or uninstall the OS-level auto-start unit'
         'manage:Open the dashboard in your browser'
+        'dashboard:Alias for manage'
+        'dash:Alias for manage'
+        '--d:Alias for manage'
         'auth:Install a new API token (validate against /api/shares first)'
         'completion:Print a shell completion script'
         '--upgrade:Download and install the latest release'
@@ -102,7 +105,7 @@ _gander() {
         list)
             _arguments
             ;;
-        manage)
+        manage|dashboard|dash|--d)
             _arguments
             ;;
         auth)

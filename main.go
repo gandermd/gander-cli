@@ -19,6 +19,13 @@ func main() {
 	}
 
 	if len(os.Args) > 1 {
+		if isManageCmd(os.Args[1]) {
+			if err := runManage(os.Args[1], os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "manage: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		}
 		switch os.Args[1] {
 		case "_serve":
 			if err := runRunner(os.Args[2:]); err != nil {
@@ -86,12 +93,6 @@ func main() {
 		case "completion":
 			if err := runCompletion(os.Args[2:]); err != nil {
 				fmt.Fprintf(os.Stderr, "completion: %v\n", err)
-				os.Exit(1)
-			}
-			return
-		case "manage":
-			if err := runManage(os.Args[2:]); err != nil {
-				fmt.Fprintf(os.Stderr, "manage: %v\n", err)
 				os.Exit(1)
 			}
 			return
@@ -266,7 +267,7 @@ func printUsage(w io.Writer) {
 		fmt.Fprintln(w, "  gander list                                                List shares currently on gander.md")
 		fmt.Fprintln(w, "  gander comments [file]                                     List unresolved review comments")
 		fmt.Fprintln(w, "  gander mcp [install]                                       MCP stdio server, or install into agent runtimes")
-		fmt.Fprintln(w, "  gander manage                                               Open the dashboard in your browser")
+		fmt.Fprintln(w, "  gander manage | dashboard | dash | --d                      Open the dashboard in your browser")
 		fmt.Fprintln(w, "  gander auth <api_token>                                     Install a new API token (e.g. after rotating in the dashboard)")
 	}
 	fmt.Fprintln(w, "  gander status                  Show runner version + active watches + URLs")
