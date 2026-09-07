@@ -15,7 +15,10 @@ Options:
   --source           Skip the download and build from source instead.
                      Useful when no GitHub release exists for your OS/arch
                      or when network access is unavailable.
-  --dry-run          Print what would happen without downloading or installing.
+  --dry-run          Print what would happen without downloading, installing,
+                     or running post-steps.
+  --no-skill         Skip installing the agent skill (gander skill).
+  --no-mcp           Skip installing MCP config (gander mcp install).
   -h, --help         Show this help and exit.
 
 Default behavior:
@@ -23,9 +26,12 @@ Default behavior:
   2. Download it from https://github.com/<repo>/releases/latest/download/...
   3. Verify SHA256 against the .sha256 sidecar.
   4. Install atomically to ~/go/bin/gander (or /usr/local/bin/gander).
+  5. Run "$dest skill" then "$dest mcp install" (non-fatal; opt out with
+     --no-skill / --no-mcp).
 
 If the download fails and --source is not set, the script falls back to
-cloning the repo and building with Go (when go is available).
+cloning the repo and building with Go (when go is available), then runs
+the same post-steps against the built binary.
 
 Environment:
   GITHUB_TOKEN       Optional. Used to raise the GitHub API rate limit when
@@ -36,13 +42,17 @@ USAGE
 VERSION=""
 USE_SOURCE=0
 DRY_RUN=0
+INSTALL_SKILL=1
+INSTALL_MCP=1
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --version)  VERSION="$2"; shift 2 ;;
-    --source)   USE_SOURCE=1; shift ;;
-    --dry-run)  DRY_RUN=1; shift ;;
-    -h|--help)  usage; exit 0 ;;
+    --version)   VERSION="$2"; shift 2 ;;
+    --source)    USE_SOURCE=1; shift ;;
+    --dry-run)   DRY_RUN=1; shift ;;
+    --no-skill)  INSTALL_SKILL=0; shift ;;
+    --no-mcp)    INSTALL_MCP=0; shift ;;
+    -h|--help)   usage; exit 0 ;;
     *) echo "error: unknown option: $1" >&2; usage; exit 2 ;;
   esac
 done
@@ -201,27 +211,55 @@ source_build_and_install() {
   log "built and installed to $install_dir/gander"
 }
 
+install_agent_integrations() {
+  local dest="$1"
+
+  if [[ "$INSTALL_SKILL" -eq 1 ]]; then
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      log "would run: $dest skill"
+    else
+      log "Installing agent skill"
+      if ! "$dest" skill; then
+        echo "warning: gander skill failed; the binary is still installed. Run 'gander skill' later." >&2
+      fi
+    fi
+  fi
+
+  if [[ "$INSTALL_MCP" -eq 1 ]]; then
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      log "would run: $dest mcp install"
+    else
+      log "Installing MCP"
+      if ! "$dest" mcp install; then
+        echo "warning: gander mcp install failed; the binary is still installed. Run 'gander mcp install' later." >&2
+      fi
+    fi
+  fi
+}
+
 main() {
   local platform
   platform=$(detect_platform)
   local install_dir
   install_dir=$(resolve_install_dir)
+  local dest="$install_dir/gander"
 
   log "platform: $platform"
   log "install dir: $install_dir"
 
   if [[ "$USE_SOURCE" -eq 1 ]]; then
     source_build_and_install "$install_dir"
-    exit 0
+  else
+    local tag="${VERSION:-latest}"
+    if ! download_and_install "$platform" "$install_dir" "$tag"; then
+      log "Binary download failed; falling back to source build."
+      source_build_and_install "$install_dir"
+    fi
   fi
 
-  local tag="${VERSION:-latest}"
-  if download_and_install "$platform" "$install_dir" "$tag"; then
-    exit 0
-  fi
-
-  log "Binary download failed; falling back to source build."
-  source_build_and_install "$install_dir"
+  install_agent_integrations "$dest"
 }
 
-main
+if [[ "${GANDER_INSTALL_SKIP_MAIN:-0}" -ne 1 ]]; then
+  main
+fi
