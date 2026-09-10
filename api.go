@@ -233,6 +233,40 @@ func (c *apiClient) ListShares() ([]shareResp, error) {
 	return out, nil
 }
 
+func (c *apiClient) ListSharesIfNoneMatch(etag string) (shares []shareResp, newETag string, notModified bool, err error) {
+	req, err := http.NewRequest(http.MethodGet, c.base+"/api/shares", nil)
+	if err != nil {
+		return nil, "", false, err
+	}
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+	if etag != "" {
+		req.Header.Set("If-None-Match", etag)
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, "", false, fmt.Errorf("request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotModified {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return nil, etag, true, nil
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return nil, "", false, fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&shares); err != nil {
+		return nil, "", false, fmt.Errorf("decode: %w", err)
+	}
+	if shares == nil {
+		shares = []shareResp{}
+	}
+	return shares, resp.Header.Get("ETag"), false, nil
+}
+
 func (c *apiClient) ListSharesByFilename(filename string) ([]shareResp, error) {
 	var out []shareResp
 	path := "/api/shares?filename=" + url.QueryEscape(filename)

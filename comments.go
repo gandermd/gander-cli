@@ -98,6 +98,10 @@ func loadInboxSummary(cli *apiClient, cfg Config) ([]inboxSummary, error) {
 	if err != nil {
 		return nil, fmt.Errorf("list shares: %w", err)
 	}
+	return inboxSummaryFromShares(all, cfg), nil
+}
+
+func inboxSummaryFromShares(all []shareResp, cfg Config) []inboxSummary {
 	pathByShort, watching := shareLookup(cfg)
 	var items []inboxSummary
 	for i := range all {
@@ -116,7 +120,7 @@ func loadInboxSummary(cli *apiClient, cfg Config) ([]inboxSummary, error) {
 			AgentUnresolvedCount: sh.AgentUnresolvedCount,
 		})
 	}
-	return items, nil
+	return items
 }
 
 func loadInbox(cli *apiClient, cfg Config, filterPath string, forAgent bool) ([]inboxItem, error) {
@@ -240,13 +244,18 @@ func inboxJSON(items []inboxItem) string {
 }
 
 func inboxSummaryJSON(items []inboxSummary) string {
-	type wrap struct {
-		Inbox []inboxSummary `json:"inbox"`
-	}
+	return marshalInboxSummary(items, nil)
+}
+
+func marshalInboxSummary(items []inboxSummary, poll *inboxPollInfo) string {
 	if items == nil {
 		items = []inboxSummary{}
 	}
-	b, err := json.Marshal(wrap{Inbox: items})
+	payload := struct {
+		Inbox []inboxSummary `json:"inbox"`
+		Poll  *inboxPollInfo `json:"poll,omitempty"`
+	}{Inbox: items, Poll: poll}
+	b, err := json.Marshal(payload)
 	if err != nil {
 		return `{"inbox":[]}`
 	}

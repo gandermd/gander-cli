@@ -19,6 +19,7 @@ self-updates from `https://release.gander.md` (GitHub Releases fallback).
   | ----------------------------- | -------------------------------------------------------- |
   | `main.go`                     | CLI parsing, flag dispatch, entrypoint glue              |
   | `config.go`                   | Profile dir `~/.gander` (or `~/.gander.<name>` via `GANDER_CONFIG`); JSON at `config.json`. Migrates a legacy file at that path into the directory. Path-traversal guard on profile names. |
+  | `inbox_poll.go`               | MCP no-path comment-inbox backoff (`inbox-poll.json`, chmod 0600, atomic rename). Exponential 1m→2m→4m→8m inside a 2-hour idle window opened by `gander share` / hosted `gander watch`. |
   | `render.go`                   | Markdown → HTML, page builder, CSS, TOC + reload JS      |
   | `watch.go`                    | Per-watch HTTP+SSE server and fsnotify loop (also reused by the runner via `serveWatchForever`) |
   | `share.go`                    | `gander share [--watch]` upload + push-to-gandermd loop (also reused by the runner via `serveShareWatcher`) |
