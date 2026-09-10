@@ -11,9 +11,9 @@ import (
 
 const mcpProtocolVersion = "2024-11-05"
 
-const mcpInstructions = `Grok Build and Claude Code: The first time this session the user asks to gander a markdown file (preview, share, or gander watch), start one /loop 5m via the scheduler (scheduler_create on Grok, CronCreate on Claude). Do not ask the user to type /loop. Do not stack duplicate loops. Put a stop time 15 minutes from now in the loop prompt. The loop prompt: call gander_list_comments with no path, then follow the comment rules below; if this check discovers new comments, move the stop time to 15 minutes from now (update the loop); if the stop time has passed, delete the loop (scheduler_delete / CronDelete) and stop.
-Other agents (Codex, OpenCode, Cursor, etc.): The first time this session the user asks to gander a markdown file (preview, share, or gander watch), start checking at the start of every subsequent turn for 15 minutes: call gander_list_comments with no path, then follow the comment rules below. If this check discovers new comments, restart the 15-minute window. After the window ends, skip the inbox check.
-Comment polling lasts 15 minutes from the gander that started it, or from the last check that discovered new comments (agent_unresolved_count went up, a new file appeared in the inbox, or a path-scoped fetch shows a thread/comment not seen before). A later gander of a markdown file restarts the window (update the loop's stop time, or start a new loop if none is running; other agents reset the 15-minute every-turn window). Do not mention Gander when the window ends.
+const mcpInstructions = `Grok Build and Claude Code: The first time this session the user asks to gander a markdown file (preview, share, or gander watch), start one /loop 1m via the scheduler (scheduler_create on Grok, CronCreate on Claude). Do not ask the user to type /loop. Do not stack duplicate loops. The loop prompt: call gander_list_comments with no path, then follow the comment rules below. After each check, set the loop interval to poll.interval (Grok: scheduler_create with existing task_id; Claude: update or delete+recreate — do not leave two). If poll.done or stop_at has passed, scheduler_delete / CronDelete and stop. If poll.skipped or poll.unchanged, do not mention Gander. Do not add every-turn checks.
+Other agents (Codex, OpenCode, Cursor, etc.): The first time this session the user asks to gander a markdown file (preview, share, or gander watch), start wall-clock backoff for 2 hours, not every turn. Call no-path gander_list_comments when now >= poll.next_check_at (if no stored time, call once). If now < poll.next_check_at or poll.done, skip the tool call. Remember poll.next_check_at / poll.stop_at / poll.interval.
+Comment polling lasts 2 hours from the gander that started it, or from the last check that discovered new comments (agent_unresolved_count went up, a new file appeared in the inbox, or a path-scoped fetch shows a thread/comment not seen before). A later gander of a markdown file restarts the window (update the loop's stop time, or start a new loop if none is running; other agents remember poll.stop_at). Do not mention Gander when the window ends.
 - The no-path result is metadata only (path, filename, share_url, agent_unresolved_count). Do not fetch bodies for other files unless the user asks to handle that review.
 - Only fetch bodies / act when agent_unresolved_count is > 0. Comments that do not start with @agent are not agent work, even if unresolved_count is > 0.
 - If the user's request involves a file that has agent_unresolved_count > 0, call gander_list_comments with that path, then address only comments that start with @agent: edit the file and/or gander_reply_comment. If watching is false, run gander watch <path> first so the reviewer sees live updates.
@@ -197,11 +197,11 @@ func dispatchMCPTool(cli *apiClient, cfg Config, name string, args json.RawMessa
 		}
 		_ = json.Unmarshal(args, &in)
 		if strings.TrimSpace(in.Path) == "" {
-			items, err := loadInboxSummary(cli, cfg)
+			items, poll, err := loadInboxSummaryPolled(cli, cfg)
 			if err != nil {
 				return "", err
 			}
-			return inboxSummaryJSON(items), nil
+			return marshalInboxSummary(items, poll), nil
 		}
 		items, err := loadInbox(cli, cfg, in.Path, true)
 		if err != nil {

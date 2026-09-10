@@ -79,6 +79,7 @@ func runShareWithCtx(ctx context.Context, args []string) error {
 	if err := WriteConfig(cfg); err != nil {
 		return fmt.Errorf("save mapping: %w", err)
 	}
+	_ = touchInboxPollWindow()
 	if !created || hadLocal {
 		fmt.Printf("Already shared %s as %s — refreshing content in place.\n", canonical, sh.URL)
 	} else {

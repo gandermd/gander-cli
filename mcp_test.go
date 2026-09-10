@@ -79,18 +79,19 @@ func TestMCPInstructionsAgentInbox(t *testing.T) {
 
 func TestMCPInstructionsGrokClaudeLoop(t *testing.T) {
 	for _, want := range []string{
-		"/loop 5m",
+		"/loop 1m",
+		"poll.interval",
+		"poll.next_check_at",
+		"poll.done",
 		"Grok Build and Claude Code",
 		"Other agents",
 		"Do not stack duplicate loops",
 		"first time this session",
 		"gander a markdown file",
-		"15 minutes",
-		"stop time",
 		"scheduler_delete",
 		"CronDelete",
 		"new comments",
-		"Comment polling lasts 15 minutes",
+		"Comment polling lasts 2 hours",
 	} {
 		if !strings.Contains(mcpInstructions, want) {
 			t.Errorf("mcpInstructions missing %q", want)
@@ -102,6 +103,12 @@ func TestMCPInstructionsGrokClaudeLoop(t *testing.T) {
 	if strings.Contains(mcpInstructions, "30 minutes") {
 		t.Fatal("must not keep a 30-minute poll window")
 	}
+	if strings.Contains(mcpInstructions, "/loop 5m") {
+		t.Fatal("must not keep a /loop 5m cadence")
+	}
+	if strings.Contains(mcpInstructions, "every subsequent turn") {
+		t.Fatal("must not keep every-subsequent-turn cadence")
+	}
 	grok := strings.Index(mcpInstructions, "Grok Build and Claude Code")
 	other := strings.Index(mcpInstructions, "Other agents")
 	if grok < 0 || other < 0 || other <= grok {
@@ -111,7 +118,7 @@ func TestMCPInstructionsGrokClaudeLoop(t *testing.T) {
 	if strings.Contains(block, "every turn") {
 		t.Fatal("Grok/Claude polling must not require every-turn inbox checks")
 	}
-	for _, want := range []string{"stop time", "scheduler_delete", "CronDelete", "move the stop time"} {
+	for _, want := range []string{"/loop 1m", "poll.interval", "scheduler_delete", "CronDelete", "poll.done"} {
 		if !strings.Contains(block, want) {
 			t.Errorf("Grok/Claude block missing %q", want)
 		}
@@ -128,11 +135,10 @@ func TestMCPInstructionsOtherAgentsInbox(t *testing.T) {
 	for _, want := range []string{
 		"first time this session",
 		"gander a markdown file",
-		"every subsequent turn",
 		"gander_list_comments",
-		"15 minutes",
-		"skip the inbox check",
-		"restart the 15-minute window",
+		"poll.next_check_at",
+		"skip the tool call",
+		"2 hours",
 	} {
 		if !strings.Contains(block, want) {
 			t.Errorf("Other agents block missing %q", want)
@@ -140,6 +146,9 @@ func TestMCPInstructionsOtherAgentsInbox(t *testing.T) {
 	}
 	if strings.Contains(block, "/loop") {
 		t.Fatal("Other agents must not start a /loop")
+	}
+	if strings.Contains(block, "every subsequent turn") {
+		t.Fatal("Other agents must not check on every subsequent turn")
 	}
 }
 
@@ -201,6 +210,9 @@ func TestServeMCPListCommentsNoPathOmitsBodies(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(tmp, ".gander"), []byte(`{"api_url":"`+srv.URL+`","api_token":"gmd_x"}`), 0600); err != nil {
 		t.Fatal(err)
 	}
+	if err := touchInboxPollWindow(); err != nil {
+		t.Fatal(err)
+	}
 
 	in := bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"gander_list_comments","arguments":{}}}` + "\n")
 	var out bytes.Buffer
@@ -210,6 +222,9 @@ func TestServeMCPListCommentsNoPathOmitsBodies(t *testing.T) {
 	got := mcpToolText(t, out.Bytes())
 	if !strings.Contains(got, "b.md") || !strings.Contains(got, `"agent_unresolved_count":1`) {
 		t.Errorf("output = %s", got)
+	}
+	if !strings.Contains(got, `"poll"`) || !strings.Contains(got, `"interval":"1m"`) {
+		t.Errorf("no-path result missing poll object: %s", got)
 	}
 	if strings.Contains(got, `"unresolved_count"`) {
 		t.Errorf("no-path result must not use unresolved_count: %s", got)
