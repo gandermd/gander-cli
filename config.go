@@ -16,10 +16,12 @@ type Config struct {
 	DebounceMs int  `json:"debounce_ms"`
 	Port       int  `json:"port"`
 
-	APIURL   string            `json:"api_url"`
-	Email    string            `json:"email"`
-	APIToken string            `json:"api_token"`
-	Shares   map[string]string `json:"shares"`
+	APIURL        string            `json:"api_url"`
+	Email         string            `json:"email"`
+	APIToken      string            `json:"api_token"`
+	DocVisibility string            `json:"doc_visibility,omitempty"`
+	CommentAccess string            `json:"comment_access,omitempty"`
+	Shares        map[string]string `json:"shares"`
 }
 
 const (

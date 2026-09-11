@@ -68,6 +68,10 @@ func runShareWithCtx(ctx context.Context, args []string) error {
 
 	cli := newAPIClient(cfg.APIURL, cfg.APIToken)
 	_, hadLocal := cfg.Shares[canonical]
+	opts, err = applyShareConfigDefaults(opts, cfg, !hadLocal)
+	if err != nil {
+		return err
+	}
 	sh, created, err := cli.CreateShare(filepath.Base(canonical), canonical, string(content), *watch, opts)
 	if err != nil {
 		return fmt.Errorf("create: %w", err)
@@ -332,6 +336,32 @@ func shareOptsFromFlags(fs *flag.FlagSet, comments, visibility string, private, 
 	}
 
 	return shareOpts{CommentAccess: access, DocVisibility: doc}, nil
+}
+
+func applyShareConfigDefaults(opts shareOpts, cfg Config, isNew bool) (shareOpts, error) {
+	if !isNew {
+		return opts, nil
+	}
+	if opts.DocVisibility == "" && cfg.DocVisibility != "" {
+		switch cfg.DocVisibility {
+		case "anyone", "private", "hidden":
+			opts.DocVisibility = cfg.DocVisibility
+		default:
+			return shareOpts{}, fmt.Errorf("doc_visibility must be anyone, private, or hidden")
+		}
+	}
+	if opts.CommentAccess == "" && cfg.CommentAccess != "" {
+		switch cfg.CommentAccess {
+		case "anyone", "private", "disabled":
+			opts.CommentAccess = cfg.CommentAccess
+		default:
+			return shareOpts{}, fmt.Errorf("comment_access must be anyone, private, or disabled")
+		}
+	}
+	if opts.CommentAccess == "anyone" && (opts.DocVisibility == "private" || opts.DocVisibility == "hidden") {
+		return shareOpts{}, fmt.Errorf("comment_access anyone cannot be combined with doc_visibility %s", opts.DocVisibility)
+	}
+	return opts, nil
 }
 
 func checkSharePolicyEcho(opts shareOpts, sh *shareResp) error {
