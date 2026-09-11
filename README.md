@@ -239,21 +239,25 @@ omit falls back to its default.
   "api_url": "https://gander.md",
   "email": "you@example.com",
   "api_token": "gmd_…",
+  "doc_visibility": "private",
+  "comment_access": "disabled",
   "shares": {
     "/abs/path/to/README.md": "xK7m2pQa"
   }
 }
 ```
 
-| Field         | Default            | Description                                                                |
-| ------------- | ------------------ | -------------------------------------------------------------------------- |
-| `watch`       | `false`            | Default to live-reload mode when the flag is not explicitly set.           |
-| `debounce_ms` | `150`              | Coalesce file-change events within this window before re-rendering.        |
-| `port`        | `0`                | HTTP port for the watch server (`0` = OS-assigned free port).              |
-| `api_url`     | `https://gander.md` | gandermd endpoint; used by `signup`, `share`, `remove`, `list`, `invite`, `manage`.  |
-| `email`       | _(empty)_          | Email address registered with gandermd.                                   |
-| `api_token`   | _(empty)_          | Bearer token. Set by `gander signup`. Treat as a password.                 |
-| `shares`      | `{}`               | Map of local file paths to short IDs, maintained by `gander share`.        |
+| Field             | Default            | Description                                                                |
+| ----------------- | ------------------ | -------------------------------------------------------------------------- |
+| `watch`           | `false`            | Default to live-reload mode when the flag is not explicitly set.           |
+| `debounce_ms`     | `150`              | Coalesce file-change events within this window before re-rendering.        |
+| `port`            | `0`                | HTTP port for the watch server (`0` = OS-assigned free port).              |
+| `api_url`         | `https://gander.md` | gandermd endpoint; used by `signup`, `share`, `remove`, `list`, `invite`, `manage`.  |
+| `email`           | _(empty)_          | Email address registered with gandermd.                                   |
+| `api_token`       | _(empty)_          | Bearer token. Set by `gander signup`. Treat as a password.                 |
+| `doc_visibility`  | _(omitted)_        | Default visibility for a **new** share: `anyone`, `private`, or `hidden`. Flags (`--visibility`, `--private`) override. Re-share / watch of an existing file omits this unless a flag is passed. Server insert default is `anyone`. |
+| `comment_access`  | _(omitted)_        | Default commenting for a **new** share: `anyone`, `private`, or `disabled`. Flags (`--comments`, `--no-comments`) override. Re-share / watch of an existing file omits this unless a flag is passed. `anyone` requires visibility `anyone`. Server insert default is `private`. |
+| `shares`          | `{}`               | Map of local file paths to short IDs, maintained by `gander share`.        |
 
 CLI flags always override the config. Pass `--watch=false` (or any explicit value) to override `~/.gander/config.json` for a single run.
 

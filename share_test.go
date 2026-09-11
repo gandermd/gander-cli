@@ -659,6 +659,396 @@ func TestShareHiddenDoesNotOpenBrowser(t *testing.T) {
 	}
 }
 
+func TestApplyShareConfigDefaults(t *testing.T) {
+	cases := []struct {
+		name    string
+		opts    shareOpts
+		cfg     Config
+		isNew   bool
+		want    shareOpts
+		wantErr string
+	}{
+		{
+			name:  "existing share ignores config",
+			opts:  shareOpts{},
+			cfg:   Config{DocVisibility: "private", CommentAccess: "disabled"},
+			isNew: false,
+			want:  shareOpts{},
+		},
+		{
+			name:  "existing share keeps flags only",
+			opts:  shareOpts{DocVisibility: "anyone"},
+			cfg:   Config{DocVisibility: "private", CommentAccess: "disabled"},
+			isNew: false,
+			want:  shareOpts{DocVisibility: "anyone"},
+		},
+		{
+			name:  "new share empty config omits",
+			opts:  shareOpts{},
+			isNew: true,
+			want:  shareOpts{},
+		},
+		{
+			name:  "new share applies visibility",
+			opts:  shareOpts{},
+			cfg:   Config{DocVisibility: "private"},
+			isNew: true,
+			want:  shareOpts{DocVisibility: "private"},
+		},
+		{
+			name:  "new share applies comments",
+			opts:  shareOpts{},
+			cfg:   Config{CommentAccess: "disabled"},
+			isNew: true,
+			want:  shareOpts{CommentAccess: "disabled"},
+		},
+		{
+			name:  "new share applies both",
+			opts:  shareOpts{},
+			cfg:   Config{DocVisibility: "hidden", CommentAccess: "disabled"},
+			isNew: true,
+			want:  shareOpts{DocVisibility: "hidden", CommentAccess: "disabled"},
+		},
+		{
+			name:  "flags win over config",
+			opts:  shareOpts{DocVisibility: "anyone", CommentAccess: "anyone"},
+			cfg:   Config{DocVisibility: "private", CommentAccess: "disabled"},
+			isNew: true,
+			want:  shareOpts{DocVisibility: "anyone", CommentAccess: "anyone"},
+		},
+		{
+			name:  "visibility flag wins, comments from config",
+			opts:  shareOpts{DocVisibility: "anyone"},
+			cfg:   Config{DocVisibility: "private", CommentAccess: "disabled"},
+			isNew: true,
+			want:  shareOpts{DocVisibility: "anyone", CommentAccess: "disabled"},
+		},
+		{
+			name:    "invalid visibility",
+			cfg:     Config{DocVisibility: "public"},
+			isNew:   true,
+			wantErr: "doc_visibility must be anyone, private, or hidden",
+		},
+		{
+			name:    "invalid comments",
+			cfg:     Config{CommentAccess: "team"},
+			isNew:   true,
+			wantErr: "comment_access must be anyone, private, or disabled",
+		},
+		{
+			name:    "anyone comments + private vis",
+			cfg:     Config{DocVisibility: "private", CommentAccess: "anyone"},
+			isNew:   true,
+			wantErr: "comment_access anyone cannot be combined with doc_visibility private",
+		},
+		{
+			name:    "anyone comments + hidden vis",
+			cfg:     Config{DocVisibility: "hidden", CommentAccess: "anyone"},
+			isNew:   true,
+			wantErr: "comment_access anyone cannot be combined with doc_visibility hidden",
+		},
+		{
+			name:    "flag comments anyone + config private",
+			opts:    shareOpts{CommentAccess: "anyone"},
+			cfg:     Config{DocVisibility: "private"},
+			isNew:   true,
+			wantErr: "comment_access anyone cannot be combined with doc_visibility private",
+		},
+		{
+			name:    "flag private + config comments anyone",
+			opts:    shareOpts{DocVisibility: "private"},
+			cfg:     Config{CommentAccess: "anyone"},
+			isNew:   true,
+			wantErr: "comment_access anyone cannot be combined with doc_visibility private",
+		},
+		{
+			name:  "anyone comments with omitted vis is ok",
+			cfg:   Config{CommentAccess: "anyone"},
+			isNew: true,
+			want:  shareOpts{CommentAccess: "anyone"},
+		},
+		{
+			name:  "invalid config ignored on existing share",
+			cfg:   Config{DocVisibility: "bogus", CommentAccess: "anyone"},
+			isNew: false,
+			want:  shareOpts{},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := applyShareConfigDefaults(tc.opts, tc.cfg, tc.isNew)
+			if tc.wantErr != "" {
+				if err == nil {
+					t.Fatalf("got %+v, want error %q", got, tc.wantErr)
+				}
+				if !strings.Contains(err.Error(), tc.wantErr) {
+					t.Errorf("err = %v, want substring %q", err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("applyShareConfigDefaults: %v", err)
+			}
+			if got != tc.want {
+				t.Errorf("got %+v, want %+v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestShareConfigDefaultsPOSTBody(t *testing.T) {
+	cases := []struct {
+		name     string
+		vis      string
+		comments string
+		args     []string
+		want     map[string]string
+		omit     []string
+	}{
+		{
+			name: "private visibility default",
+			vis:  "private",
+			want: map[string]string{"doc_visibility": "private"},
+			omit: []string{"comment_access"},
+		},
+		{
+			name:     "disabled comments default",
+			comments: "disabled",
+			want:     map[string]string{"comment_access": "disabled"},
+			omit:     []string{"doc_visibility"},
+		},
+		{
+			name:     "both defaults",
+			vis:      "hidden",
+			comments: "disabled",
+			want:     map[string]string{"doc_visibility": "hidden", "comment_access": "disabled"},
+		},
+		{
+			name: "visibility flag overrides private config",
+			vis:  "private",
+			args: []string{"--visibility=anyone"},
+			want: map[string]string{"doc_visibility": "anyone"},
+			omit: []string{"comment_access"},
+		},
+		{
+			name:     "comments flag overrides disabled config",
+			comments: "disabled",
+			args:     []string{"--comments=private"},
+			want:     map[string]string{"comment_access": "private"},
+			omit:     []string{"doc_visibility"},
+		},
+		{
+			name:     "no-comments overrides anyone config",
+			comments: "anyone",
+			args:     []string{"--no-comments"},
+			want:     map[string]string{"comment_access": "disabled"},
+			omit:     []string{"doc_visibility"},
+		},
+		{
+			name: "private flag overrides anyone config",
+			vis:  "anyone",
+			args: []string{"--private"},
+			want: map[string]string{"doc_visibility": "private"},
+			omit: []string{"comment_access"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var captured map[string]any
+			var posts int
+			srv := newSharePolicyServer(t, &captured, &posts, true)
+			md := setupShareHome(t, srv.URL)
+			patchConfig(t, func(cfg *Config) {
+				cfg.DocVisibility = tc.vis
+				cfg.CommentAccess = tc.comments
+			})
+			args := append(append([]string{}, tc.args...), md)
+			if err := runShareWithCtx(context.Background(), args); err != nil {
+				t.Fatalf("share: %v", err)
+			}
+			if posts != 1 {
+				t.Errorf("POST count = %d, want 1", posts)
+			}
+			for k, v := range tc.want {
+				got, _ := captured[k].(string)
+				if got != v {
+					t.Errorf("%s = %q, want %q (body=%v)", k, got, v, captured)
+				}
+			}
+			for _, k := range tc.omit {
+				if _, ok := captured[k]; ok {
+					t.Errorf("body unexpectedly has %s=%v", k, captured[k])
+				}
+			}
+		})
+	}
+}
+
+func TestShareConfigDefaultsOmittedOnExistingShare(t *testing.T) {
+	var captured map[string]any
+	var posts int
+	srv := newSharePolicyServer(t, &captured, &posts, true)
+	md := setupShareHome(t, srv.URL)
+	canon, err := canonicalPath(md)
+	if err != nil {
+		t.Fatal(err)
+	}
+	patchConfig(t, func(cfg *Config) {
+		cfg.DocVisibility = "private"
+		cfg.CommentAccess = "disabled"
+		cfg.Shares[canon] = "abc12345"
+	})
+	if err := runShareWithCtx(context.Background(), []string{md}); err != nil {
+		t.Fatalf("share: %v", err)
+	}
+	if posts != 1 {
+		t.Errorf("POST count = %d, want 1", posts)
+	}
+	for _, k := range []string{"comment_access", "doc_visibility"} {
+		if _, ok := captured[k]; ok {
+			t.Errorf("existing share must omit %s; body=%v", k, captured)
+		}
+	}
+}
+
+func TestShareExistingShareFlagStillSendsPolicy(t *testing.T) {
+	var captured map[string]any
+	var posts int
+	srv := newSharePolicyServer(t, &captured, &posts, true)
+	md := setupShareHome(t, srv.URL)
+	canon, err := canonicalPath(md)
+	if err != nil {
+		t.Fatal(err)
+	}
+	patchConfig(t, func(cfg *Config) {
+		cfg.DocVisibility = "hidden"
+		cfg.CommentAccess = "disabled"
+		cfg.Shares[canon] = "abc12345"
+	})
+	if err := runShareWithCtx(context.Background(), []string{"--visibility=anyone", md}); err != nil {
+		t.Fatalf("share: %v", err)
+	}
+	got, _ := captured["doc_visibility"].(string)
+	if got != "anyone" {
+		t.Errorf("doc_visibility = %q, want anyone (flag must win on re-share)", got)
+	}
+	if _, ok := captured["comment_access"]; ok {
+		t.Errorf("config comments must not be sent on existing share; body=%v", captured)
+	}
+}
+
+func TestWatchConfigDefaultsFirstCreate(t *testing.T) {
+	var captured map[string]any
+	var posts int
+	srv := newSharePolicyServer(t, &captured, &posts, true)
+	md := setupShareHome(t, srv.URL)
+	patchConfig(t, func(cfg *Config) {
+		cfg.DocVisibility = "private"
+		cfg.CommentAccess = "disabled"
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := runWatchCmdWithCtx(ctx, []string{"--foreground", md}); err != nil {
+		t.Fatalf("watch: %v", err)
+	}
+	if posts != 1 {
+		t.Errorf("POST count = %d, want 1", posts)
+	}
+	if got, _ := captured["doc_visibility"].(string); got != "private" {
+		t.Errorf("doc_visibility = %q, want private (body=%v)", got, captured)
+	}
+	if got, _ := captured["comment_access"].(string); got != "disabled" {
+		t.Errorf("comment_access = %q, want disabled (body=%v)", got, captured)
+	}
+}
+
+func TestWatchConfigDefaultsOmittedOnExistingShare(t *testing.T) {
+	var captured map[string]any
+	var posts int
+	srv := newSharePolicyServer(t, &captured, &posts, true)
+	md := setupShareHome(t, srv.URL)
+	canon, err := canonicalPath(md)
+	if err != nil {
+		t.Fatal(err)
+	}
+	patchConfig(t, func(cfg *Config) {
+		cfg.DocVisibility = "private"
+		cfg.CommentAccess = "disabled"
+		cfg.Shares[canon] = "abc12345"
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := runWatchCmdWithCtx(ctx, []string{"--foreground", md}); err != nil {
+		t.Fatalf("watch: %v", err)
+	}
+	if posts != 1 {
+		t.Errorf("POST count = %d, want 1", posts)
+	}
+	for _, k := range []string{"comment_access", "doc_visibility"} {
+		if _, ok := captured[k]; ok {
+			t.Errorf("existing watch must omit %s; body=%v", k, captured)
+		}
+	}
+}
+
+func TestShareRejectsInvalidConfigPolicyBeforeHTTP(t *testing.T) {
+	posts := 0
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/shares", func(w http.ResponseWriter, r *http.Request) {
+		posts++
+		http.Error(w, "should not be called", http.StatusInternalServerError)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	md := setupShareHome(t, srv.URL)
+
+	cases := []struct {
+		name     string
+		vis      string
+		comments string
+		args     []string
+		want     string
+	}{
+		{"bad visibility", "public", "", nil, "doc_visibility must be anyone, private, or hidden"},
+		{"bad comments", "", "team", nil, "comment_access must be anyone, private, or disabled"},
+		{"anyone + private", "private", "anyone", nil, "comment_access anyone cannot be combined with doc_visibility private"},
+		{"anyone + hidden", "hidden", "anyone", nil, "comment_access anyone cannot be combined with doc_visibility hidden"},
+		{"flag anyone + config private", "private", "", []string{"--comments=anyone"}, "comment_access anyone cannot be combined with doc_visibility private"},
+		{"flag private + config anyone comments", "", "anyone", []string{"--private"}, "comment_access anyone cannot be combined with doc_visibility private"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			patchConfig(t, func(cfg *Config) {
+				cfg.DocVisibility = tc.vis
+				cfg.CommentAccess = tc.comments
+			})
+			args := append(append([]string{}, tc.args...), md)
+			err := runShareWithCtx(context.Background(), args)
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("err = %v, want substring %q", err, tc.want)
+			}
+		})
+	}
+	if posts != 0 {
+		t.Errorf("invalid config issued %d HTTP POSTs", posts)
+	}
+}
+
+func patchConfig(t *testing.T, mutate func(*Config)) {
+	t.Helper()
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mutate(&cfg)
+	if err := WriteConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func setupShareHome(t *testing.T, apiURL string) string {
 	t.Helper()
 	tmp := t.TempDir()

@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -22,6 +23,12 @@ func TestDefaultConfig(t *testing.T) {
 	}
 	if cfg.Shares == nil {
 		t.Errorf("default Shares is nil")
+	}
+	if cfg.DocVisibility != "" {
+		t.Errorf("default DocVisibility = %q, want empty (omitted)", cfg.DocVisibility)
+	}
+	if cfg.CommentAccess != "" {
+		t.Errorf("default CommentAccess = %q, want empty (omitted)", cfg.CommentAccess)
 	}
 }
 
@@ -47,6 +54,86 @@ func TestWriteConfigRoundTrip(t *testing.T) {
 	}
 	if got.Shares["/abs/path"] != "xK7m2pQa" {
 		t.Errorf("share mapping lost: %+v", got.Shares)
+	}
+	if got.DocVisibility != "" || got.CommentAccess != "" {
+		t.Errorf("unset policy should stay empty: vis=%q comments=%q", got.DocVisibility, got.CommentAccess)
+	}
+}
+
+func TestWriteConfigOmitsUnsetSharePolicy(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+
+	if err := WriteConfig(DefaultConfig()); err != nil {
+		t.Fatalf("WriteConfig: %v", err)
+	}
+	onDisk, err := os.ReadFile(filepath.Join(dir, ".gander", configFileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(onDisk)
+	for _, k := range []string{"doc_visibility", "comment_access"} {
+		if strings.Contains(body, k) {
+			t.Errorf("unset %s should be omitted from config.json:\n%s", k, body)
+		}
+	}
+}
+
+func TestWriteConfigPreservesHandEditedSharePolicy(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+
+	profile := filepath.Join(dir, ".gander")
+	if err := os.Mkdir(profile, 0700); err != nil {
+		t.Fatal(err)
+	}
+	raw := []byte(`{
+  "api_url": "https://gander.md",
+  "email": "alice@example.com",
+  "api_token": "gmd_abc",
+  "doc_visibility": "private",
+  "comment_access": "disabled",
+  "shares": {}
+}`)
+	if err := os.WriteFile(filepath.Join(profile, configFileName), raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.DocVisibility != "private" || cfg.CommentAccess != "disabled" {
+		t.Fatalf("load lost policy: vis=%q comments=%q", cfg.DocVisibility, cfg.CommentAccess)
+	}
+	cfg.Shares["/tmp/doc.md"] = "abc12345"
+	if err := WriteConfig(cfg); err != nil {
+		t.Fatalf("WriteConfig: %v", err)
+	}
+
+	got, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig after write: %v", err)
+	}
+	if got.DocVisibility != "private" || got.CommentAccess != "disabled" {
+		t.Errorf("WriteConfig stripped policy: vis=%q comments=%q", got.DocVisibility, got.CommentAccess)
+	}
+	if got.Shares["/tmp/doc.md"] != "abc12345" {
+		t.Errorf("share mapping lost: %+v", got.Shares)
+	}
+
+	onDisk, err := os.ReadFile(filepath.Join(profile, configFileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(onDisk)
+	if !strings.Contains(body, `"doc_visibility": "private"`) {
+		t.Errorf("disk missing doc_visibility:\n%s", body)
+	}
+	if !strings.Contains(body, `"comment_access": "disabled"`) {
+		t.Errorf("disk missing comment_access:\n%s", body)
 	}
 }
 
