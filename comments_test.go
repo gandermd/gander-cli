@@ -132,6 +132,80 @@ func TestRunCommentsPrintsBodies(t *testing.T) {
 	}
 }
 
+func TestRunCommentsPrintsQueueAndHighlight(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	path := filepath.Join(tmp, "plan.md")
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/shares", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode([]shareResp{
+			{UUID: "u2", ShortID: "bbbbbbbb", Filename: "plan.md", Path: path, URL: "https://gander.md/s/bbbbbbbb", UnresolvedCount: 2},
+		})
+	})
+	mux.HandleFunc("/api/shares/u2/comments", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(threadsResp{Threads: []threadView{
+			{UUID: "t1", Quote: "rollout_v2", MDStart: 812, MDEnd: 822, QueuePosition: 1, QueueLength: 2, Comments: []commentView{{AuthorName: "Pat", Body: "@agent remove this", AuthorKind: "reviewer"}}},
+			{UUID: "t2", Quote: "other", MDStart: 100, MDEnd: 110, QueuePosition: 2, QueueLength: 2, Comments: []commentView{{AuthorName: "Sam", Body: "later", AuthorKind: "reviewer"}}},
+		}})
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	cfgJSON := `{"api_url":"` + srv.URL + `","api_token":"gmd_x","shares":{"` + path + `":"bbbbbbbb"}}`
+	if err := os.WriteFile(filepath.Join(tmp, ".gander"), []byte(cfgJSON), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := os.Stdout
+	os.Stdout = w
+	runErr := runComments([]string{path})
+	_ = w.Close()
+	os.Stdout = old
+	out, _ := io.ReadAll(r)
+	_ = r.Close()
+	if runErr != nil {
+		t.Fatal(runErr)
+	}
+	got := string(out)
+	for _, want := range []string{
+		`[1/2] "rollout_v2"  md:812-822`,
+		`[2/2] "other"  md:100-110`,
+		"rollout_v2",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %q", want, got)
+		}
+	}
+}
+
+func TestThreadViewMissingHighlightKeysStayZero(t *testing.T) {
+	var th threadView
+	if err := json.Unmarshal([]byte(`{"uuid":"t1","quote":"hello","unknown_future":true}`), &th); err != nil {
+		t.Fatal(err)
+	}
+	if th.UUID != "t1" || th.Quote != "hello" {
+		t.Fatalf("basic fields = %+v", th)
+	}
+	if th.QuoteIndex != 0 || th.QuoteStart != 0 || th.QuoteEnd != 0 || th.MDStart != 0 || th.MDEnd != 0 || th.QueuePosition != 0 || th.QueueLength != 0 {
+		t.Fatalf("missing keys must stay zero: %+v", th)
+	}
+}
+
+func TestFormatThreadHeadline(t *testing.T) {
+	got := formatThreadHeadline(threadView{Quote: "rollout_v2", MDStart: 812, MDEnd: 822, QueuePosition: 1, QueueLength: 2}, 2, 0)
+	want := `[1/2] "rollout_v2"  md:812-822`
+	if got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+	fallback := formatThreadHeadline(threadView{Quote: "hello", Orphaned: true}, 3, 1)
+	if fallback != `[2/3] "hello" [orphaned]` {
+		t.Fatalf("fallback = %q", fallback)
+	}
+}
+
 func TestRunCommentsEmpty(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
