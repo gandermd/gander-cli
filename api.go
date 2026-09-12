@@ -67,16 +67,22 @@ type commentView struct {
 	CreatedAt  string `json:"created_at"`
 }
 
+type commentTarget struct {
+	Path string `json:"path"`
+	Text string `json:"text"`
+}
+
 type threadView struct {
-	UUID           string        `json:"uuid"`
-	Anchor         string        `json:"anchor"`
-	CurrentAnchor  string        `json:"current_anchor"`
-	AnchorType     string        `json:"anchor_type"`
-	Quote          string        `json:"quote"`
-	Orphaned       bool          `json:"orphaned"`
-	Resolved       bool          `json:"resolved"`
-	CreatedVersion int           `json:"created_version"`
-	Comments       []commentView `json:"comments"`
+	UUID           string         `json:"uuid"`
+	Anchor         string         `json:"anchor"`
+	CurrentAnchor  string         `json:"current_anchor"`
+	AnchorType     string         `json:"anchor_type"`
+	Quote          string         `json:"quote"`
+	Orphaned       bool           `json:"orphaned"`
+	Resolved       bool           `json:"resolved"`
+	CreatedVersion int            `json:"created_version"`
+	Comments       []commentView  `json:"comments"`
+	Target         *commentTarget `json:"target,omitempty"`
 }
 
 type threadsResp struct {

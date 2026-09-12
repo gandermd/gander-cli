@@ -232,6 +232,17 @@ func findShareForThread(cli *apiClient, cfg Config, threadID string) (shareUUID,
 	return "", "", fmt.Errorf("thread %s not found", threadID)
 }
 
+func attachCommentTargets(items []inboxItem) {
+	for i := range items {
+		for j := range items[i].Threads {
+			items[i].Threads[j].Target = &commentTarget{
+				Path: items[i].Path,
+				Text: items[i].Threads[j].Quote,
+			}
+		}
+	}
+}
+
 func inboxJSON(items []inboxItem) string {
 	type wrap struct {
 		Inbox []inboxItem `json:"inbox"`
