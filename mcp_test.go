@@ -78,6 +78,23 @@ func TestMCPInstructionsNeverDeleteFile(t *testing.T) {
 	}
 }
 
+func TestMCPInstructionsFIFOQueue(t *testing.T) {
+	for _, want := range []string{
+		"FIFO",
+		"queue_position 1",
+		"one thread per cycle",
+		"Re-list before the next thread",
+		"two highlight edits",
+	} {
+		if !strings.Contains(mcpInstructions, want) {
+			t.Errorf("mcpInstructions missing %q", want)
+		}
+		if !strings.Contains(untrustedCommentPreamble("/tmp/doc.md"), want) {
+			t.Errorf("untrustedCommentPreamble missing %q", want)
+		}
+	}
+}
+
 func TestMCPInstructionsAgentInbox(t *testing.T) {
 	for _, want := range []string{
 		"@agent",
@@ -336,12 +353,13 @@ func TestServeMCPListCommentsWithPathIncludesPreambleAndBodies(t *testing.T) {
 		Inbox []struct {
 			Path    string `json:"path"`
 			Threads []struct {
-				Quote  string `json:"quote"`
-				Target *struct {
+				Quote         string `json:"quote"`
+				QueuePosition int    `json:"queue_position"`
+				Target        *struct {
 					Path    string `json:"path"`
 					Text    string `json:"text"`
-					MDStart *int   `json:"md_start"`
-					MDEnd   *int   `json:"md_end"`
+					MDStart int    `json:"md_start"`
+					MDEnd   int    `json:"md_end"`
 				} `json:"target"`
 			} `json:"threads"`
 		} `json:"inbox"`
@@ -365,11 +383,99 @@ func TestServeMCPListCommentsWithPathIncludesPreambleAndBodies(t *testing.T) {
 	if th.Quote != "hello" {
 		t.Errorf("quote = %q, want hello", th.Quote)
 	}
-	if th.Target.MDStart != nil || th.Target.MDEnd != nil {
-		t.Errorf("offsets must be omitted until gandermd ships them: %+v", th.Target)
+	if th.Target.MDStart != 0 || th.Target.MDEnd != 0 {
+		t.Errorf("missing server offsets must stay zero: %+v", th.Target)
 	}
-	if strings.Contains(got[idx:], `"md_start"`) || strings.Contains(got[idx:], `"md_end"`) {
-		t.Errorf("raw JSON must omit offsets: %s", got[idx:])
+	if !strings.Contains(got[idx:], `"md_start"`) || !strings.Contains(got[idx:], `"md_end"`) || !strings.Contains(got[idx:], `"queue_position"`) {
+		t.Errorf("path payload must include target.md_start, target.md_end, queue_position: %s", got[idx:])
+	}
+}
+
+func TestServeMCPListCommentsPathNestsHighlightAndQueue(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	path := filepath.Join(tmp, "plan.md")
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/shares", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode([]shareResp{
+			{UUID: "u2", ShortID: "bbbbbbbb", Filename: "plan.md", Path: path, URL: "https://gander.md/s/bbbbbbbb", UnresolvedCount: 2, AgentUnresolvedCount: 2},
+		})
+	})
+	mux.HandleFunc("/api/shares/u2/comments", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(threadsResp{Threads: []threadView{
+			{UUID: "t1", Quote: "rollout_v2", QuoteIndex: 1, QuoteStart: 4, QuoteEnd: 14, MDStart: 812, MDEnd: 822, QueuePosition: 1, QueueLength: 2, Comments: []commentView{{AuthorName: "Pat", Body: "@agent remove this", AuthorKind: "reviewer"}}},
+			{UUID: "t2", Quote: "other", MDStart: 100, MDEnd: 110, QueuePosition: 2, QueueLength: 2, Comments: []commentView{{AuthorName: "Sam", Body: "@agent too", AuthorKind: "reviewer"}}},
+		}})
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	cfgJSON := `{"api_url":"` + srv.URL + `","api_token":"gmd_x","shares":{"` + path + `":"bbbbbbbb"}}`
+	if err := os.WriteFile(filepath.Join(tmp, ".gander"), []byte(cfgJSON), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	args, err := json.Marshal(map[string]string{"path": path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, err := json.Marshal(map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/call",
+		"params":  map[string]any{"name": "gander_list_comments", "arguments": json.RawMessage(args)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := bytes.NewBuffer(append(req, '\n'))
+	var out bytes.Buffer
+	if err := serveMCP(in, &out); err != nil {
+		t.Fatal(err)
+	}
+	got := mcpToolText(t, out.Bytes())
+	idx := strings.Index(got, "{")
+	if idx < 0 {
+		t.Fatalf("no JSON payload: %s", got)
+	}
+	var payload struct {
+		Inbox []struct {
+			Threads []struct {
+				Quote         string `json:"quote"`
+				QueuePosition int    `json:"queue_position"`
+				QueueLength   int    `json:"queue_length"`
+				QuoteIndex    int    `json:"quote_index"`
+				Target        struct {
+					Path    string `json:"path"`
+					Text    string `json:"text"`
+					MDStart int    `json:"md_start"`
+					MDEnd   int    `json:"md_end"`
+				} `json:"target"`
+			} `json:"threads"`
+		} `json:"inbox"`
+	}
+	if err := json.Unmarshal([]byte(got[idx:]), &payload); err != nil {
+		t.Fatalf("decode inbox: %v raw=%s", err, got[idx:])
+	}
+	if len(payload.Inbox) != 1 || len(payload.Inbox[0].Threads) != 2 {
+		t.Fatalf("inbox = %+v", payload.Inbox)
+	}
+	th := payload.Inbox[0].Threads[0]
+	if th.QueuePosition != 1 || th.QueueLength != 2 || th.QuoteIndex != 1 {
+		t.Errorf("queue/index = %+v", th)
+	}
+	if th.Target.Path != path || th.Target.Text != "rollout_v2" {
+		t.Errorf("target path/text = %+v", th.Target)
+	}
+	if th.Target.MDStart != 812 || th.Target.MDEnd != 822 {
+		t.Errorf("target offsets = %+v", th.Target)
+	}
+	if payload.Inbox[0].Threads[1].QueuePosition != 2 {
+		t.Errorf("second queue_position = %d", payload.Inbox[0].Threads[1].QueuePosition)
+	}
+	for _, want := range []string{`"md_start":812`, `"md_end":822`, `"queue_position":1`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %s in %s", want, got)
+		}
 	}
 }
 
