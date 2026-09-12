@@ -59,16 +59,8 @@ func runComments(args []string) error {
 			watch = "\twatching"
 		}
 		fmt.Fprintf(tw, "%s\t%s%s\n", it.Filename, it.ShareURL, watch)
-		for _, th := range it.Threads {
-			quote := th.Quote
-			if len(quote) > 80 {
-				quote = quote[:77] + "..."
-			}
-			orphan := ""
-			if th.Orphaned {
-				orphan = " [orphaned]"
-			}
-			fmt.Fprintf(tw, "  %s%s\n", quote, orphan)
+		for i, th := range it.Threads {
+			fmt.Fprintf(tw, "  %s\n", formatThreadHeadline(th, len(it.Threads), i))
 			for _, c := range th.Comments {
 				fmt.Fprintf(tw, "    %s: %s\n", c.AuthorName, c.Body)
 			}
@@ -232,12 +224,37 @@ func findShareForThread(cli *apiClient, cfg Config, threadID string) (shareUUID,
 	return "", "", fmt.Errorf("thread %s not found", threadID)
 }
 
+func formatThreadHeadline(th threadView, queueLen, index int) string {
+	pos := th.QueuePosition
+	if pos <= 0 {
+		pos = index + 1
+	}
+	n := th.QueueLength
+	if n <= 0 {
+		n = queueLen
+	}
+	quote := th.Quote
+	if len(quote) > 80 {
+		quote = quote[:77] + "..."
+	}
+	line := fmt.Sprintf("[%d/%d] %q", pos, n, quote)
+	if th.MDStart != 0 || th.MDEnd != 0 {
+		line += fmt.Sprintf("  md:%d-%d", th.MDStart, th.MDEnd)
+	}
+	if th.Orphaned {
+		line += " [orphaned]"
+	}
+	return line
+}
+
 func attachCommentTargets(items []inboxItem) {
 	for i := range items {
 		for j := range items[i].Threads {
 			items[i].Threads[j].Target = &commentTarget{
-				Path: items[i].Path,
-				Text: items[i].Threads[j].Quote,
+				Path:    items[i].Path,
+				Text:    items[i].Threads[j].Quote,
+				MDStart: items[i].Threads[j].MDStart,
+				MDEnd:   items[i].Threads[j].MDEnd,
 			}
 		}
 	}

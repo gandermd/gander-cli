@@ -68,8 +68,10 @@ type commentView struct {
 }
 
 type commentTarget struct {
-	Path string `json:"path"`
-	Text string `json:"text"`
+	Path    string `json:"path"`
+	Text    string `json:"text"`
+	MDStart int    `json:"md_start"`
+	MDEnd   int    `json:"md_end"`
 }
 
 type threadView struct {
@@ -78,6 +80,13 @@ type threadView struct {
 	CurrentAnchor  string         `json:"current_anchor"`
 	AnchorType     string         `json:"anchor_type"`
 	Quote          string         `json:"quote"`
+	QuoteIndex     int            `json:"quote_index"`
+	QuoteStart     int            `json:"quote_start"`
+	QuoteEnd       int            `json:"quote_end"`
+	MDStart        int            `json:"md_start"`
+	MDEnd          int            `json:"md_end"`
+	QueuePosition  int            `json:"queue_position"`
+	QueueLength    int            `json:"queue_length"`
 	Orphaned       bool           `json:"orphaned"`
 	Resolved       bool           `json:"resolved"`
 	CreatedVersion int            `json:"created_version"`
