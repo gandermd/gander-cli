@@ -188,7 +188,7 @@ A local HTTP server is started on `127.0.0.1:7821` so the browser can receive ch
 
 ### Share on gander.md
 
-If you're running an agent that streams markdown to a file, `gander watch` is the shortest path from the agent's writes to your browser — open the URL once and every connected viewer sees the latest version in real time. `gander.md` is the public hosting service for gander. Once you sign up, you can `share`, `watch`, `list`, and `remove` markdown from your terminal, mint team invites with `gander invite`, and viewers see the same live-reload preview you'd see locally.
+If you're running an agent that streams markdown to a file, `gander watch` is the shortest path from the agent's writes to your browser — open the URL once and every connected viewer sees the latest version in real time. `gander.md` is the public hosting service for gander. Once you sign up, you can `share`, `watch`, `list`, and `remove` markdown from your terminal, mint team invites with `gander invite`, and viewers see the same live-reload preview and document chrome you'd see locally.
 
 ```bash
 gander signup --email you@example.com   # opens browser form, polls for API token
