@@ -113,6 +113,9 @@ func extractNodeText(n ast.Node, source []byte) string {
 
 const themeStorageKey = "gander-theme"
 
+const sansStack = `-apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif`
+const monoStack = `ui-monospace, "SF Mono", Menlo, Consolas, monospace`
+
 type themeToken struct {
 	Name  string
 	Light string
@@ -167,6 +170,7 @@ var themeTokenTable = []themeToken{
 	{"--gander-overlay", "rgba(27,31,36,0.4)", "rgba(1,4,9,0.75)"},
 	{"--gander-shadow", "rgba(27,31,35,0.08)", "rgba(1,4,9,0.45)"},
 	{"--gander-card-shadow", "rgba(27,31,36,0.04)", "rgba(1,4,9,0.4)"},
+	{"--gander-eyebrow-fg", "#1f6feb", "#58a6ff"},
 }
 
 func themeTokensCSS() string {
@@ -263,7 +267,7 @@ const cssStyle = `
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body {
-	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+	font-family: ` + sansStack + `;
 	font-size: 16px;
 	line-height: 1.6;
 	color: var(--gander-fg);
@@ -287,11 +291,11 @@ body {
 	background: var(--gander-canvas);
 }
 .gander-toc-title {
-	font-size: 0.75rem;
-	font-weight: 600;
+	font-size: 11px;
+	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	color: var(--gander-muted);
+	letter-spacing: 0.08em;
+	color: var(--gander-eyebrow-fg);
 	margin: 0 0 0.75rem 0;
 }
 .gander-toc a.gander-toc-logo {
@@ -302,11 +306,17 @@ body {
 	text-decoration: none;
 	margin: 0 0 1.25rem 0;
 }
-.gander-toc-logo svg { display: block; }
+.gander-toc a.gander-toc-logo:hover { color: var(--gander-logo); text-decoration: none; }
+.gander-toc-logo svg,
+.gander-toc a.gander-toc-logo svg {
+	display: block;
+	width: 28px;
+	height: 25px;
+}
 .gander-toc-wordmark {
-	font-size: 1.2rem;
+	font-size: 18px;
 	font-weight: 600;
-	letter-spacing: -0.01em;
+	letter-spacing: -0.015em;
 	line-height: 1;
 }
 .gander-toc ul {
@@ -322,17 +332,19 @@ body {
 	color: var(--gander-subtle);
 	text-decoration: none;
 	display: block;
-	padding: 0.15em 0.25em;
-	border-radius: 3px;
+	padding: 0.28rem 0.55rem;
+	margin: 0 -0.55rem;
+	border-radius: 8px;
 }
 .gander-toc a:hover {
-	color: var(--gander-link);
+	color: var(--gander-fg);
 	background: var(--gander-link-hover-bg);
+	text-decoration: none;
 }
 .gander-toc a.active {
-	color: var(--gander-link);
-	font-weight: 500;
-	background: var(--gander-link-active-bg);
+	color: var(--gander-fg);
+	font-weight: 600;
+	background: var(--gander-link-hover-bg);
 }
 .gander-content {
 	max-width: 900px;
@@ -341,25 +353,37 @@ body {
 h1, h2, h3, h4, h5, h6 {
 	margin-top: 1.5em;
 	margin-bottom: 0.5em;
-	font-weight: 600;
+	font-weight: 650;
 	line-height: 1.25;
 	scroll-margin-top: 1rem;
+	color: var(--gander-fg-emphasis);
 }
-h1 { font-size: 2em; border-bottom: 1px solid var(--gander-border); padding-bottom: 0.3em; }
-h2 { font-size: 1.5em; border-bottom: 1px solid var(--gander-border); padding-bottom: 0.3em; }
+h1 {
+	font-size: 2rem;
+	letter-spacing: -0.025em;
+	border: none;
+	padding-bottom: 0;
+}
+h2 {
+	font-size: 1.35rem;
+	letter-spacing: -0.015em;
+	border-bottom: 1px solid var(--gander-border);
+	padding-bottom: 0.35em;
+}
+.gander-content h1 { margin-top: 0.4em; }
 a { color: var(--gander-link); text-decoration: none; }
 a:hover { text-decoration: underline; }
 code {
-	font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+	font-family: ` + monoStack + `;
 	font-size: 85%;
 	background-color: var(--gander-code-bg);
 	padding: 0.2em 0.4em;
-	border-radius: 3px;
+	border-radius: 6px;
 }
 pre {
 	background-color: var(--gander-pre-bg);
 	border: 1px solid var(--gander-border-muted);
-	border-radius: 6px;
+	border-radius: 12px;
 	padding: 16px;
 	overflow: auto;
 	line-height: 1.45;
@@ -377,13 +401,14 @@ li + li { margin-top: 0.25em; }
 
 .gander-md-cta {
 	color: var(--gander-subtle);
-	font-size: 0.85em;
+	font-size: 0.9rem;
 	text-align: center;
-	padding: 1.5rem 3rem 2rem;
+	padding: 1.35rem 1.5rem 2.1rem;
 	border-top: 1px solid var(--gander-border);
 	margin-top: 3rem;
 }
-.gander-md-cta a { color: var(--gander-link); font-weight: 500; }
+.gander-md-cta a { color: var(--gander-subtle); font-weight: 600; }
+.gander-md-cta a:hover { color: var(--gander-link); }
 .gander-md-viewer-logo {
 	display: flex;
 	justify-content: center;
@@ -397,6 +422,8 @@ li + li { margin-top: 0.25em; }
 	justify-content: space-between;
 	flex-wrap: wrap;
 	gap: 0.75rem;
+	color: var(--gander-muted);
+	font-size: 0.85em;
 	margin: 0 0 1.5rem 0;
 	padding-bottom: 1rem;
 	border-bottom: 1px solid var(--gander-border);

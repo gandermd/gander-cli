@@ -340,6 +340,7 @@ func TestThemeTokensPresent(t *testing.T) {
 		"--gander-bg",
 		"--gander-fg",
 		"--gander-canvas",
+		"--gander-eyebrow-fg",
 		`html[data-theme="dark"]`,
 		`html[data-theme="light"]`,
 		"color-scheme",
@@ -350,6 +351,45 @@ func TestThemeTokensPresent(t *testing.T) {
 	}
 	if !strings.Contains(page, "background-color: var(--gander-bg)") {
 		t.Error("viewer body must use var(--gander-bg)")
+	}
+}
+
+func TestViewerChromeMatchesHostedFonts(t *testing.T) {
+	if !strings.Contains(cssStyle, `"Helvetica Neue"`) {
+		t.Error(`cssStyle missing "Helvetica Neue"`)
+	}
+	if !strings.Contains(cssStyle, `ui-monospace`) {
+		t.Error("cssStyle missing ui-monospace")
+	}
+	if strings.Contains(cssStyle, `"Segoe UI", Helvetica, Arial`) {
+		t.Error("cssStyle still uses the old Helvetica stack")
+	}
+	if strings.Contains(cssStyle, `"SFMono-Regular"`) {
+		t.Error("cssStyle still uses SFMono-Regular")
+	}
+	if strings.Contains(cssStyle, "gander-h1") || strings.Contains(cssStyle, ".gander-md-hero") {
+		t.Error("CLI preview must not include marketing-hero chrome")
+	}
+}
+
+func TestViewerChromeMatchesHostedType(t *testing.T) {
+	for _, want := range []string{
+		"var(--gander-eyebrow-fg)",
+		"font-size: 18px",
+		"border-radius: 8px",
+		"font-size: 2rem",
+		"font-size: 1.35rem",
+		"font-weight: 650",
+		"border-radius: 6px",
+		"border-radius: 12px",
+		"font-size: 0.9rem",
+	} {
+		if !strings.Contains(cssStyle, want) {
+			t.Errorf("cssStyle missing hosted chrome rule %q", want)
+		}
+	}
+	if strings.Contains(cssStyle, "h1 { font-size: 2em; border-bottom") {
+		t.Error("h1 still uses GitHub-flavored underline")
 	}
 }
 
