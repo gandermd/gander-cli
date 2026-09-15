@@ -264,7 +264,7 @@ func printUsage(w io.Writer) {
 	if authed {
 		fmt.Fprintln(w, "  gander share [--watch] [--visibility=anyone|private|hidden] [--private]")
 		fmt.Fprintln(w, "             [--comments=anyone|private|disabled] [--no-comments] <file>")
-		fmt.Fprintln(w, "                                                              Upload to gander.md and open the share link")
+		fmt.Fprintln(w, "                                                              Upload to gander.md (keeps a dashboard share of the same file)")
 		fmt.Fprintln(w, "  gander watch [--visibility=anyone|private|hidden] [--private]")
 		fmt.Fprintln(w, "             [--comments=anyone|private|disabled] [--no-comments] <file>")
 		fmt.Fprintln(w, "                                                              Live-share to gander.md and push every save (alias for `share --watch`)")
