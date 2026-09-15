@@ -153,6 +153,10 @@ func main() {
 	watch := flag.Bool("watch", false, "Watch the file for changes and live-reload the browser preview")
 	foreground := flag.Bool("foreground", false, "With --watch, run the blocking watcher in-process (no runner handoff)")
 	silent := flag.Bool("silent", false, "Do not open a browser; still print the preview URL")
+	existing := flag.Bool("existing", false, "With --watch on a directory, also onboard unmatched .md files already in the folder")
+	noRecursive := flag.Bool("no-recursive", false, "With --watch on a directory, do not watch subdirectories")
+	glob := flag.String("glob", "", "With --watch on a directory, filename glob (default **/*.md)")
+	yes := flag.Bool("yes", false, "With --watch --existing on a directory, confirm more than 50 files")
 	upgrade := flag.Bool("upgrade", false, "Download and install the latest release, then exit")
 	flag.Parse()
 
@@ -188,6 +192,44 @@ func main() {
 	useWatch := *watch
 	if !flagWasSet("watch") {
 		useWatch = cfg.Watch
+	}
+
+	dirFlags := *existing || *noRecursive || *glob != "" || *yes
+	if fi, statErr := os.Stat(absPath); statErr == nil && fi.IsDir() {
+		if *outFile != "" {
+			fmt.Fprintln(os.Stderr, "error: -outfile cannot be used with a directory")
+			os.Exit(1)
+		}
+		if !useWatch {
+			fmt.Fprintf(os.Stderr, "error: %s is a directory; pass --watch to adopt new markdown files\n", absPath)
+			os.Exit(1)
+		}
+		if *foreground {
+			fmt.Fprintln(os.Stderr, "error: directory watches require the runner; drop --foreground")
+			os.Exit(1)
+		}
+		if *glob != "" {
+			if _, err := filepath.Match(*glob, "x"); err != nil {
+				log.Fatalf("invalid --glob: %v", err)
+			}
+		}
+		canonical, err := canonicalPath(absPath)
+		if err != nil {
+			log.Fatalf("watch: %v", err)
+		}
+		if err := handOffWatchDir(canonical, string(modeDirLocal), dirWatchOpts{
+			Recursive: !*noRecursive,
+			Glob:      *glob,
+			Existing:  *existing,
+			Yes:       *yes,
+		}); err != nil {
+			log.Fatalf("watch: %v", err)
+		}
+		return
+	}
+	if dirFlags {
+		fmt.Fprintln(os.Stderr, "error: --existing, --no-recursive, --glob, and --yes only apply to directories")
+		os.Exit(1)
 	}
 
 	if useWatch {
@@ -273,14 +315,16 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "gander — render Markdown, optionally share it on gander.md")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  gander <file.md> [options]      Render and open locally")
+	fmt.Fprintln(w, "  gander <file.md|dir> [options]  Render and open locally (--watch a dir adopts new .md)")
 	fmt.Fprintln(w, "  gander signup --email <addr>    Open signup form in your browser, save the API token")
 	if authed {
-		fmt.Fprintln(w, "  gander share [--watch] [--silent] [--visibility=anyone|private|hidden] [--private]")
-		fmt.Fprintln(w, "             [--comments=anyone|private|disabled] [--no-comments] <file>")
+		fmt.Fprintln(w, "  gander share [--watch] [--silent] [--existing] [--no-recursive] [--glob=pattern] [--yes]")
+		fmt.Fprintln(w, "             [--visibility=anyone|private|hidden] [--private]")
+		fmt.Fprintln(w, "             [--comments=anyone|private|disabled] [--no-comments] <file|dir>")
 		fmt.Fprintln(w, "                                                              Upload to gander.md (keeps a dashboard share of the same file)")
-		fmt.Fprintln(w, "  gander watch [--silent] [--visibility=anyone|private|hidden] [--private]")
-		fmt.Fprintln(w, "             [--comments=anyone|private|disabled] [--no-comments] <file>")
+		fmt.Fprintln(w, "  gander watch [--silent] [--existing] [--no-recursive] [--glob=pattern] [--yes]")
+		fmt.Fprintln(w, "             [--visibility=anyone|private|hidden] [--private]")
+		fmt.Fprintln(w, "             [--comments=anyone|private|disabled] [--no-comments] <file|dir>")
 		fmt.Fprintln(w, "                                                              Live-share to gander.md and push every save (alias for `share --watch`)")
 		fmt.Fprintln(w, "  gander remove [--all|--pick <short_id>|--yes|--non-interactive] <file|short_id|url>")
 		fmt.Fprintln(w, "                                                              Delete a share from gander.md")
@@ -306,6 +350,10 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  -watch            Live-reload the local browser preview on save (via the runner)")
 	fmt.Fprintln(w, "  -foreground       With -watch, run the blocking watcher in-process (CI / debug)")
 	fmt.Fprintln(w, "  -silent           Do not open a browser; still print the preview or share URL")
+	fmt.Fprintln(w, "  -existing         With -watch on a directory, also onboard unmatched .md already in the folder")
+	fmt.Fprintln(w, "  -no-recursive     With -watch on a directory, do not watch subdirectories")
+	fmt.Fprintln(w, "  -glob string      With -watch on a directory, filename glob (default **/*.md)")
+	fmt.Fprintln(w, "  -yes              With -watch -existing, confirm more than 50 files")
 	if !authed {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "Run `gander signup --email you@example.com` to enable share / watch / remove / list / invite / manage / auth.")

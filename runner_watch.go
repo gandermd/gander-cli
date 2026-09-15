@@ -20,8 +20,17 @@ const watchesFileVersion = 1
 type watchMode string
 
 const (
-	modeLocal watchMode = "local"
-	modeShare watchMode = "share"
+	modeLocal    watchMode = "local"
+	modeShare    watchMode = "share"
+	modeDirLocal watchMode = "dir-local"
+	modeDirShare watchMode = "dir-share"
+)
+
+type watchKind string
+
+const (
+	kindFile watchKind = "file"
+	kindDir  watchKind = "dir"
 )
 
 type shareRef struct {
@@ -31,12 +40,18 @@ type shareRef struct {
 }
 
 type persistedWatch struct {
-	ID      string    `json:"id"`
-	Path    string    `json:"path"`
-	Mode    watchMode `json:"mode"`
-	Token   string    `json:"token,omitempty"`
-	Share   *shareRef `json:"share,omitempty"`
-	Started time.Time `json:"started_at"`
+	ID            string    `json:"id"`
+	Path          string    `json:"path"`
+	Mode          watchMode `json:"mode"`
+	Kind          watchKind `json:"kind,omitempty"`
+	ParentID      string    `json:"parent_id,omitempty"`
+	Glob          string    `json:"glob,omitempty"`
+	Recursive     *bool     `json:"recursive,omitempty"`
+	Token         string    `json:"token,omitempty"`
+	Share         *shareRef `json:"share,omitempty"`
+	Started       time.Time `json:"started_at"`
+	CommentAccess string    `json:"comment_access,omitempty"`
+	DocVisibility string    `json:"doc_visibility,omitempty"`
 }
 
 type watchesFile struct {
@@ -49,6 +64,7 @@ type watchesFile struct {
 type watchEntry struct {
 	info      watchOut
 	state     *watchState
+	dir       *dirWatchState
 	cancel    context.CancelFunc
 	startedAt time.Time
 	shutdown  chan struct{}
@@ -108,6 +124,18 @@ func (m *watchManager) load() error {
 		return err
 	}
 	for _, w := range wf.Watches {
+		kind := w.Kind
+		if kind == "" {
+			if w.Mode == modeDirShare || w.Mode == modeDirLocal {
+				kind = kindDir
+			} else {
+				kind = kindFile
+			}
+		}
+		if kind != kindFile && kind != kindDir {
+			log.Printf("runner: skipping unknown watch kind %q id=%s path=%s", w.Kind, w.ID, w.Path)
+			continue
+		}
 		token := w.Token
 		if token == "" {
 			token, err = newToken()
@@ -116,11 +144,22 @@ func (m *watchManager) load() error {
 			}
 		}
 		info := watchOut{
-			ID:        w.ID,
-			Path:      w.Path,
-			Mode:      string(w.Mode),
-			Token:     token,
-			StartedAt: w.Started.UTC().Format(time.RFC3339),
+			ID:            w.ID,
+			Path:          w.Path,
+			Mode:          string(w.Mode),
+			Kind:          string(kind),
+			ParentID:      w.ParentID,
+			Glob:          w.Glob,
+			Token:         token,
+			StartedAt:     w.Started.UTC().Format(time.RFC3339),
+			CommentAccess: w.CommentAccess,
+			DocVisibility: w.DocVisibility,
+		}
+		if kind == kindDir {
+			info.Recursive = true
+			if w.Recursive != nil {
+				info.Recursive = *w.Recursive
+			}
 		}
 		if w.Share != nil {
 			info.ShareURL = w.Share.URL
@@ -154,11 +193,20 @@ func (m *watchManager) persist() error {
 	pw := []persistedWatch{}
 	for _, e := range m.entries {
 		w := persistedWatch{
-			ID:      e.info.ID,
-			Path:    e.info.Path,
-			Mode:    watchMode(e.info.Mode),
-			Token:   e.info.Token,
-			Started: e.startedAt,
+			ID:            e.info.ID,
+			Path:          e.info.Path,
+			Mode:          watchMode(e.info.Mode),
+			Kind:          watchKind(e.info.Kind),
+			ParentID:      e.info.ParentID,
+			Glob:          e.info.Glob,
+			Token:         e.info.Token,
+			Started:       e.startedAt,
+			CommentAccess: e.info.CommentAccess,
+			DocVisibility: e.info.DocVisibility,
+		}
+		if watchKind(e.info.Kind) == kindDir {
+			rec := e.info.Recursive
+			w.Recursive = &rec
 		}
 		if e.info.ShareURL != "" {
 			w.Share = &shareRef{UUID: e.info.UUID, ShortID: e.info.ShortID, URL: e.info.ShareURL}
@@ -201,9 +249,20 @@ func (m *watchManager) persist() error {
 }
 
 func (m *watchManager) register(path, mode string, share shareRef) (watchOut, error) {
+	return m.registerFile(path, mode, share, "")
+}
+
+func (m *watchManager) registerFile(path, mode string, share shareRef, parentID string) (watchOut, error) {
 	canonical, err := canonicalPath(path)
 	if err != nil {
 		return watchOut{}, err
+	}
+	fi, err := os.Stat(canonical)
+	if err != nil {
+		return watchOut{}, err
+	}
+	if fi.IsDir() {
+		return watchOut{}, fmt.Errorf("%s is a directory; use watch-dir", canonical)
 	}
 	id, err := newID()
 	if err != nil {
@@ -231,6 +290,8 @@ func (m *watchManager) register(path, mode string, share shareRef) (watchOut, er
 		ID:        id,
 		Path:      canonical,
 		Mode:      mode,
+		Kind:      string(kindFile),
+		ParentID:  parentID,
 		Token:     token,
 		StartedAt: startedAt.Format(time.RFC3339),
 	}
@@ -362,8 +423,22 @@ func (m *watchManager) runShare(e *watchEntry) {
 
 func (m *watchManager) resumeAll() {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	var dirs, files []*watchEntry
 	for _, e := range m.entries {
+		if watchKind(e.info.Kind) == kindDir {
+			dirs = append(dirs, e)
+		} else {
+			files = append(files, e)
+		}
+	}
+	port := m.port
+	m.mu.Unlock()
+
+	for _, e := range dirs {
+		e := e
+		go m.runDirWatch(e)
+	}
+	for _, e := range files {
 		e := e
 		if e.info.Mode == string(modeShare) {
 			go m.runShare(e)
@@ -375,7 +450,6 @@ func (m *watchManager) resumeAll() {
 			continue
 		}
 		e.state = state
-		port := m.port
 		e.info.URL = fmt.Sprintf("http://127.0.0.1:%d/w/%s?t=%s", port, e.info.ID, e.info.Token)
 		go m.serveLocal(e, state)
 	}

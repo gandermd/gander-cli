@@ -10,14 +10,20 @@ import (
 )
 
 type ipcRequest struct {
-	Op       string `json:"op"`
-	ID       string `json:"id,omitempty"`
-	Path     string `json:"path,omitempty"`
-	Mode     string `json:"mode,omitempty"`
-	All      bool   `json:"all,omitempty"`
-	ShortID  string `json:"short_id,omitempty"`
-	UUID     string `json:"uuid,omitempty"`
-	ShareURL string `json:"share_url,omitempty"`
+	Op            string `json:"op"`
+	ID            string `json:"id,omitempty"`
+	Path          string `json:"path,omitempty"`
+	Mode          string `json:"mode,omitempty"`
+	All           bool   `json:"all,omitempty"`
+	ShortID       string `json:"short_id,omitempty"`
+	UUID          string `json:"uuid,omitempty"`
+	ShareURL      string `json:"share_url,omitempty"`
+	Recursive     *bool  `json:"recursive,omitempty"`
+	Glob          string `json:"glob,omitempty"`
+	Existing      bool   `json:"existing,omitempty"`
+	Yes           bool   `json:"yes,omitempty"`
+	CommentAccess string `json:"comment_access,omitempty"`
+	DocVisibility string `json:"doc_visibility,omitempty"`
 }
 
 type ipcResponse struct {
@@ -35,15 +41,21 @@ type ipcResponse struct {
 }
 
 type watchOut struct {
-	ID        string `json:"id"`
-	Path      string `json:"path"`
-	Mode      string `json:"mode"`
-	URL       string `json:"url,omitempty"`
-	Token     string `json:"token,omitempty"`
-	ShareURL  string `json:"share_url,omitempty"`
-	ShortID   string `json:"short_id,omitempty"`
-	UUID      string `json:"uuid,omitempty"`
-	StartedAt string `json:"started_at"`
+	ID            string `json:"id"`
+	Path          string `json:"path"`
+	Mode          string `json:"mode"`
+	Kind          string `json:"kind,omitempty"`
+	ParentID      string `json:"parent_id,omitempty"`
+	Glob          string `json:"glob,omitempty"`
+	Recursive     bool   `json:"recursive,omitempty"`
+	URL           string `json:"url,omitempty"`
+	Token         string `json:"token,omitempty"`
+	ShareURL      string `json:"share_url,omitempty"`
+	ShortID       string `json:"short_id,omitempty"`
+	UUID          string `json:"uuid,omitempty"`
+	StartedAt     string `json:"started_at"`
+	CommentAccess string `json:"comment_access,omitempty"`
+	DocVisibility string `json:"doc_visibility,omitempty"`
 }
 
 type ipcServer struct {
@@ -124,6 +136,32 @@ func (s *ipcServer) route(req ipcRequest) ipcResponse {
 			return ipcResponse{Error: err.Error()}
 		}
 		return ipcResponse{OK: true, ID: info.ID, URL: info.URL, ShareURL: info.ShareURL}
+	case "watch-dir":
+		if req.Path == "" {
+			return ipcResponse{Error: "path required"}
+		}
+		mode := req.Mode
+		if mode == "" {
+			mode = string(modeDirLocal)
+		}
+		recursive := true
+		if req.Recursive != nil {
+			recursive = *req.Recursive
+		}
+		info, err := s.mgr.registerDir(req.Path, mode, dirWatchOpts{
+			Recursive: recursive,
+			Glob:      req.Glob,
+			Existing:  req.Existing,
+			Yes:       req.Yes,
+			Policy: shareOpts{
+				CommentAccess: req.CommentAccess,
+				DocVisibility: req.DocVisibility,
+			},
+		})
+		if err != nil {
+			return ipcResponse{Error: err.Error()}
+		}
+		return ipcResponse{OK: true, ID: info.ID}
 	case "stop":
 		var removed []string
 		if req.All {

@@ -4,7 +4,7 @@ gander \- render Markdown locally, optionally share it on gander.md
 .SH SYNOPSIS
 .B gander
 .RI [ options ]
-.IR file.md
+.IR file.md | dir
 .sp
 .B gander signup
 .RB [ \-email \ Iemail\fR]
@@ -12,19 +12,27 @@ gander \- render Markdown locally, optionally share it on gander.md
 .B gander share
 .RB [ \-watch ]
 .RB [ \-\-silent ]
+.RB [ \-\-existing ]
+.RB [ \-\-no\-recursive ]
+.RB [ \-\-glob =\fIpattern\fR]
+.RB [ \-\-yes ]
 .RB [ \-\-visibility =\fIanyone|private|hidden\fR]
 .RB [ \-\-private ]
 .RB [ \-\-comments =\fIanyone|private|disabled\fR]
 .RB [ \-\-no\-comments ]
-.IR file.md
+.IR file.md | dir
 .sp
 .B gander watch
 .RB [ \-\-silent ]
+.RB [ \-\-existing ]
+.RB [ \-\-no\-recursive ]
+.RB [ \-\-glob =\fIpattern\fR]
+.RB [ \-\-yes ]
 .RB [ \-\-visibility =\fIanyone|private|hidden\fR]
 .RB [ \-\-private ]
 .RB [ \-\-comments =\fIanyone|private|disabled\fR]
 .RB [ \-\-no\-comments ]
-.IR file.md
+.IR file.md | dir
 .sp
 .B gander status
 .sp
@@ -120,6 +128,9 @@ is unguessable and stored in
 .IR ~/.gander/watches.json .
 On every save the rendered HTML hot\-swaps in place and the TOC rebuilds;
 scroll position is preserved.
+When the path is a directory, the runner adopts new matching
+.B .md
+files as local previews and does not open a browser.
 On first
 .B \-\-watch
 a LaunchAgent (macOS) or
@@ -127,14 +138,40 @@ a LaunchAgent (macOS) or
 unit (Linux) is installed so the daemon restarts on every login.
 May not be combined with
 .BR \-outfile .
-.IP
+.TP
+.B \-\-existing
+With
+.B \-\-watch
+on a directory, also onboard unmatched
+.B .md
+files already in the folder. More than 50 files requires
+.BR \-\-yes .
+.TP
+.B \-\-no\-recursive
+With
+.B \-\-watch
+on a directory, watch only that folder, not subdirectories.
+.TP
+.BI \-\-glob =\fIpattern\fR
+With
+.B \-\-watch
+on a directory, filename glob (default
+.BR **/*.md ).
+.TP
+.B \-\-yes
+With
+.B \-\-watch \-\-existing
+on a directory, confirm onboarding more than 50 files.
+.TP
 .B \-\-foreground
 When combined with
 .BR \-\-watch ","
 run the old blocking watcher in the foreground (the CLI blocks until
 .BR Ctrl\-C ;
 no runner, no port held across processes). Useful for CI, sandboxes,
-or debugging the watcher itself.
+or debugging the watcher itself. Directory watches require the runner
+and cannot use
+.BR \-\-foreground .
 .TP
 .BR \-\-silent
 Do not open a browser after rendering or starting a local watch.
@@ -168,6 +205,11 @@ The address to register. Required.
 Upload
 .IR file.md
 to gander.md, print the share link, and open it in the browser.
+When the path is a directory,
+.B \-\-watch
+is required: the runner adopts new matching
+.B .md
+files, shares them, and does not open a browser.
 Each policy flag is omitted from the request unless set, so a content
 refresh does not reset visibility or commenting. The same flags are
 accepted by
@@ -180,6 +222,23 @@ Continuously push local changes to the remote share until interrupted.
 Watch
 .B PUT
 updates send content only.
+Required when the path is a directory.
+.TP
+.B \-\-existing
+With a directory, also onboard unmatched
+.B .md
+files already in the folder. More than 50 files requires
+.BR \-\-yes .
+.TP
+.B \-\-no\-recursive
+With a directory, do not watch subdirectories.
+.TP
+.BI \-\-glob =\fIpattern\fR
+With a directory, filename glob (default
+.BR **/*.md ).
+.TP
+.B \-\-yes
+Confirm onboarding more than 50 existing files.
 .TP
 .B \-\-silent
 Create or refresh the share without opening a browser.
@@ -215,8 +274,20 @@ Shorthand for
 .IR file.md
 to gander.md and live\-update the remote share on every save. The
 share is owned by the runner daemon and survives the CLI's lifetime.
+When the path is a directory, register a
+.B dir\-share
+watch: new matching
+.B .md
+files are shared automatically, the browser is not opened, and
+.B gander stop
+on the directory stops adoption only (already\-onboarded files keep
+live\-updating).
 Accepts the same
 .BR \-\-silent ","
+.BR \-\-existing ","
+.BR \-\-no\-recursive ","
+.BR \-\-glob ","
+.BR \-\-yes ","
 .BR \-\-visibility ","
 .BR \-\-private ","
 .BR \-\-comments ","
@@ -520,6 +591,17 @@ Live\-push the file to gander.md on every save (shorthand for
 .RS
 .nf
 gander watch README.md
+.fi
+.RE
+.PP
+Adopt new markdown dropped into a folder (hosted, no extra browser tabs):
+.PP
+.RS
+.nf
+gander watch ~/reports
+gander watch ~/reports \-\-existing \-\-yes
+gander watch ~/reports \-\-glob 'daily-*.md'
+gander \-\-watch ~/notes \-\-no\-recursive
 .fi
 .RE
 .PP

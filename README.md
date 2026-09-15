@@ -233,6 +233,9 @@ gander watch README.md                  # upload + live-update the remote viewer
 gander watch README.md --silent         # same watch, print URL, skip the browser
 gander share README.md --watch          # same as `watch`, spelled out
 gander share --watch --silent README.md # same as `watch --silent`
+gander watch ~/reports                  # adopt new .md under the folder; no extra browser tabs
+gander watch ~/reports --existing       # also onboard unmatched files already in the folder
+gander --watch ~/notes --no-recursive   # local previews for new top-level .md only
 gander share README.md --comments anyone  # public review comments (opt-in; default is private)
 gander share README.md --no-comments    # hide viewer threads (comment_access=disabled)
 gander share README.md --private        # only the author and invited team can read the doc
@@ -340,10 +343,21 @@ The legacy `~/.mdp` fallback only applies when `GANDER_CONFIG` is unset; named p
 -watch
     Hand the file off to the long-lived runner and live-reload the browser preview.
     The CLI exits; the daemon owns the watch. Use --foreground for the old
-    blocking behavior.
+    blocking behavior. A directory path registers a directory watch: new
+    matching `.md` files are adopted automatically and the browser is not opened.
 -silent
     Do not open a browser after rendering, sharing, or starting a watch.
     The URL is still printed. Does not change visibility or commenting.
+    Directory-adopted files never open a browser, with or without this flag.
+-existing
+    With `--watch` on a directory, also onboard unmatched `.md` files already
+    in the folder. More than 50 files requires `--yes`.
+-no-recursive
+    With `--watch` on a directory, watch only that folder, not subdirectories.
+-glob string
+    With `--watch` on a directory, filename glob (default `**/*.md`).
+-yes
+    With `--watch --existing` on a directory, confirm onboarding more than 50 files.
 -upgrade
     Download and install the latest release, then exit. The runner is shut
     down over UDS first, the binary is replaced, then the supervisor (or a
@@ -355,8 +369,8 @@ Subcommands:
 
 ```
 gander signup --email <addr>      Open the signup form in your browser, save the API token
-gander share [--watch] [--silent] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] <file>
-gander watch [--silent] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] <file>
+gander share [--watch] [--silent] [--existing] [--no-recursive] [--glob=pattern] [--yes] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] <file|dir>
+gander watch [--silent] [--existing] [--no-recursive] [--glob=pattern] [--yes] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] <file|dir>
 gander status                     Show runner + active watches + URLs
 gander stop [<file>|<id>] [--all] Stop a watch (by file, id, or --all)
 gander logs [<id>]                Tail the runner log (optionally filtered by watch id)

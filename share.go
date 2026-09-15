@@ -28,13 +28,17 @@ func runWatchCmdWithCtx(ctx context.Context, args []string) error {
 	return runShareWithCtx(ctx, append([]string{"--watch"}, args...))
 }
 
-const shareUsage = "usage: gander share [--watch] [--foreground] [--silent] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] file.md"
+const shareUsage = "usage: gander share [--watch] [--foreground] [--silent] [--existing] [--no-recursive] [--glob=pattern] [--yes] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] <file.md|dir>"
 
 func runShareWithCtx(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("share", flag.ContinueOnError)
 	watch := fs.Bool("watch", false, "live-update the shared page as the file changes")
 	foreground := fs.Bool("foreground", false, "keep share --watch in-process instead of handing off to the runner")
 	silent := fs.Bool("silent", false, "create or refresh the share without opening a browser")
+	existing := fs.Bool("existing", false, "with a directory, also onboard unmatched .md files already in the folder")
+	noRecursive := fs.Bool("no-recursive", false, "with a directory, do not watch subdirectories")
+	glob := fs.String("glob", "", "with a directory, filename glob (default **/*.md)")
+	yes := fs.Bool("yes", false, "confirm onboarding more than 50 existing files")
 	comments := fs.String("comments", "", "who may comment: anyone, private, or disabled")
 	visibility := fs.String("visibility", "", "who may see the document: anyone, private, or hidden")
 	private := fs.Bool("private", false, "make the document private (alias for --visibility private)")
@@ -55,6 +59,18 @@ func runShareWithCtx(ctx context.Context, args []string) error {
 	canonical, err := canonicalPath(rest[0])
 	if err != nil {
 		return err
+	}
+
+	fi, err := os.Stat(canonical)
+	if err != nil {
+		return fmt.Errorf("stat %s: %w", canonical, err)
+	}
+	dirFlags := *existing || *noRecursive || *glob != "" || *yes
+	if fi.IsDir() {
+		return runWatchDir(canonical, *watch, *foreground, *existing, *noRecursive, *glob, *yes, opts)
+	}
+	if dirFlags {
+		return fmt.Errorf("--existing, --no-recursive, --glob, and --yes only apply to directories")
 	}
 
 	cfg, err := requireAuth()
@@ -129,6 +145,30 @@ func handOffShareWatch(_ context.Context, absPath string, sh *shareResp, cfg Con
 	}
 	fmt.Printf("runner: pushing changes to %s from %s\n", sh.URL, resp.ID)
 	return nil
+}
+
+func runWatchDir(canonical string, watch, foreground, existing, noRecursive bool, glob string, yes bool, opts shareOpts) error {
+	if !watch {
+		return fmt.Errorf("sharing a directory requires --watch")
+	}
+	if foreground {
+		return fmt.Errorf("directory watches require the runner; drop --foreground")
+	}
+	if glob != "" {
+		if _, err := filepath.Match(glob, "x"); err != nil {
+			return fmt.Errorf("invalid --glob: %w", err)
+		}
+	}
+	if _, err := requireAuth(); err != nil {
+		return err
+	}
+	return handOffWatchDir(canonical, string(modeDirShare), dirWatchOpts{
+		Recursive: !noRecursive,
+		Glob:      glob,
+		Existing:  existing,
+		Yes:       yes,
+		Policy:    opts,
+	})
 }
 
 func canonicalPath(p string) (string, error) {

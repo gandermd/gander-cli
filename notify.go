@@ -62,7 +62,9 @@ func (n *commentNotifier) flush(key string) {
 	sendOSNotification("Gander", body)
 }
 
-func sendOSNotification(title, body string) {
+var sendOSNotification = sendOSNotificationDefault
+
+func sendOSNotificationDefault(title, body string) {
 	switch runtime.GOOS {
 	case "darwin":
 		script := fmt.Sprintf("display notification %s with title %s", strconv.Quote(body), strconv.Quote(title))

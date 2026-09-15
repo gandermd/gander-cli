@@ -8,7 +8,7 @@ _gander() {
     commands=(
         'signup:Open signup form in your browser, save the API token'
         'share:Upload Markdown to gander.md and open the share link'
-        'watch:Live-share to gander.md and push every save (alias for share --watch)'
+        'watch:Live-share a file or adopt new markdown in a directory'
         'remove:Delete a share from gander.md'
         'list:List shares currently on gander.md'
         'invite:Mint a team invite link'
@@ -46,21 +46,29 @@ _gander() {
                 '--watch[Live-update the shared page as the file changes]' \
                 '--foreground[Keep share --watch in-process instead of handing off to the runner]' \
                 '--silent[Create or refresh without opening a browser]' \
+                '--existing[With a directory, also onboard unmatched .md files already in the folder]' \
+                '--no-recursive[With a directory, do not watch subdirectories]' \
+                '--glob[With a directory, filename glob]:pattern:' \
+                '--yes[Confirm onboarding more than 50 existing files]' \
                 '--visibility[Who may see the markdown]:visibility:(anyone private hidden)' \
                 '--private[Make the document private (alias for --visibility private)]' \
                 '--comments[Who may comment]:comments:(anyone private disabled)' \
                 '--no-comments[Turn off commenting (alias for --comments disabled)]' \
-                '*:markdown file:_files -g "*.md"'
+                '*:markdown file or directory:_files'
             ;;
         watch)
             _arguments \
                 '--foreground[Run the foreground blocking watcher instead of handing off to the runner]' \
                 '--silent[Create or refresh without opening a browser]' \
+                '--existing[With a directory, also onboard unmatched .md files already in the folder]' \
+                '--no-recursive[With a directory, do not watch subdirectories]' \
+                '--glob[With a directory, filename glob]:pattern:' \
+                '--yes[Confirm onboarding more than 50 existing files]' \
                 '--visibility[Who may see the markdown]:visibility:(anyone private hidden)' \
                 '--private[Make the document private (alias for --visibility private)]' \
                 '--comments[Who may comment]:comments:(anyone private disabled)' \
                 '--no-comments[Turn off commenting (alias for --comments disabled)]' \
-                '*:markdown file:_files -g "*.md"'
+                '*:markdown file or directory:_files'
             ;;
         remove)
             _arguments \
@@ -131,9 +139,13 @@ _gander() {
             _arguments \
                 '-watch[Live-reload the browser preview]' \
                 '--silent[Do not open a browser; still print the preview URL]' \
+                '--existing[With --watch on a directory, also onboard unmatched .md already in the folder]' \
+                '--no-recursive[With --watch on a directory, do not watch subdirectories]' \
+                '--glob[With --watch on a directory, filename glob]:pattern:' \
+                '--yes[With --watch --existing, confirm more than 50 files]' \
                 '-outfile[Write HTML to a file]:file:_files -g "*.html"' \
                 '--help[Show help]' \
-                '*:markdown file:_files -g "*.md"'
+                '*:markdown file or directory:_files'
             ;;
     esac
 }
