@@ -29,7 +29,7 @@ _gander_completions() {
                     return 0
                     ;;
             esac
-            COMPREPLY=( $(compgen -W "--watch --foreground --visibility --comments --private --no-comments" -- "${cur}") )
+            COMPREPLY=( $(compgen -W "--watch --foreground --silent --visibility --comments --private --no-comments" -- "${cur}") )
             return 0
             ;;
         watch)
@@ -43,7 +43,7 @@ _gander_completions() {
                     return 0
                     ;;
             esac
-            COMPREPLY=( $(compgen -W "--foreground --visibility --comments --private --no-comments" -- "${cur}") )
+            COMPREPLY=( $(compgen -W "--foreground --silent --visibility --comments --private --no-comments" -- "${cur}") )
             COMPREPLY+=( $(compgen -f -- "${cur}") )
             return 0
             ;;
@@ -101,7 +101,8 @@ _gander_completions() {
             return 0
             ;;
         *)
-            COMPREPLY=()
+            COMPREPLY=( $(compgen -W "--watch --foreground --silent --outfile --help" -- "${cur}") )
+            COMPREPLY+=( $(compgen -f -- "${cur}") )
             return 0
             ;;
     esac

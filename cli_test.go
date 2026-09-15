@@ -281,6 +281,143 @@ func TestWatchCmdEqualsShareWatch(t *testing.T) {
 	}
 }
 
+func TestOneShotSilentDoesNotOpenBrowser(t *testing.T) {
+	tmp := t.TempDir()
+	md := filepath.Join(tmp, "doc.md")
+	if err := os.WriteFile(md, []byte("# hi"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	opened := 0
+	prev := openBrowser
+	openBrowser = func(url string) error {
+		opened++
+		return nil
+	}
+	t.Cleanup(func() { openBrowser = prev })
+
+	stdout, _ := captureStdIO(t, func() error {
+		return runOneShotPreview(md, true)
+	})
+	if opened != 0 {
+		t.Errorf("opened browser %d times for silent one-shot", opened)
+	}
+	if !strings.Contains(stdout, "Preview at:") {
+		t.Errorf("silent one-shot should still print URL:\n%s", stdout)
+	}
+}
+
+func TestOneShotOpensBrowserOnce(t *testing.T) {
+	tmp := t.TempDir()
+	md := filepath.Join(tmp, "doc.md")
+	if err := os.WriteFile(md, []byte("# hi"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	opened := 0
+	prev := openBrowser
+	openBrowser = func(url string) error {
+		opened++
+		return nil
+	}
+	t.Cleanup(func() { openBrowser = prev })
+
+	stdout, _ := captureStdIO(t, func() error {
+		return runOneShotPreview(md, false)
+	})
+	if opened != 1 {
+		t.Errorf("opened browser %d times, want 1", opened)
+	}
+	if !strings.Contains(stdout, "Preview at:") {
+		t.Errorf("one-shot should print URL:\n%s", stdout)
+	}
+}
+
+func TestLocalWatchSilentDoesNotOpenBrowser(t *testing.T) {
+	tmp := t.TempDir()
+	md := filepath.Join(tmp, "doc.md")
+	if err := os.WriteFile(md, []byte("# hi"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	opened := 0
+	prev := openBrowser
+	openBrowser = func(url string) error {
+		opened++
+		return nil
+	}
+	t.Cleanup(func() { openBrowser = prev })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	cfg := DefaultConfig()
+	cfg.Port = 0
+	stdout, _ := captureStdIO(t, func() error {
+		return runWatchCtx(ctx, md, cfg, true)
+	})
+	if opened != 0 {
+		t.Errorf("opened browser %d times for silent local watch", opened)
+	}
+	if !strings.Contains(stdout, "Preview at:") {
+		t.Errorf("silent local watch should still print URL:\n%s", stdout)
+	}
+}
+
+func TestLocalWatchOpensBrowserOnce(t *testing.T) {
+	tmp := t.TempDir()
+	md := filepath.Join(tmp, "doc.md")
+	if err := os.WriteFile(md, []byte("# hi"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	opened := 0
+	prev := openBrowser
+	openBrowser = func(url string) error {
+		opened++
+		return nil
+	}
+	t.Cleanup(func() { openBrowser = prev })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	cfg := DefaultConfig()
+	cfg.Port = 0
+	stdout, _ := captureStdIO(t, func() error {
+		return runWatchCtx(ctx, md, cfg, false)
+	})
+	if opened != 1 {
+		t.Errorf("opened browser %d times, want 1", opened)
+	}
+	if !strings.Contains(stdout, "Preview at:") {
+		t.Errorf("local watch should print URL:\n%s", stdout)
+	}
+}
+
+func TestPrintUsageMentionsSilent(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	cfg := DefaultConfig()
+	cfg.APIToken = "gmd_t"
+	if err := WriteConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	printUsage(&buf)
+	out := buf.String()
+	if !strings.Contains(out, "--silent") {
+		t.Errorf("usage missing --silent:\n%s", out)
+	}
+	if !strings.Contains(shareUsage, "--silent") {
+		t.Errorf("shareUsage missing --silent: %s", shareUsage)
+	}
+	for _, line := range strings.Split(out, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "-silent") {
+			continue
+		}
+		low := strings.ToLower(line)
+		if strings.Contains(low, "hidden") || strings.Contains(low, "unpublish") {
+			t.Errorf("usage --silent looks like access control: %s", line)
+		}
+	}
+}
+
 func TestWatchCmdRequiresAuth(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)

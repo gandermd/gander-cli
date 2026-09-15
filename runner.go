@@ -232,7 +232,7 @@ func isTestExecutable(exe string) bool {
 	return strings.HasSuffix(base, ".test") || strings.HasSuffix(base, ".test.exe")
 }
 
-func handOffWatch(path string) error {
+func handOffWatch(path string, silent bool) error {
 	home, err := runnerHomeForCLI()
 	if err != nil {
 		return err
@@ -252,6 +252,9 @@ func handOffWatch(path string) error {
 		return fmt.Errorf("runner rejected watch: %s", resp.Error)
 	}
 	fmt.Printf("Preview at: %s\n", resp.URL)
+	if silent {
+		return nil
+	}
 	if err := openBrowser(resp.URL); err != nil {
 		log.Printf("warning: could not open browser: %v", err)
 	}

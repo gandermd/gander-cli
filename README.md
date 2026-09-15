@@ -177,6 +177,12 @@ This will:
 3. Open it in your default browser via a `file://` URL
 4. Exit — the process does not keep running, no port is held open
 
+Pass `--silent` to print the `file://` URL without opening a browser:
+
+```bash
+gander --silent path/to/file.md
+```
+
 ### Convert to HTML file (no browser)
 
 ```bash
@@ -189,6 +195,7 @@ gander -outfile readme.html README.md
 
 ```bash
 gander --watch README.md
+gander --watch --silent README.md   # register the watch, print URL, skip the browser
 ```
 
 `gander --watch` no longer blocks your terminal: the CLI hands the watch off to a long-lived runner daemon (`gander _serve`) and exits. The daemon owns the HTTP server, the fsnotify loop, and the reload. On every save the rendered HTML hot-swaps in place and the TOC rebuilds; scroll position is preserved.
@@ -220,9 +227,12 @@ If you're running an agent that streams markdown to a file, `gander watch` is th
 ```bash
 gander signup --email you@example.com   # opens browser form, polls for API token
 gander share README.md                  # opens https://gander.md/s/xK7m2pQa
+gander share README.md --silent         # same share, print URL, skip the browser
 gander watch README.md                  # upload + live-update the remote viewer on save
                                         # (same short id if you already shared that file from the dashboard)
+gander watch README.md --silent         # same watch, print URL, skip the browser
 gander share README.md --watch          # same as `watch`, spelled out
+gander share --watch --silent README.md # same as `watch --silent`
 gander share README.md --comments anyone  # public review comments (opt-in; default is private)
 gander share README.md --no-comments    # hide viewer threads (comment_access=disabled)
 gander share README.md --private        # only the author and invited team can read the doc
@@ -331,6 +341,9 @@ The legacy `~/.mdp` fallback only applies when `GANDER_CONFIG` is unset; named p
     Hand the file off to the long-lived runner and live-reload the browser preview.
     The CLI exits; the daemon owns the watch. Use --foreground for the old
     blocking behavior.
+-silent
+    Do not open a browser after rendering, sharing, or starting a watch.
+    The URL is still printed. Does not change visibility or commenting.
 -upgrade
     Download and install the latest release, then exit. The runner is shut
     down over UDS first, the binary is replaced, then the supervisor (or a
@@ -342,8 +355,8 @@ Subcommands:
 
 ```
 gander signup --email <addr>      Open the signup form in your browser, save the API token
-gander share [--watch] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] <file>
-gander watch [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] <file>
+gander share [--watch] [--silent] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] <file>
+gander watch [--silent] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] <file>
 gander status                     Show runner + active watches + URLs
 gander stop [<file>|<id>] [--all] Stop a watch (by file, id, or --all)
 gander logs [<id>]                Tail the runner log (optionally filtered by watch id)

@@ -143,7 +143,11 @@ func writeSSE(w http.ResponseWriter, flusher http.Flusher, event, data string) {
 	flusher.Flush()
 }
 
-func runWatch(absPath string, cfg Config) error {
+func runWatch(absPath string, cfg Config, silent bool) error {
+	return runWatchCtx(context.Background(), absPath, cfg, silent)
+}
+
+func runWatchCtx(parent context.Context, absPath string, cfg Config, silent bool) error {
 	content, err := os.ReadFile(absPath)
 	if err != nil {
 		return fmt.Errorf("read %s: %w", absPath, err)
@@ -155,13 +159,15 @@ func runWatch(absPath string, cfg Config) error {
 
 	state := newWatchState(absPath, html, contentHTML, headings, hash)
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	return serveWatchForever(ctx, state, cfg.Port, cfg.DebounceMs, func(url string) error {
 		fmt.Printf("Preview at: %s\n", url)
 		fmt.Println("Watching for changes. Press Ctrl+C to stop.")
-		openBrowser(url)
+		if !silent {
+			openBrowser(url)
+		}
 		return nil
 	})
 }
