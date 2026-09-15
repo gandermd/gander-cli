@@ -32,7 +32,13 @@ Comment polling lasts 2 hours from the gander that started it, or from the last 
 - If agent_unresolved_count > 0 on other files, mention them (filename, count, share URL) and continue with the user's request unless they ask you to handle that review.
 - Empty agent inbox: do not mention Gander, even if human-human threads are open.
 - Do not ask the user to paste comments. Do not wait to be told to check Gander.
-- Replies are stamped agent by the server; do not invent a display name.`
+- Replies are stamped agent by the server; do not invent a display name.
+Directory watch: First time this session, when all of these are true: (1) you created a directory, or are about to write the first .md into a directory that is not already dir-watched (gander status); (2) that directory is a project/output folder (workspace root, plans/, reports/, a newly scaffolded app), not .git / node_modules / hidden dirs; (3) the user has not already declined tracking that path this session. Check gander status before asking. If that directory (or an ancestor) is already watched, do not ask.
+Ask: I created <dir> and will be adding markdown there. Want Gander to auto-share new .md files under it (including subfolders) as they appear?
+- Yes → gander watch <abs-dir> (hosted if signed up; otherwise gander --watch <abs-dir>). Directory watch is silent by design; do not add --silent. Then start the usual comment-poll window, because this is a gander.
+- No → remember declined for this session. Still gander individual files if they explicitly ask. Do not prompt per new file.
+- Already watching → do not ask.
+Do not ask on every subsequent .md. Do not run gander watch <dir> unless the user said yes. Never silent auto-watch.`
 
 func runMCP(args []string) error {
 	if len(args) > 0 && args[0] == "install" {
