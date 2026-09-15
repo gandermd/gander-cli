@@ -20,6 +20,32 @@ func TestMCPInstructionsWatchSilent(t *testing.T) {
 	}
 }
 
+func TestMCPInstructionsDirWatchAsk(t *testing.T) {
+	for _, want := range []string{
+		"I created <dir> and will be adding markdown there",
+		"gander watch <abs-dir>",
+		"gander --watch <abs-dir>",
+		"gander status",
+		"Do not ask on every subsequent",
+		"remember declined for this session",
+		"Do not prompt per new file",
+		"Already watching",
+		"Do not run gander watch <dir> unless the user said yes",
+		"Never silent auto-watch",
+		"comment-poll window",
+	} {
+		if !strings.Contains(mcpInstructions, want) {
+			t.Errorf("mcpInstructions missing %q", want)
+		}
+	}
+	if !strings.Contains(mcpInstructions, "gander watch --silent") {
+		t.Fatal("file watch must still say gander watch --silent")
+	}
+	if strings.Contains(mcpInstructions, "gander watch --silent <abs-dir>") {
+		t.Fatal("directory watch must not add --silent")
+	}
+}
+
 func TestMCPInstructionsDoNotAutoResolve(t *testing.T) {
 	if strings.Contains(mcpInstructions, "then gander_resolve_thread") {
 		t.Fatal("mcpInstructions must not tell agents to resolve every thread")
