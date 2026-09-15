@@ -152,6 +152,7 @@ func main() {
 	outFile := flag.String("outfile", "", "Optional: write HTML output to file instead of opening in browser")
 	watch := flag.Bool("watch", false, "Watch the file for changes and live-reload the browser preview")
 	foreground := flag.Bool("foreground", false, "With --watch, run the blocking watcher in-process (no runner handoff)")
+	silent := flag.Bool("silent", false, "Do not open a browser; still print the preview URL")
 	upgrade := flag.Bool("upgrade", false, "Download and install the latest release, then exit")
 	flag.Parse()
 
@@ -191,23 +192,22 @@ func main() {
 
 	if useWatch {
 		if *foreground {
-			if err := runWatch(absPath, cfg); err != nil {
+			if err := runWatch(absPath, cfg, *silent); err != nil {
 				log.Fatalf("watch: %v", err)
 			}
 			return
 		}
-		if err := handOffWatch(absPath); err != nil {
+		if err := handOffWatch(absPath, *silent); err != nil {
 			log.Fatalf("watch: %v", err)
 		}
 		return
 	}
 
-	content, err := os.ReadFile(absPath)
-	if err != nil {
-		log.Fatalf("Failed to read file: %v", err)
-	}
-
 	if *outFile != "" {
+		content, err := os.ReadFile(absPath)
+		if err != nil {
+			log.Fatalf("Failed to read file: %v", err)
+		}
 		if err := writeHTMLTo(*outFile, content); err != nil {
 			log.Fatalf("Failed to write HTML: %v", err)
 		}
@@ -215,15 +215,29 @@ func main() {
 		return
 	}
 
+	if err := runOneShotPreview(absPath, *silent); err != nil {
+		log.Fatalf("%v", err)
+	}
+}
+
+func runOneShotPreview(absPath string, silent bool) error {
+	content, err := os.ReadFile(absPath)
+	if err != nil {
+		return fmt.Errorf("Failed to read file: %v", err)
+	}
 	tmpPath, err := writeHTMLToTemp(content)
 	if err != nil {
-		log.Fatalf("Failed to write temp HTML: %v", err)
+		return fmt.Errorf("Failed to write temp HTML: %v", err)
 	}
 	url := "file://" + tmpPath
 	fmt.Printf("Preview at: %s\n", url)
+	if silent {
+		return nil
+	}
 	if err := openBrowser(url); err != nil {
 		log.Printf("Warning: could not open browser: %v", err)
 	}
+	return nil
 }
 
 func printVersion(w io.Writer) {
@@ -262,10 +276,10 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  gander <file.md> [options]      Render and open locally")
 	fmt.Fprintln(w, "  gander signup --email <addr>    Open signup form in your browser, save the API token")
 	if authed {
-		fmt.Fprintln(w, "  gander share [--watch] [--visibility=anyone|private|hidden] [--private]")
+		fmt.Fprintln(w, "  gander share [--watch] [--silent] [--visibility=anyone|private|hidden] [--private]")
 		fmt.Fprintln(w, "             [--comments=anyone|private|disabled] [--no-comments] <file>")
 		fmt.Fprintln(w, "                                                              Upload to gander.md (keeps a dashboard share of the same file)")
-		fmt.Fprintln(w, "  gander watch [--visibility=anyone|private|hidden] [--private]")
+		fmt.Fprintln(w, "  gander watch [--silent] [--visibility=anyone|private|hidden] [--private]")
 		fmt.Fprintln(w, "             [--comments=anyone|private|disabled] [--no-comments] <file>")
 		fmt.Fprintln(w, "                                                              Live-share to gander.md and push every save (alias for `share --watch`)")
 		fmt.Fprintln(w, "  gander remove [--all|--pick <short_id>|--yes|--non-interactive] <file|short_id|url>")
@@ -291,6 +305,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  -outfile string   Write HTML to a file instead of opening in browser")
 	fmt.Fprintln(w, "  -watch            Live-reload the local browser preview on save (via the runner)")
 	fmt.Fprintln(w, "  -foreground       With -watch, run the blocking watcher in-process (CI / debug)")
+	fmt.Fprintln(w, "  -silent           Do not open a browser; still print the preview or share URL")
 	if !authed {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "Run `gander signup --email you@example.com` to enable share / watch / remove / list / invite / manage / auth.")

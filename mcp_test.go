@@ -11,6 +11,15 @@ import (
 	"testing"
 )
 
+func TestMCPInstructionsWatchSilent(t *testing.T) {
+	if !strings.Contains(mcpInstructions, "gander watch --silent") {
+		t.Fatal("mcpInstructions must tell agents to gander watch --silent")
+	}
+	if strings.Contains(mcpInstructions, "gander watch <path>") {
+		t.Fatal("mcpInstructions must not tell agents to gander watch <path> without --silent")
+	}
+}
+
 func TestMCPInstructionsDoNotAutoResolve(t *testing.T) {
 	if strings.Contains(mcpInstructions, "then gander_resolve_thread") {
 		t.Fatal("mcpInstructions must not tell agents to resolve every thread")

@@ -28,12 +28,13 @@ func runWatchCmdWithCtx(ctx context.Context, args []string) error {
 	return runShareWithCtx(ctx, append([]string{"--watch"}, args...))
 }
 
-const shareUsage = "usage: gander share [--watch] [--foreground] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] file.md"
+const shareUsage = "usage: gander share [--watch] [--foreground] [--silent] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] file.md"
 
 func runShareWithCtx(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("share", flag.ContinueOnError)
 	watch := fs.Bool("watch", false, "live-update the shared page as the file changes")
 	foreground := fs.Bool("foreground", false, "keep share --watch in-process instead of handing off to the runner")
+	silent := fs.Bool("silent", false, "create or refresh the share without opening a browser")
 	comments := fs.String("comments", "", "who may comment: anyone, private, or disabled")
 	visibility := fs.String("visibility", "", "who may see the document: anyone, private, or hidden")
 	private := fs.Bool("private", false, "make the document private (alias for --visibility private)")
@@ -89,7 +90,7 @@ func runShareWithCtx(ctx context.Context, args []string) error {
 	} else {
 		fmt.Printf("Shared %s as %s\n", canonical, sh.URL)
 	}
-	if opts.DocVisibility != "hidden" {
+	if !*silent && opts.DocVisibility != "hidden" {
 		openBrowserURL(sh.URL)
 	}
 	if *watch {

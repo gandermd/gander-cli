@@ -659,6 +659,188 @@ func TestShareHiddenDoesNotOpenBrowser(t *testing.T) {
 	}
 }
 
+func TestShareOpensBrowserOnce(t *testing.T) {
+	var posts int
+	var captured map[string]any
+	srv := newSharePolicyServer(t, &captured, &posts, true)
+	md := setupShareHome(t, srv.URL)
+	opened := 0
+	openBrowser = func(url string) error {
+		opened++
+		return nil
+	}
+
+	if err := runShareWithCtx(context.Background(), []string{md}); err != nil {
+		t.Fatalf("share: %v", err)
+	}
+	if opened != 1 {
+		t.Errorf("opened browser %d times, want 1", opened)
+	}
+	if posts != 1 {
+		t.Errorf("POST count = %d, want 1", posts)
+	}
+}
+
+func TestShareSilentDoesNotOpenBrowser(t *testing.T) {
+	var posts int
+	var captured map[string]any
+	srv := newSharePolicyServer(t, &captured, &posts, true)
+	md := setupShareHome(t, srv.URL)
+	opened := 0
+	openBrowser = func(url string) error {
+		opened++
+		return nil
+	}
+
+	var shareErr error
+	stdout, _ := captureStdIO(t, func() error {
+		shareErr = runShareWithCtx(context.Background(), []string{"--silent", md})
+		return nil
+	})
+	if shareErr != nil {
+		t.Fatalf("share: %v", shareErr)
+	}
+	if opened != 0 {
+		t.Errorf("opened browser %d times for silent share", opened)
+	}
+	if !strings.Contains(stdout, "https://gander.md/s/abc12345") {
+		t.Errorf("silent share should still print URL:\n%s", stdout)
+	}
+	if posts != 1 {
+		t.Errorf("POST count = %d, want 1", posts)
+	}
+	for _, k := range []string{"doc_visibility", "comment_access", "silent"} {
+		if _, ok := captured[k]; ok {
+			t.Errorf("silent must not send %s; body=%v", k, captured)
+		}
+	}
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	canon, err := canonicalPath(md)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Shares[canon]; got != "abc12345" {
+		t.Errorf("Shares[%s] = %q, want abc12345", canon, got)
+	}
+}
+
+func TestShareSilentExistingShareDoesNotOpenBrowser(t *testing.T) {
+	var posts int
+	var captured map[string]any
+	srv := newSharePolicyServer(t, &captured, &posts, true)
+	md := setupShareHome(t, srv.URL)
+	canon, err := canonicalPath(md)
+	if err != nil {
+		t.Fatal(err)
+	}
+	patchConfig(t, func(cfg *Config) {
+		cfg.Shares[canon] = "abc12345"
+	})
+	opened := 0
+	openBrowser = func(url string) error {
+		opened++
+		return nil
+	}
+
+	var shareErr error
+	stdout, _ := captureStdIO(t, func() error {
+		shareErr = runShareWithCtx(context.Background(), []string{"--silent", md})
+		return nil
+	})
+	if shareErr != nil {
+		t.Fatalf("share: %v", shareErr)
+	}
+	if opened != 0 {
+		t.Errorf("opened browser %d times on silent re-share", opened)
+	}
+	if !strings.Contains(stdout, "https://gander.md/s/abc12345") {
+		t.Errorf("silent re-share should still print URL:\n%s", stdout)
+	}
+	if _, ok := captured["doc_visibility"]; ok {
+		t.Errorf("re-share must omit doc_visibility; body=%v", captured)
+	}
+}
+
+func TestShareSilentVisibilityAnyoneDoesNotOpenBrowser(t *testing.T) {
+	var posts int
+	var captured map[string]any
+	srv := newSharePolicyServer(t, &captured, &posts, true)
+	md := setupShareHome(t, srv.URL)
+	opened := 0
+	openBrowser = func(url string) error {
+		opened++
+		return nil
+	}
+
+	if err := runShareWithCtx(context.Background(), []string{"--silent", "--visibility=anyone", md}); err != nil {
+		t.Fatalf("share: %v", err)
+	}
+	if opened != 0 {
+		t.Errorf("opened browser %d times", opened)
+	}
+	if got, _ := captured["doc_visibility"].(string); got != "anyone" {
+		t.Errorf("doc_visibility = %q, want anyone (body=%v)", got, captured)
+	}
+	if _, ok := captured["silent"]; ok {
+		t.Errorf("must not send silent key; body=%v", captured)
+	}
+}
+
+func TestWatchSilentDoesNotOpenBrowser(t *testing.T) {
+	var posts int
+	var captured map[string]any
+	srv := newSharePolicyServer(t, &captured, &posts, true)
+	md := setupShareHome(t, srv.URL)
+	opened := 0
+	openBrowser = func(url string) error {
+		opened++
+		return nil
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	var watchErr error
+	stdout, _ := captureStdIO(t, func() error {
+		watchErr = runWatchCmdWithCtx(ctx, []string{"--silent", "--foreground", md})
+		return nil
+	})
+	if watchErr != nil {
+		t.Fatalf("watch: %v", watchErr)
+	}
+	if opened != 0 {
+		t.Errorf("opened browser %d times for silent watch", opened)
+	}
+	if !strings.Contains(stdout, "https://gander.md/s/abc12345") {
+		t.Errorf("silent watch should still print URL:\n%s", stdout)
+	}
+	if posts != 1 {
+		t.Errorf("POST count = %d, want 1", posts)
+	}
+	watch, _ := captured["watch"].(bool)
+	if !watch {
+		t.Errorf("watch = %v, want true", captured["watch"])
+	}
+	for _, k := range []string{"doc_visibility", "silent"} {
+		if _, ok := captured[k]; ok {
+			t.Errorf("silent watch must not send %s; body=%v", k, captured)
+		}
+	}
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	canon, err := canonicalPath(md)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Shares[canon]; got != "abc12345" {
+		t.Errorf("Shares[%s] = %q, want abc12345", canon, got)
+	}
+}
+
 func TestApplyShareConfigDefaults(t *testing.T) {
 	cases := []struct {
 		name    string
