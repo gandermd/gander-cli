@@ -38,7 +38,7 @@ func TestManPageExistsAndRenders(t *testing.T) {
 		"gander uninstall",
 		"--upgrade",
 		"--visibility", "--comments", "--private", "--no-comments",
-		"--silent",
+		"--silent", "--existing", "--no-recursive", "--glob",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("rendered man page missing %q", want)

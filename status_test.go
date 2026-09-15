@@ -29,3 +29,17 @@ func TestStatusURLLocalUsesPreview(t *testing.T) {
 		t.Errorf("statusShortID = %q, want -", got)
 	}
 }
+
+func TestStatusURLDirWatchIsDash(t *testing.T) {
+	w := watchOut{
+		Mode: string(modeDirShare),
+		Kind: string(kindDir),
+		Path: "/tmp/reports",
+	}
+	if got := statusURL(w); got != "-" {
+		t.Errorf("statusURL = %q, want -", got)
+	}
+	if got := statusShortID(w); got != "-" {
+		t.Errorf("statusShortID = %q, want -", got)
+	}
+}

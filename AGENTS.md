@@ -28,6 +28,7 @@ self-updates from `https://release.gander.md` (GitHub Releases fallback).
   | `runner_ipc_linux.go`         | `SO_PEERCRED` peer-UID check                             |
   | `runner_ipc_darwin.go`        | macOS UDS peer check (file-mode only — see comment)       |
   | `runner_watch.go`             | `watchManager`: register/stop/list, `watches.json` persistence (chmod 0600, atomic rename, refuses to load wider modes) |
+  | `runner_dir.go`               | Directory watches (`dir-share` / `dir-local`): glob/ignore, debounce, rate limit, CreateShare + child file register |
   | `runner_http.go`              | Daemon's single HTTP server on `127.0.0.1:7821`; `/w/<id>?t=…` and `/healthz` token-gated via `crypto/subtle.ConstantTimeCompare` |
   | `runner_install.go`           | LaunchAgent (macOS) / systemd user unit (Linux) rendering + idempotent `launchctl load` / `systemctl enable --now` |
   | `runner_cmd.go`               | `gander runner {install\|uninstall}` CLI subcommand      |

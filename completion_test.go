@@ -35,7 +35,7 @@ func TestRunCompletionBashNonEmpty(t *testing.T) {
 	if out == "" {
 		t.Fatal("bash completion is empty")
 	}
-	for _, want := range []string{"complete -F", "signup", "share", "remove", "invite", "completion", "dashboard", "dash", "--d", "--visibility", "--comments", "--private", "--no-comments", "--silent"} {
+	for _, want := range []string{"complete -F", "signup", "share", "remove", "invite", "completion", "dashboard", "dash", "--d", "--visibility", "--comments", "--private", "--no-comments", "--silent", "--existing", "--no-recursive", "--glob"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("bash completion missing %q\n%s", want, out)
 		}
@@ -72,7 +72,7 @@ func TestRunCompletionZshNonEmpty(t *testing.T) {
 	if out == "" {
 		t.Fatal("zsh completion is empty")
 	}
-	for _, want := range []string{"#compdef gander", "_gander", "signup", "share", "remove", "invite", "completion", "dashboard", "dash", "--d", "--visibility", "--comments", "--private", "--no-comments", "--silent"} {
+	for _, want := range []string{"#compdef gander", "_gander", "signup", "share", "remove", "invite", "completion", "dashboard", "dash", "--d", "--visibility", "--comments", "--private", "--no-comments", "--silent", "--existing", "--no-recursive", "--glob"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("zsh completion missing %q\n%s", want, out)
 		}

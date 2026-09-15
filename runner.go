@@ -260,3 +260,42 @@ func handOffWatch(path string, silent bool) error {
 	}
 	return nil
 }
+
+func handOffWatchDir(path, mode string, opts dirWatchOpts) error {
+	home, err := runnerHomeForCLI()
+	if err != nil {
+		return err
+	}
+	if _, err := ensureRunner(home); err != nil {
+		return err
+	}
+	rec := opts.Recursive
+	resp, err := ipcRoundTrip(home, ipcRequest{
+		Op:            "watch-dir",
+		Path:          path,
+		Mode:          mode,
+		Recursive:     &rec,
+		Glob:          opts.Glob,
+		Existing:      opts.Existing,
+		Yes:           opts.Yes,
+		CommentAccess: opts.Policy.CommentAccess,
+		DocVisibility: opts.Policy.DocVisibility,
+	})
+	if err != nil {
+		return err
+	}
+	if !resp.OK {
+		return fmt.Errorf("runner rejected directory watch: %s", resp.Error)
+	}
+	scope := "recursive"
+	if !opts.Recursive {
+		scope = "this folder only"
+	}
+	what := "shared on gander.md"
+	if mode == string(modeDirLocal) {
+		what = "previewed locally"
+	}
+	fmt.Printf("Watching %s for new markdown (%s). New files are %s; the browser will not open.\n", path, scope, what)
+	fmt.Printf("runner: directory watch %s\n", resp.ID)
+	return nil
+}
