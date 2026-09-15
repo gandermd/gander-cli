@@ -221,6 +221,7 @@ If you're running an agent that streams markdown to a file, `gander watch` is th
 gander signup --email you@example.com   # opens browser form, polls for API token
 gander share README.md                  # opens https://gander.md/s/xK7m2pQa
 gander watch README.md                  # upload + live-update the remote viewer on save
+                                        # (same short id if you already shared that file from the dashboard)
 gander share README.md --watch          # same as `watch`, spelled out
 gander share README.md --comments anyone  # public review comments (opt-in; default is private)
 gander share README.md --no-comments    # hide viewer threads (comment_access=disabled)
@@ -232,7 +233,7 @@ gander remove --all                     # remove every share in your account
 gander invite                           # print a team invite URL (shown once)
 gander invite --email you@example.com   # bind the invite to that address
 gander invite --share xK7m2pQa          # after accept, land on that private share
-gander manage                           # opens the dashboard in your browser
+gander manage                           # opens the dashboard (share, watch in-tab, filters, team, token)
 gander dashboard                         # same as manage
 gander dash                              # same as manage
 gander --d                               # same as manage
