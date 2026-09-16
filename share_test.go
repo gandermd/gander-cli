@@ -249,6 +249,7 @@ func TestRunListShowsCommentPolicyColumns(t *testing.T) {
 				"watch":          false,
 				"comment_access": "private",
 				"doc_visibility": "private",
+				"labels":         []string{"review", "agent"},
 				"url":            "https://gander.md/s/abc12345",
 				"created_at":     "2026-01-01T00:00:00Z",
 				"updated_at":     "2026-01-01T00:00:00Z",
@@ -277,7 +278,7 @@ func TestRunListShowsCommentPolicyColumns(t *testing.T) {
 	if stderr != "" {
 		t.Errorf("stderr = %q", stderr)
 	}
-	for _, want := range []string{"COMMENTING", "VISIBILITY", "private", "disabled", "hidden"} {
+	for _, want := range []string{"COMMENTING", "VISIBILITY", "LABELS", "private", "disabled", "hidden", "review,agent", "-"} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("list output missing %q\n%s", want, stdout)
 		}
@@ -296,43 +297,43 @@ func TestCreateSharePolicyBody(t *testing.T) {
 	}{
 		{
 			name: "flags omitted",
-			omit: []string{"comment_access", "doc_visibility"},
+			omit: []string{"comment_access", "doc_visibility", "labels"},
 		},
 		{
 			name: "comments private",
 			opts: shareOpts{CommentAccess: "private"},
 			want: map[string]string{"comment_access": "private"},
-			omit: []string{"doc_visibility"},
+			omit: []string{"doc_visibility", "labels"},
 		},
 		{
 			name: "no-comments alias",
 			opts: shareOpts{CommentAccess: "disabled"},
 			want: map[string]string{"comment_access": "disabled"},
-			omit: []string{"doc_visibility"},
+			omit: []string{"doc_visibility", "labels"},
 		},
 		{
 			name: "private",
 			opts: shareOpts{DocVisibility: "private"},
 			want: map[string]string{"doc_visibility": "private"},
-			omit: []string{"comment_access"},
+			omit: []string{"comment_access", "labels"},
 		},
 		{
 			name: "visibility hidden",
 			opts: shareOpts{DocVisibility: "hidden"},
 			want: map[string]string{"doc_visibility": "hidden"},
-			omit: []string{"comment_access"},
+			omit: []string{"comment_access", "labels"},
 		},
 		{
 			name: "visibility anyone",
 			opts: shareOpts{DocVisibility: "anyone"},
 			want: map[string]string{"doc_visibility": "anyone"},
-			omit: []string{"comment_access"},
+			omit: []string{"comment_access", "labels"},
 		},
 		{
 			name: "comments anyone",
 			opts: shareOpts{CommentAccess: "anyone"},
 			want: map[string]string{"comment_access": "anyone"},
-			omit: []string{"doc_visibility"},
+			omit: []string{"doc_visibility", "labels"},
 		},
 	}
 	for _, tc := range cases {
@@ -401,7 +402,7 @@ func TestUpdateShareSendsContentOnly(t *testing.T) {
 	if len(captured) != 1 {
 		t.Errorf("PUT body = %v, want only content", captured)
 	}
-	for _, k := range []string{"comment_access", "doc_visibility"} {
+	for _, k := range []string{"comment_access", "doc_visibility", "labels"} {
 		if _, ok := captured[k]; ok {
 			t.Errorf("watch PUT must omit %s", k)
 		}
@@ -417,66 +418,67 @@ func TestSharePolicyFlagsPOSTBody(t *testing.T) {
 	}{
 		{
 			name: "omitted",
-			omit: []string{"comment_access", "doc_visibility"},
+			omit: []string{"comment_access", "doc_visibility", "labels"},
 		},
 		{
 			name: "comments private",
 			args: []string{"--comments=private"},
 			want: map[string]string{"comment_access": "private"},
-			omit: []string{"doc_visibility"},
+			omit: []string{"doc_visibility", "labels"},
 		},
 		{
 			name: "comments anyone",
 			args: []string{"--comments=anyone"},
 			want: map[string]string{"comment_access": "anyone"},
-			omit: []string{"doc_visibility"},
+			omit: []string{"doc_visibility", "labels"},
 		},
 		{
 			name: "no-comments",
 			args: []string{"--no-comments"},
 			want: map[string]string{"comment_access": "disabled"},
-			omit: []string{"doc_visibility"},
+			omit: []string{"doc_visibility", "labels"},
 		},
 		{
 			name: "comments disabled",
 			args: []string{"--comments=disabled"},
 			want: map[string]string{"comment_access": "disabled"},
-			omit: []string{"doc_visibility"},
+			omit: []string{"doc_visibility", "labels"},
 		},
 		{
 			name: "no-comments and disabled",
 			args: []string{"--no-comments", "--comments=disabled"},
 			want: map[string]string{"comment_access": "disabled"},
-			omit: []string{"doc_visibility"},
+			omit: []string{"doc_visibility", "labels"},
 		},
 		{
 			name: "private",
 			args: []string{"--private"},
 			want: map[string]string{"doc_visibility": "private"},
-			omit: []string{"comment_access"},
+			omit: []string{"comment_access", "labels"},
 		},
 		{
 			name: "visibility hidden",
 			args: []string{"--visibility=hidden"},
 			want: map[string]string{"doc_visibility": "hidden"},
-			omit: []string{"comment_access"},
+			omit: []string{"comment_access", "labels"},
 		},
 		{
 			name: "visibility anyone",
 			args: []string{"--visibility=anyone"},
 			want: map[string]string{"doc_visibility": "anyone"},
-			omit: []string{"comment_access"},
+			omit: []string{"comment_access", "labels"},
 		},
 		{
 			name: "private and visibility private",
 			args: []string{"--private", "--visibility=private"},
 			want: map[string]string{"doc_visibility": "private"},
-			omit: []string{"comment_access"},
+			omit: []string{"comment_access", "labels"},
 		},
 		{
 			name: "private and no-comments",
 			args: []string{"--private", "--no-comments"},
 			want: map[string]string{"comment_access": "disabled", "doc_visibility": "private"},
+			omit: []string{"labels"},
 		},
 	}
 	for _, tc := range cases {
@@ -507,6 +509,101 @@ func TestSharePolicyFlagsPOSTBody(t *testing.T) {
 				t.Errorf("body must not send comment_visibility: %v", captured)
 			}
 		})
+	}
+}
+
+func TestShareLabelFlagsPOSTBody(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+		want []string
+		omit bool
+	}{
+		{name: "omitted", omit: true},
+		{name: "one label", args: []string{"--label=review"}, want: []string{"review"}},
+		{name: "repeatable", args: []string{"--label=review", "--label=agent"}, want: []string{"review", "agent"}},
+		{name: "no-labels", args: []string{"--no-labels"}, want: []string{}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var captured map[string]any
+			var posts int
+			srv := newSharePolicyServer(t, &captured, &posts, true)
+			md := setupShareHome(t, srv.URL)
+			args := append(append([]string{}, tc.args...), md)
+			if err := runShareWithCtx(context.Background(), args); err != nil {
+				t.Fatalf("share: %v", err)
+			}
+			got, ok := captured["labels"]
+			if tc.omit {
+				if ok {
+					t.Errorf("body unexpectedly has labels=%v", got)
+				}
+				return
+			}
+			if !ok {
+				t.Fatalf("body missing labels: %v", captured)
+			}
+			raw, _ := json.Marshal(got)
+			var labels []string
+			if err := json.Unmarshal(raw, &labels); err != nil {
+				t.Fatalf("labels = %v: %v", got, err)
+			}
+			if len(labels) != len(tc.want) {
+				t.Fatalf("labels = %v, want %v", labels, tc.want)
+			}
+			for i := range tc.want {
+				if labels[i] != tc.want[i] {
+					t.Errorf("labels = %v, want %v", labels, tc.want)
+					break
+				}
+			}
+		})
+	}
+}
+
+func TestCreateShareLabelsBody(t *testing.T) {
+	var captured map[string]any
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/shares", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&captured)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"uuid": "11111111-1111-1111-1111-111111111111", "short_id": "abc12345",
+			"filename": "doc.md", "url": "https://gander.md/s/abc12345",
+			"labels": []string{"review"},
+		})
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	labels := []string{"review"}
+	if _, _, err := newAPIClient(srv.URL, "gmd_t").CreateShare("doc.md", "/tmp/doc.md", "# v1", false, shareOpts{Labels: &labels}); err != nil {
+		t.Fatalf("CreateShare: %v", err)
+	}
+	raw, _ := json.Marshal(captured["labels"])
+	var got []string
+	_ = json.Unmarshal(raw, &got)
+	if len(got) != 1 || got[0] != "review" {
+		t.Errorf("labels = %v", captured["labels"])
+	}
+	empty := []string{}
+	captured = nil
+	if _, _, err := newAPIClient(srv.URL, "gmd_t").CreateShare("doc.md", "/tmp/doc.md", "# v1", false, shareOpts{Labels: &empty}); err != nil {
+		t.Fatalf("CreateShare empty: %v", err)
+	}
+	raw, _ = json.Marshal(captured["labels"])
+	got = nil
+	_ = json.Unmarshal(raw, &got)
+	if got == nil || len(got) != 0 {
+		t.Errorf("empty labels = %v, want []", captured["labels"])
+	}
+	captured = nil
+	if _, _, err := newAPIClient(srv.URL, "gmd_t").CreateShare("doc.md", "/tmp/doc.md", "# v1", false, shareOpts{}); err != nil {
+		t.Fatalf("CreateShare omit: %v", err)
+	}
+	if _, ok := captured["labels"]; ok {
+		t.Errorf("omitted labels still sent: %v", captured["labels"])
 	}
 }
 
@@ -561,6 +658,7 @@ func TestShareRejectsInvalidPolicyCombosBeforeHTTP(t *testing.T) {
 		{"private + visibility hidden", []string{"--private", "--visibility=hidden", md}, "--private cannot be combined with --visibility hidden"},
 		{"bad comments", []string{"--comments=team", md}, "--comments must be anyone, private, or disabled"},
 		{"bad visibility", []string{"--visibility=public", md}, "--visibility must be anyone, private, or hidden"},
+		{"no-labels + label", []string{"--no-labels", "--label=review", md}, "--no-labels cannot be combined with --label"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -991,7 +1089,7 @@ func TestShareConfigDefaultsPOSTBody(t *testing.T) {
 			name: "private visibility default",
 			vis:  "private",
 			want: map[string]string{"doc_visibility": "private"},
-			omit: []string{"comment_access"},
+			omit: []string{"comment_access", "labels"},
 		},
 		{
 			name:     "disabled comments default",
@@ -1010,7 +1108,7 @@ func TestShareConfigDefaultsPOSTBody(t *testing.T) {
 			vis:  "private",
 			args: []string{"--visibility=anyone"},
 			want: map[string]string{"doc_visibility": "anyone"},
-			omit: []string{"comment_access"},
+			omit: []string{"comment_access", "labels"},
 		},
 		{
 			name:     "comments flag overrides disabled config",
@@ -1031,7 +1129,7 @@ func TestShareConfigDefaultsPOSTBody(t *testing.T) {
 			vis:  "anyone",
 			args: []string{"--private"},
 			want: map[string]string{"doc_visibility": "private"},
-			omit: []string{"comment_access"},
+			omit: []string{"comment_access", "labels"},
 		},
 	}
 	for _, tc := range cases {
@@ -1278,6 +1376,9 @@ func newSharePolicyServer(t *testing.T, captured *map[string]any, posts *int, ec
 			}
 			if v, ok := body["doc_visibility"]; ok {
 				resp["doc_visibility"] = v
+			}
+			if v, ok := body["labels"]; ok {
+				resp["labels"] = v
 			}
 		}
 		w.Header().Set("Content-Type", "application/json")

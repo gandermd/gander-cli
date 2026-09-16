@@ -320,11 +320,11 @@ func printUsage(w io.Writer) {
 	if authed {
 		fmt.Fprintln(w, "  gander share [--watch] [--silent] [--existing] [--no-recursive] [--glob=pattern] [--yes]")
 		fmt.Fprintln(w, "             [--visibility=anyone|private|hidden] [--private]")
-		fmt.Fprintln(w, "             [--comments=anyone|private|disabled] [--no-comments] <file|dir>")
+		fmt.Fprintln(w, "             [--comments=anyone|private|disabled] [--no-comments] [--label name] [--no-labels] <file|dir>")
 		fmt.Fprintln(w, "                                                              Upload to gander.md (keeps a dashboard share of the same file)")
 		fmt.Fprintln(w, "  gander watch [--silent] [--existing] [--no-recursive] [--glob=pattern] [--yes]")
 		fmt.Fprintln(w, "             [--visibility=anyone|private|hidden] [--private]")
-		fmt.Fprintln(w, "             [--comments=anyone|private|disabled] [--no-comments] <file|dir>")
+		fmt.Fprintln(w, "             [--comments=anyone|private|disabled] [--no-comments] [--label name] [--no-labels] <file|dir>")
 		fmt.Fprintln(w, "                                                              Live-share to gander.md and push every save (alias for `share --watch`)")
 		fmt.Fprintln(w, "  gander remove [--all|--pick <short_id>|--yes|--non-interactive] <file|short_id|url>")
 		fmt.Fprintln(w, "                                                              Delete a share from gander.md")

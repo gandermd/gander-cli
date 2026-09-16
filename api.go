@@ -37,19 +37,20 @@ type signupIntentPollResp struct {
 }
 
 type shareResp struct {
-	UUID                 string `json:"uuid"`
-	ShortID              string `json:"short_id"`
-	Filename             string `json:"filename"`
-	Path                 string `json:"path,omitempty"`
-	Watch                bool   `json:"watch"`
-	URL                  string `json:"url"`
-	CommentAccess        string `json:"comment_access"`
-	DocVisibility        string `json:"doc_visibility"`
-	CreatedAt            string `json:"created_at"`
-	UpdatedAt            string `json:"updated_at"`
-	SizeBytes            int    `json:"size_bytes"`
-	UnresolvedCount      int    `json:"unresolved_count"`
-	AgentUnresolvedCount int    `json:"agent_unresolved_count"`
+	UUID                 string   `json:"uuid"`
+	ShortID              string   `json:"short_id"`
+	Filename             string   `json:"filename"`
+	Path                 string   `json:"path,omitempty"`
+	Watch                bool     `json:"watch"`
+	URL                  string   `json:"url"`
+	CommentAccess        string   `json:"comment_access"`
+	DocVisibility        string   `json:"doc_visibility"`
+	CreatedAt            string   `json:"created_at"`
+	UpdatedAt            string   `json:"updated_at"`
+	SizeBytes            int      `json:"size_bytes"`
+	UnresolvedCount      int      `json:"unresolved_count"`
+	AgentUnresolvedCount int      `json:"agent_unresolved_count"`
+	Labels               []string `json:"labels"`
 }
 
 // shareOpts are POST /api/shares policy fields. Empty strings are omitted so
@@ -57,6 +58,7 @@ type shareResp struct {
 type shareOpts struct {
 	CommentAccess string
 	DocVisibility string
+	Labels        *[]string
 }
 
 type commentView struct {
@@ -216,6 +218,9 @@ func (c *apiClient) CreateShare(filename, path, content string, watch bool, opts
 	}
 	if opts.DocVisibility != "" {
 		body["doc_visibility"] = opts.DocVisibility
+	}
+	if opts.Labels != nil {
+		body["labels"] = *opts.Labels
 	}
 	status, err := c.doStatus("POST", "/api/shares", body, &out)
 	if err != nil {

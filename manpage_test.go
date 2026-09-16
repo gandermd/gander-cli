@@ -38,6 +38,7 @@ func TestManPageExistsAndRenders(t *testing.T) {
 		"gander uninstall",
 		"--upgrade",
 		"--visibility", "--comments", "--private", "--no-comments",
+		"--label", "--no-labels",
 		"--silent", "--existing", "--no-recursive", "--glob",
 	} {
 		if !strings.Contains(text, want) {
