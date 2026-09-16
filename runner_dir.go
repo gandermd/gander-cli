@@ -104,6 +104,7 @@ func dirStateFromEntry(e *watchEntry) *dirWatchState {
 		Policy: shareOpts{
 			CommentAccess: e.info.CommentAccess,
 			DocVisibility: e.info.DocVisibility,
+			Labels:        e.info.Labels,
 		},
 	}, 150*time.Millisecond)
 	e.dir = ds
@@ -287,6 +288,7 @@ func (m *watchManager) registerDir(path, mode string, opts dirWatchOpts) (watchO
 		StartedAt:     startedAt.Format(time.RFC3339),
 		CommentAccess: opts.Policy.CommentAccess,
 		DocVisibility: opts.Policy.DocVisibility,
+		Labels:        opts.Policy.Labels,
 	}
 
 	cfg, _ := LoadConfig()
@@ -601,6 +603,7 @@ func (m *watchManager) adoptShareFile(parent *watchEntry, path string) (watchOut
 	if err != nil {
 		return watchOut{}, "", err
 	}
+	opts = applyAutoLabel(opts, path, !hadLocal)
 	cli := newAPIClient(cfg.APIURL, cfg.APIToken)
 	sh, _, err := cli.CreateShare(filepath.Base(path), path, string(content), true, opts)
 	if err != nil {

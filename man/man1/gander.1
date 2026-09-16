@@ -20,6 +20,8 @@ gander \- render Markdown locally, optionally share it on gander.md
 .RB [ \-\-private ]
 .RB [ \-\-comments =\fIanyone|private|disabled\fR]
 .RB [ \-\-no\-comments ]
+.RB [ \-\-label \ \fIname\fR]
+.RB [ \-\-no\-labels ]
 .IR file.md | dir
 .sp
 .B gander watch
@@ -32,6 +34,8 @@ gander \- render Markdown locally, optionally share it on gander.md
 .RB [ \-\-private ]
 .RB [ \-\-comments =\fIanyone|private|disabled\fR]
 .RB [ \-\-no\-comments ]
+.RB [ \-\-label \ \fIname\fR]
+.RB [ \-\-no\-labels ]
 .IR file.md | dir
 .sp
 .B gander status
@@ -211,7 +215,7 @@ is required: the runner adopts new matching
 .B .md
 files, shares them, and does not open a browser.
 Each policy flag is omitted from the request unless set, so a content
-refresh does not reset visibility or commenting. The same flags are
+refresh does not reset visibility, commenting, or labels. The same flags are
 accepted by
 .BR watch .
 .sp
@@ -264,6 +268,17 @@ is only valid when visibility is anyone.
 Alias for
 .BR \-\-comments = disabled .
 Not an alias for private commenting.
+.TP
+.BI \-\-label " name"
+Attach a label (repeatable). Passing any
+.B \-\-label
+replaces the set and skips auto\-labeling from the git toplevel.
+.TP
+.B \-\-no\-labels
+Clear labels
+.RB ( labels: [] ).
+Cannot be combined with
+.BR \-\-label .
 .RE
 .SS "Watch"
 .TP
@@ -291,8 +306,10 @@ Accepts the same
 .BR \-\-visibility ","
 .BR \-\-private ","
 .BR \-\-comments ","
+.BR \-\-no\-comments ","
+.BR \-\-label ","
 and
-.B \-\-no\-comments
+.B \-\-no\-labels
 flags as
 .BR share .
 .SS "Status"
@@ -369,7 +386,7 @@ when the argument is ambiguous.
 .TP
 .B list
 Print a table of every share in the user's gander.md account (short id,
-file, path, watch flag, commenting, visibility, last update, URL).
+file, path, watch flag, commenting, visibility, labels, last update, URL).
 .SS "Invite"
 .TP
 .B invite

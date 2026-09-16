@@ -240,7 +240,9 @@ gander share README.md --comments anyone  # public review comments (opt-in; defa
 gander share README.md --no-comments    # hide viewer threads (comment_access=disabled)
 gander share README.md --private        # only the author and invited team can read the doc
 gander share README.md --visibility=hidden  # unpublish the viewer URL (404); still listed
-gander list                             # table of active shares (includes COMMENTING + VISIBILITY)
+gander share README.md --label review --label agent  # replace labels (omit on later share/watch to leave them)
+gander share README.md --no-labels      # clear labels
+gander list                             # table of active shares (includes COMMENTING, VISIBILITY, LABELS)
 gander remove README.md                 # 404s the short link
 gander remove --all                     # remove every share in your account
 gander invite                           # print a team invite URL (shown once)
@@ -369,8 +371,8 @@ Subcommands:
 
 ```
 gander signup --email <addr>      Open the signup form in your browser, save the API token
-gander share [--watch] [--silent] [--existing] [--no-recursive] [--glob=pattern] [--yes] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] <file|dir>
-gander watch [--silent] [--existing] [--no-recursive] [--glob=pattern] [--yes] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] <file|dir>
+gander share [--watch] [--silent] [--existing] [--no-recursive] [--glob=pattern] [--yes] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] [--label name] [--no-labels] <file|dir>
+gander watch [--silent] [--existing] [--no-recursive] [--glob=pattern] [--yes] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] [--label name] [--no-labels] <file|dir>
 gander status                     Show runner + active watches + URLs
 gander stop [<file>|<id>] [--all] Stop a watch (by file, id, or --all)
 gander logs [<id>]                Tail the runner log (optionally filtered by watch id)

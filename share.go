@@ -28,7 +28,7 @@ func runWatchCmdWithCtx(ctx context.Context, args []string) error {
 	return runShareWithCtx(ctx, append([]string{"--watch"}, args...))
 }
 
-const shareUsage = "usage: gander share [--watch] [--foreground] [--silent] [--existing] [--no-recursive] [--glob=pattern] [--yes] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] <file.md|dir>"
+const shareUsage = "usage: gander share [--watch] [--foreground] [--silent] [--existing] [--no-recursive] [--glob=pattern] [--yes] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] [--label name] [--no-labels] <file.md|dir>"
 
 func runShareWithCtx(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("share", flag.ContinueOnError)
@@ -43,6 +43,9 @@ func runShareWithCtx(ctx context.Context, args []string) error {
 	visibility := fs.String("visibility", "", "who may see the document: anyone, private, or hidden")
 	private := fs.Bool("private", false, "make the document private (alias for --visibility private)")
 	noComments := fs.Bool("no-comments", false, "turn off commenting (alias for --comments disabled)")
+	var labels stringList
+	fs.Var(&labels, "label", "set a label (repeatable; replaces the set)")
+	noLabels := fs.Bool("no-labels", false, "clear labels")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -51,7 +54,7 @@ func runShareWithCtx(ctx context.Context, args []string) error {
 		return fmt.Errorf("%s", shareUsage)
 	}
 
-	opts, err := shareOptsFromFlags(fs, *comments, *visibility, *private, *noComments)
+	opts, err := shareOptsFromFlags(fs, *comments, *visibility, *private, *noComments, labels, *noLabels)
 	if err != nil {
 		return err
 	}
@@ -89,6 +92,7 @@ func runShareWithCtx(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	opts = applyAutoLabel(opts, canonical, !hadLocal)
 	sh, created, err := cli.CreateShare(filepath.Base(canonical), canonical, string(content), *watch, opts)
 	if err != nil {
 		return fmt.Errorf("create: %w", err)
@@ -329,7 +333,7 @@ func flagSetVisited(fs *flag.FlagSet, name string) bool {
 	return found
 }
 
-func shareOptsFromFlags(fs *flag.FlagSet, comments, visibility string, private, noComments bool) (shareOpts, error) {
+func shareOptsFromFlags(fs *flag.FlagSet, comments, visibility string, private, noComments bool, labels stringList, noLabels bool) (shareOpts, error) {
 	commentsSet := flagSetVisited(fs, "comments")
 	visibilitySet := flagSetVisited(fs, "visibility")
 
@@ -376,7 +380,18 @@ func shareOptsFromFlags(fs *flag.FlagSet, comments, visibility string, private, 
 		return shareOpts{}, fmt.Errorf("--comments anyone cannot be combined with --visibility %s", doc)
 	}
 
-	return shareOpts{CommentAccess: access, DocVisibility: doc}, nil
+	if noLabels && len(labels) > 0 {
+		return shareOpts{}, fmt.Errorf("--no-labels cannot be combined with --label")
+	}
+	opts := shareOpts{CommentAccess: access, DocVisibility: doc}
+	if noLabels {
+		empty := []string{}
+		opts.Labels = &empty
+	} else if len(labels) > 0 {
+		cp := append([]string{}, labels...)
+		opts.Labels = &cp
+	}
+	return opts, nil
 }
 
 func applyShareConfigDefaults(opts shareOpts, cfg Config, isNew bool) (shareOpts, error) {
@@ -411,6 +426,9 @@ func checkSharePolicyEcho(opts shareOpts, sh *shareResp) error {
 	}
 	if opts.DocVisibility != "" && sh.DocVisibility == "" {
 		return fmt.Errorf("gandermd does not support --visibility; upgrade the server")
+	}
+	if opts.Labels != nil && sh.Labels == nil {
+		return fmt.Errorf("gandermd does not support --label; upgrade the server")
 	}
 	return nil
 }

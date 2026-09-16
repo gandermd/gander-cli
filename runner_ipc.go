@@ -10,20 +10,21 @@ import (
 )
 
 type ipcRequest struct {
-	Op            string `json:"op"`
-	ID            string `json:"id,omitempty"`
-	Path          string `json:"path,omitempty"`
-	Mode          string `json:"mode,omitempty"`
-	All           bool   `json:"all,omitempty"`
-	ShortID       string `json:"short_id,omitempty"`
-	UUID          string `json:"uuid,omitempty"`
-	ShareURL      string `json:"share_url,omitempty"`
-	Recursive     *bool  `json:"recursive,omitempty"`
-	Glob          string `json:"glob,omitempty"`
-	Existing      bool   `json:"existing,omitempty"`
-	Yes           bool   `json:"yes,omitempty"`
-	CommentAccess string `json:"comment_access,omitempty"`
-	DocVisibility string `json:"doc_visibility,omitempty"`
+	Op            string    `json:"op"`
+	ID            string    `json:"id,omitempty"`
+	Path          string    `json:"path,omitempty"`
+	Mode          string    `json:"mode,omitempty"`
+	All           bool      `json:"all,omitempty"`
+	ShortID       string    `json:"short_id,omitempty"`
+	UUID          string    `json:"uuid,omitempty"`
+	ShareURL      string    `json:"share_url,omitempty"`
+	Recursive     *bool     `json:"recursive,omitempty"`
+	Glob          string    `json:"glob,omitempty"`
+	Existing      bool      `json:"existing,omitempty"`
+	Yes           bool      `json:"yes,omitempty"`
+	CommentAccess string    `json:"comment_access,omitempty"`
+	DocVisibility string    `json:"doc_visibility,omitempty"`
+	Labels        *[]string `json:"labels,omitempty"`
 }
 
 type ipcResponse struct {
@@ -41,21 +42,22 @@ type ipcResponse struct {
 }
 
 type watchOut struct {
-	ID            string `json:"id"`
-	Path          string `json:"path"`
-	Mode          string `json:"mode"`
-	Kind          string `json:"kind,omitempty"`
-	ParentID      string `json:"parent_id,omitempty"`
-	Glob          string `json:"glob,omitempty"`
-	Recursive     bool   `json:"recursive,omitempty"`
-	URL           string `json:"url,omitempty"`
-	Token         string `json:"token,omitempty"`
-	ShareURL      string `json:"share_url,omitempty"`
-	ShortID       string `json:"short_id,omitempty"`
-	UUID          string `json:"uuid,omitempty"`
-	StartedAt     string `json:"started_at"`
-	CommentAccess string `json:"comment_access,omitempty"`
-	DocVisibility string `json:"doc_visibility,omitempty"`
+	ID            string    `json:"id"`
+	Path          string    `json:"path"`
+	Mode          string    `json:"mode"`
+	Kind          string    `json:"kind,omitempty"`
+	ParentID      string    `json:"parent_id,omitempty"`
+	Glob          string    `json:"glob,omitempty"`
+	Recursive     bool      `json:"recursive,omitempty"`
+	URL           string    `json:"url,omitempty"`
+	Token         string    `json:"token,omitempty"`
+	ShareURL      string    `json:"share_url,omitempty"`
+	ShortID       string    `json:"short_id,omitempty"`
+	UUID          string    `json:"uuid,omitempty"`
+	StartedAt     string    `json:"started_at"`
+	CommentAccess string    `json:"comment_access,omitempty"`
+	DocVisibility string    `json:"doc_visibility,omitempty"`
+	Labels        *[]string `json:"labels,omitempty"`
 }
 
 type ipcServer struct {
@@ -156,6 +158,7 @@ func (s *ipcServer) route(req ipcRequest) ipcResponse {
 			Policy: shareOpts{
 				CommentAccess: req.CommentAccess,
 				DocVisibility: req.DocVisibility,
+				Labels:        req.Labels,
 			},
 		})
 		if err != nil {
