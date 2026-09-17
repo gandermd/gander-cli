@@ -80,3 +80,29 @@ func applyAutoLabel(opts shareOpts, path string, isNew bool) shareOpts {
 	}
 	return opts
 }
+
+func applyTypeLabel(opts shareOpts, path, content string, isNew bool) shareOpts {
+	if !isNew {
+		return opts
+	}
+	if opts.Labels != nil && len(*opts.Labels) == 0 {
+		return opts
+	}
+	_, typ, _ := classifyAdopt(path, content)
+	if typ == "" {
+		return opts
+	}
+	if opts.Labels != nil {
+		for _, l := range *opts.Labels {
+			if isReservedTypeLabel(l) {
+				return opts
+			}
+		}
+		v := append(append([]string{}, *opts.Labels...), typ)
+		opts.Labels = &v
+		return opts
+	}
+	v := []string{typ}
+	opts.Labels = &v
+	return opts
+}

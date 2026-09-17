@@ -562,6 +562,70 @@ func TestShareLabelFlagsPOSTBody(t *testing.T) {
 	}
 }
 
+func TestShareTypeLabelPOSTBody(t *testing.T) {
+	var captured map[string]any
+	var posts int
+	srv := newSharePolicyServer(t, &captured, &posts, true)
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	cfg := DefaultConfig()
+	cfg.APIURL = srv.URL
+	cfg.APIToken = "gmd_t"
+	if err := WriteConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	prev := openBrowser
+	openBrowser = func(url string) error { return nil }
+	t.Cleanup(func() { openBrowser = prev })
+
+	plans := filepath.Join(tmp, "plans")
+	if err := os.Mkdir(plans, 0755); err != nil {
+		t.Fatal(err)
+	}
+	md := filepath.Join(plans, "next.md")
+	if err := os.WriteFile(md, []byte("# Next\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := runShareWithCtx(context.Background(), []string{md}); err != nil {
+		t.Fatalf("share: %v", err)
+	}
+	raw, _ := json.Marshal(captured["labels"])
+	var labels []string
+	if err := json.Unmarshal(raw, &labels); err != nil {
+		t.Fatalf("labels = %v: %v", captured["labels"], err)
+	}
+	if len(labels) != 1 || labels[0] != "plan" {
+		t.Errorf("labels = %v, want [plan]", labels)
+	}
+
+	captured = nil
+	md2 := filepath.Join(plans, "reviewed.md")
+	if err := os.WriteFile(md2, []byte("# Reviewed\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := runShareWithCtx(context.Background(), []string{"--label=review", md2}); err != nil {
+		t.Fatalf("share --label: %v", err)
+	}
+	raw, _ = json.Marshal(captured["labels"])
+	labels = nil
+	_ = json.Unmarshal(raw, &labels)
+	if len(labels) != 2 || labels[0] != "review" || labels[1] != "plan" {
+		t.Errorf("labels = %v, want [review plan]", labels)
+	}
+
+	captured = nil
+	md3 := filepath.Join(tmp, "README.md")
+	if err := os.WriteFile(md3, []byte("# README\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := runShareWithCtx(context.Background(), []string{md3}); err != nil {
+		t.Fatalf("share README: %v", err)
+	}
+	if _, ok := captured["labels"]; ok {
+		t.Errorf("README labels = %v, want omitted", captured["labels"])
+	}
+}
+
 func TestCreateShareLabelsBody(t *testing.T) {
 	var captured map[string]any
 	mux := http.NewServeMux()

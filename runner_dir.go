@@ -29,16 +29,17 @@ type dirWatchOpts struct {
 }
 
 type dirWatchState struct {
-	recursive bool
-	glob      string
-	existing  []string
-	policy    shareOpts
-	limiter   *adoptLimiter
-	debounce  time.Duration
-	mu        sync.Mutex
-	pending   map[string]*time.Timer
-	retry     *time.Timer
-	delayed   []string
+	recursive   bool
+	glob        string
+	existing    []string
+	policy      shareOpts
+	limiter     *adoptLimiter
+	debounce    time.Duration
+	mu          sync.Mutex
+	pending     map[string]*time.Timer
+	retry       *time.Timer
+	delayed     []string
+	staticPaths map[string]struct{}
 }
 
 type adoptLimiter struct {
@@ -85,12 +86,13 @@ func newDirWatchState(opts dirWatchOpts, debounce time.Duration) *dirWatchState 
 		debounce = 50 * time.Millisecond
 	}
 	return &dirWatchState{
-		recursive: opts.Recursive,
-		glob:      opts.Glob,
-		policy:    opts.Policy,
-		limiter:   newAdoptLimiter(),
-		debounce:  debounce,
-		pending:   map[string]*time.Timer{},
+		recursive:   opts.Recursive,
+		glob:        opts.Glob,
+		policy:      opts.Policy,
+		limiter:     newAdoptLimiter(),
+		debounce:    debounce,
+		pending:     map[string]*time.Timer{},
+		staticPaths: map[string]struct{}{},
 	}
 }
 
@@ -505,8 +507,14 @@ func (m *watchManager) tryAdopt(parent *watchEntry, path string) {
 	if watched {
 		return
 	}
-
 	ds := dirStateFromEntry(parent)
+	ds.mu.Lock()
+	_, static := ds.staticPaths[canonical]
+	ds.mu.Unlock()
+	if static {
+		return
+	}
+
 	ok, wait := ds.limiter.allow()
 	if !ok {
 		ds.mu.Lock()
@@ -564,6 +572,13 @@ func (m *watchManager) adoptFile(parent *watchEntry, path string) {
 	if watched {
 		return
 	}
+	ds := dirStateFromEntry(parent)
+	ds.mu.Lock()
+	_, static := ds.staticPaths[path]
+	ds.mu.Unlock()
+	if static {
+		return
+	}
 
 	var info watchOut
 	var err error
@@ -604,8 +619,11 @@ func (m *watchManager) adoptShareFile(parent *watchEntry, path string) (watchOut
 		return watchOut{}, "", err
 	}
 	opts = applyAutoLabel(opts, path, !hadLocal)
+	opts = applyTypeLabel(opts, path, string(content), !hadLocal)
+	kind, typ, reason := classifyAdopt(path, string(content))
+	watch := kind == adoptWatch
 	cli := newAPIClient(cfg.APIURL, cfg.APIToken)
-	sh, _, err := cli.CreateShare(filepath.Base(path), path, string(content), true, opts)
+	sh, _, err := cli.CreateShare(filepath.Base(path), path, string(content), watch, opts)
 	if err != nil {
 		return watchOut{}, "", err
 	}
@@ -617,6 +635,21 @@ func (m *watchManager) adoptShareFile(parent *watchEntry, path string) (watchOut
 		log.Printf("runner[%s]: save mapping: %v", parent.info.ID, err)
 	}
 	_ = touchInboxPollWindow()
+	log.Printf("runner[%s]: adopted %s as %s label=%s (%s)", parent.info.ID, path, kind, typ, reason)
+	if !watch {
+		ds := dirStateFromEntry(parent)
+		ds.mu.Lock()
+		ds.staticPaths[path] = struct{}{}
+		ds.mu.Unlock()
+		return watchOut{
+			Path:     path,
+			Mode:     string(modeShare),
+			ShareURL: sh.URL,
+			ShortID:  sh.ShortID,
+			UUID:     sh.UUID,
+			URL:      sh.URL,
+		}, sh.URL, nil
+	}
 	info, err := m.registerFile(path, string(modeShare), shareRef{
 		UUID:    sh.UUID,
 		ShortID: sh.ShortID,

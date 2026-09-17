@@ -234,6 +234,8 @@ gander watch README.md --silent         # same watch, print URL, skip the browse
 gander share README.md --watch          # same as `watch`, spelled out
 gander share --watch --silent README.md # same as `watch --silent`
 gander watch ~/reports                  # adopt new .md under the folder; no extra browser tabs
+                                        # reports onboard as static shares; plans/RFCs/drafts stay live-watched
+                                        # each new share also gets an additive type label (plan, rfc, report, …)
 gander watch ~/reports --existing       # also onboard unmatched files already in the folder
 gander --watch ~/notes --no-recursive   # local previews for new top-level .md only
 gander share README.md --comments anyone  # public review comments (opt-in; default is private)
@@ -241,6 +243,7 @@ gander share README.md --no-comments    # hide viewer threads (comment_access=di
 gander share README.md --private        # only the author and invited team can read the doc
 gander share README.md --visibility=hidden  # unpublish the viewer URL (404); still listed
 gander share README.md --label review --label agent  # replace labels (omit on later share/watch to leave them)
+                                        # new shares also get an additive type label; extra tags are fine
 gander share README.md --no-labels      # clear labels
 gander list                             # table of active shares (includes COMMENTING, VISIBILITY, LABELS)
 gander remove README.md                 # 404s the short link
