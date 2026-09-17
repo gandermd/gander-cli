@@ -93,6 +93,7 @@ func runShareWithCtx(ctx context.Context, args []string) error {
 		return err
 	}
 	opts = applyAutoLabel(opts, canonical, !hadLocal)
+	opts = applyTypeLabel(opts, canonical, string(content), !hadLocal)
 	sh, created, err := cli.CreateShare(filepath.Base(canonical), canonical, string(content), *watch, opts)
 	if err != nil {
 		return fmt.Errorf("create: %w", err)

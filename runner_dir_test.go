@@ -518,12 +518,13 @@ func TestAdoptShareCreatesOnceAndSkipsBrowser(t *testing.T) {
 			"short_id":       short,
 			"filename":       body["filename"],
 			"path":           body["path"],
-			"watch":          true,
+			"watch":          body["watch"],
 			"url":            "https://gander.md/s/" + short,
 			"created_at":     "2026-01-01T00:00:00Z",
 			"updated_at":     "2026-01-01T00:00:00Z",
 			"comment_access": body["comment_access"],
 			"doc_visibility": body["doc_visibility"],
+			"labels":         body["labels"],
 		})
 	})
 	srv := httptest.NewServer(mux)
@@ -545,8 +546,8 @@ func TestAdoptShareCreatesOnceAndSkipsBrowser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc := filepath.Join(dir, "report.md")
-	if err := os.WriteFile(doc, []byte("# report\n"), 0644); err != nil {
+	doc := filepath.Join(dir, "notes.md")
+	if err := os.WriteFile(doc, []byte("# notes\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	m.tryAdopt(dirEntry(t, m, info.ID), doc)
@@ -576,6 +577,214 @@ func TestAdoptShareCreatesOnceAndSkipsBrowser(t *testing.T) {
 	}
 	if *opens != 0 {
 		t.Errorf("openBrowser called %d times, want 0", *opens)
+	}
+}
+
+func TestAdoptShareStaticSkipsRegisterFile(t *testing.T) {
+	stubNotifyAndBrowser(t)
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	var mu sync.Mutex
+	var posts int
+	var bodies []map[string]any
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/shares", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.NotFound(w, r)
+			return
+		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		mu.Lock()
+		posts++
+		n := posts
+		bodies = append(bodies, body)
+		mu.Unlock()
+		short := fmt.Sprintf("s%07d", n)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"uuid":       fmt.Sprintf("11111111-1111-1111-1111-%012d", n),
+			"short_id":   short,
+			"filename":   body["filename"],
+			"path":       body["path"],
+			"watch":      body["watch"],
+			"url":        "https://gander.md/s/" + short,
+			"labels":     body["labels"],
+			"created_at": "2026-01-01T00:00:00Z",
+			"updated_at": "2026-01-01T00:00:00Z",
+		})
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	cfg := DefaultConfig()
+	cfg.APIURL = srv.URL
+	cfg.APIToken = "gmd_t"
+	if err := WriteConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	m := testDirMgr(t)
+	dir := t.TempDir()
+	reports := filepath.Join(dir, "reports")
+	if err := os.Mkdir(reports, 0755); err != nil {
+		t.Fatal(err)
+	}
+	info, err := m.registerDir(dir, string(modeDirShare), dirWatchOpts{Recursive: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := filepath.Join(reports, "2026-09-15.md")
+	if err := os.WriteFile(doc, []byte("# Daily\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	m.tryAdopt(dirEntry(t, m, info.ID), doc)
+	m.tryAdopt(dirEntry(t, m, info.ID), doc)
+
+	if kids := childrenOf(m, info.ID); len(kids) != 0 {
+		t.Fatalf("static adopt registered children = %+v, want none", kids)
+	}
+	saved, err := LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mapped, err := canonicalPath(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Shares[mapped] == "" {
+		t.Fatalf("static adopt did not record share mapping for %s: %v", mapped, saved.Shares)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if posts != 1 {
+		t.Errorf("CreateShare posts = %d, want 1", posts)
+	}
+	if len(bodies) > 0 {
+		if w, _ := bodies[0]["watch"].(bool); w {
+			t.Errorf("watch = true, want false")
+		}
+		raw, _ := json.Marshal(bodies[0]["labels"])
+		var labels []string
+		_ = json.Unmarshal(raw, &labels)
+		if len(labels) != 1 || labels[0] != "report" {
+			t.Errorf("labels = %v, want [report]", labels)
+		}
+	}
+}
+
+func TestAdoptShareWatchRegistersFile(t *testing.T) {
+	stubNotifyAndBrowser(t)
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	var mu sync.Mutex
+	var posts int
+	var bodies []map[string]any
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/shares", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.NotFound(w, r)
+			return
+		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		mu.Lock()
+		posts++
+		n := posts
+		bodies = append(bodies, body)
+		mu.Unlock()
+		short := fmt.Sprintf("s%07d", n)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"uuid":       fmt.Sprintf("11111111-1111-1111-1111-%012d", n),
+			"short_id":   short,
+			"filename":   body["filename"],
+			"path":       body["path"],
+			"watch":      body["watch"],
+			"url":        "https://gander.md/s/" + short,
+			"labels":     body["labels"],
+			"created_at": "2026-01-01T00:00:00Z",
+			"updated_at": "2026-01-01T00:00:00Z",
+		})
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	cfg := DefaultConfig()
+	cfg.APIURL = srv.URL
+	cfg.APIToken = "gmd_t"
+	if err := WriteConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	m := testDirMgr(t)
+	dir := t.TempDir()
+	plans := filepath.Join(dir, "plans")
+	if err := os.Mkdir(plans, 0755); err != nil {
+		t.Fatal(err)
+	}
+	info, err := m.registerDir(dir, string(modeDirShare), dirWatchOpts{Recursive: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := filepath.Join(plans, "next.md")
+	if err := os.WriteFile(doc, []byte("---\nstatus: draft\n---\n# Next\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	m.tryAdopt(dirEntry(t, m, info.ID), doc)
+
+	kids := childrenOf(m, info.ID)
+	if len(kids) != 1 {
+		t.Fatalf("watch adopt children = %d, want 1", len(kids))
+	}
+	if kids[0].Mode != string(modeShare) {
+		t.Errorf("child mode = %s, want share", kids[0].Mode)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if posts != 1 {
+		t.Errorf("CreateShare posts = %d, want 1", posts)
+	}
+	if len(bodies) > 0 {
+		if w, _ := bodies[0]["watch"].(bool); !w {
+			t.Errorf("watch = false, want true")
+		}
+		raw, _ := json.Marshal(bodies[0]["labels"])
+		var labels []string
+		_ = json.Unmarshal(raw, &labels)
+		if len(labels) != 1 || labels[0] != "plan" {
+			t.Errorf("labels = %v, want [plan]", labels)
+		}
+	}
+}
+
+func TestDirLocalAlwaysRegisters(t *testing.T) {
+	stubNotifyAndBrowser(t)
+	m := testDirMgr(t)
+	dir := t.TempDir()
+	reports := filepath.Join(dir, "reports")
+	if err := os.Mkdir(reports, 0755); err != nil {
+		t.Fatal(err)
+	}
+	info, err := m.registerDir(dir, string(modeDirLocal), dirWatchOpts{Recursive: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := filepath.Join(reports, "2026-09-15.md")
+	if err := os.WriteFile(doc, []byte("# Daily Report\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	m.tryAdopt(dirEntry(t, m, info.ID), doc)
+	kids := childrenOf(m, info.ID)
+	if len(kids) != 1 {
+		t.Fatalf("dir-local children = %d, want 1", len(kids))
+	}
+	if kids[0].Mode != string(modeLocal) {
+		t.Errorf("child mode = %s, want local", kids[0].Mode)
 	}
 }
 
