@@ -239,6 +239,9 @@ gander watch ~/reports                  # adopt new .md under the folder; no ext
 gander watch ~/reports --existing       # also onboard unmatched files already in the folder
 gander --watch ~/notes --no-recursive   # local previews for new top-level .md only
 gander share README.md --comments anyone  # public review comments (opt-in; default is private)
+gander share README.md --visibility=anyone --comments=anyone --yes
+                                        # public doc and public comments; warns and
+                                        # requires --yes or a TTY confirm
 gander share README.md --no-comments    # hide viewer threads (comment_access=disabled)
 gander share README.md --private        # only the author and invited team can read the doc
 gander share README.md --visibility=hidden  # unpublish the viewer URL (404); still listed
@@ -362,7 +365,11 @@ The legacy `~/.mdp` fallback only applies when `GANDER_CONFIG` is unset; named p
 -glob string
     With `--watch` on a directory, filename glob (default `**/*.md`).
 -yes
-    With `--watch --existing` on a directory, confirm onboarding more than 50 files.
+    Confirm `visibility=anyone` with `comments=anyone` (a TTY prompt is the
+    alternative; non-interactive runs without this flag fail). Also, with
+    `--watch --existing` on a directory, confirm onboarding more than 50 files.
+    See https://gander.md/docs/visibility. Omitting `--visibility` or
+    `--comments` leaves that field unset.
 -upgrade
     Download and install the latest release, then exit. The runner is shut
     down over UDS first, the binary is replaced, then the supervisor (or a
