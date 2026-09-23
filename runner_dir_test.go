@@ -669,8 +669,8 @@ func TestAdoptShareStaticSkipsRegisterFile(t *testing.T) {
 		raw, _ := json.Marshal(bodies[0]["labels"])
 		var labels []string
 		_ = json.Unmarshal(raw, &labels)
-		if len(labels) != 1 || labels[0] != "report" {
-			t.Errorf("labels = %v, want [report]", labels)
+		if len(labels) != 2 || labels[0] != "review" || labels[1] != "report" {
+			t.Errorf("labels = %v, want [review report]", labels)
 		}
 	}
 }
@@ -756,8 +756,8 @@ func TestAdoptShareWatchRegistersFile(t *testing.T) {
 		raw, _ := json.Marshal(bodies[0]["labels"])
 		var labels []string
 		_ = json.Unmarshal(raw, &labels)
-		if len(labels) != 1 || labels[0] != "plan" {
-			t.Errorf("labels = %v, want [plan]", labels)
+		if len(labels) != 2 || labels[0] != "review" || labels[1] != "plan" {
+			t.Errorf("labels = %v, want [review plan]", labels)
 		}
 	}
 }
@@ -806,6 +806,8 @@ func TestAlreadyMappedPathReusesShare(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
 		posts++
 		status := http.StatusCreated
 		if posts > 1 {
@@ -820,6 +822,7 @@ func TestAlreadyMappedPathReusesShare(t *testing.T) {
 			"path":       doc,
 			"watch":      true,
 			"url":        "https://gander.md/s/mapped01",
+			"labels":     body["labels"],
 			"created_at": "2026-01-01T00:00:00Z",
 			"updated_at": "2026-01-01T00:00:00Z",
 		})
