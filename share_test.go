@@ -512,6 +512,25 @@ func TestSharePolicyFlagsPOSTBody(t *testing.T) {
 	}
 }
 
+func TestShareAgentEnvStampsReview(t *testing.T) {
+	var captured map[string]any
+	var posts int
+	srv := newSharePolicyServer(t, &captured, &posts, true)
+	md := setupShareHome(t, srv.URL)
+	t.Setenv("GROK_AGENT", "1")
+	if err := runShareWithCtx(context.Background(), []string{md}); err != nil {
+		t.Fatalf("share: %v", err)
+	}
+	raw, _ := json.Marshal(captured["labels"])
+	var labels []string
+	if err := json.Unmarshal(raw, &labels); err != nil {
+		t.Fatalf("labels = %v: %v", captured["labels"], err)
+	}
+	if len(labels) != 1 || labels[0] != "review" {
+		t.Errorf("labels = %v, want [review]", labels)
+	}
+}
+
 func TestShareLabelFlagsPOSTBody(t *testing.T) {
 	cases := []struct {
 		name string
@@ -563,6 +582,7 @@ func TestShareLabelFlagsPOSTBody(t *testing.T) {
 }
 
 func TestShareTypeLabelPOSTBody(t *testing.T) {
+	isolateAgentEnv(t)
 	var captured map[string]any
 	var posts int
 	srv := newSharePolicyServer(t, &captured, &posts, true)
@@ -623,6 +643,36 @@ func TestShareTypeLabelPOSTBody(t *testing.T) {
 	}
 	if _, ok := captured["labels"]; ok {
 		t.Errorf("README labels = %v, want omitted", captured["labels"])
+	}
+
+	captured = nil
+	md4 := filepath.Join(plans, "silent.md")
+	if err := os.WriteFile(md4, []byte("# Silent\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := runShareWithCtx(context.Background(), []string{"--silent", md4}); err != nil {
+		t.Fatalf("share --silent: %v", err)
+	}
+	raw, _ = json.Marshal(captured["labels"])
+	labels = nil
+	_ = json.Unmarshal(raw, &labels)
+	if len(labels) != 2 || labels[0] != "review" || labels[1] != "plan" {
+		t.Errorf("silent labels = %v, want [review plan]", labels)
+	}
+
+	captured = nil
+	md5 := filepath.Join(tmp, "status-review.md")
+	if err := os.WriteFile(md5, []byte("---\nstatus: review\n---\n# Status\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := runShareWithCtx(context.Background(), []string{md5}); err != nil {
+		t.Fatalf("share status review: %v", err)
+	}
+	raw, _ = json.Marshal(captured["labels"])
+	labels = nil
+	_ = json.Unmarshal(raw, &labels)
+	if len(labels) != 1 || labels[0] != "review" {
+		t.Errorf("status review labels = %v, want [review]", labels)
 	}
 }
 
@@ -1395,6 +1445,7 @@ func patchConfig(t *testing.T, mutate func(*Config)) {
 
 func setupShareHome(t *testing.T, apiURL string) string {
 	t.Helper()
+	isolateAgentEnv(t)
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
 	cfg := DefaultConfig()

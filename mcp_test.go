@@ -36,11 +36,12 @@ func TestMCPInstructionsDirWatchAsk(t *testing.T) {
 		"pick gander share --silent vs gander watch --silent",
 		"reports as a static share",
 		"plans, RFCs, and drafts live-watched",
-		"Do not send --label <type>",
+		"Do not send --label <type> or --label review",
 		"Never --no-labels unless the user asked to clear",
+		"stamps review on --silent shares",
 		"New files are classified",
 		"Do not double-gander a dir-watched tree",
-		"get a type label",
+		"get review plus a type label",
 	} {
 		if !strings.Contains(mcpInstructions, want) {
 			t.Errorf("mcpInstructions missing %q", want)

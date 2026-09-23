@@ -273,12 +273,24 @@ Not an alias for private commenting.
 Attach a label (repeatable). Passing any
 .B \-\-label
 replaces the set and skips auto\-labeling from the git toplevel.
+New shares also receive
+.B review
+when the CLI infers an agent review
+.RB ( \-\-silent
+on a file share, directory adoption, or a known agent environment)
+or when frontmatter has
+.BR "status: review" ,
+plus a type label from the path and content
+(plan, rfc, draft, design, spec, report).
 .TP
 .B \-\-no\-labels
 Clear labels
 .RB ( labels: [] ).
 Cannot be combined with
 .BR \-\-label .
+Skips the automatic
+.B review
+and type labels too.
 .RE
 .SS "Watch"
 .TP

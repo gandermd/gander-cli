@@ -19,6 +19,9 @@ func TestMain(m *testing.M) {
 		}
 		os.Exit(0)
 	}
+	for _, k := range agentEnvKeys {
+		_ = os.Unsetenv(k)
+	}
 	os.Exit(m.Run())
 }
 

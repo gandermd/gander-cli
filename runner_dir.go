@@ -618,8 +618,7 @@ func (m *watchManager) adoptShareFile(parent *watchEntry, path string) (watchOut
 	if err != nil {
 		return watchOut{}, "", err
 	}
-	opts = applyAutoLabel(opts, path, !hadLocal)
-	opts = applyTypeLabel(opts, path, string(content), !hadLocal)
+	opts = applyShareLabels(opts, path, string(content), !hadLocal, true)
 	kind, typ, reason := classifyAdopt(path, string(content))
 	watch := kind == adoptWatch
 	cli := newAPIClient(cfg.APIURL, cfg.APIToken)

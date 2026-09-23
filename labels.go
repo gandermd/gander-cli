@@ -70,6 +70,21 @@ func slugifyLabel(s string) string {
 	return out
 }
 
+const reviewLabel = "review"
+
+var agentEnvKeys = []string{
+	"GROK_AGENT",
+	"CLAUDECODE",
+	"CLAUDE_CODE",
+	"CURSOR_AGENT",
+}
+
+func applyShareLabels(opts shareOpts, path, content string, isNew, agent bool) shareOpts {
+	opts = applyAutoLabel(opts, path, isNew)
+	opts = applyReviewLabel(opts, content, isNew, agent)
+	return applyTypeLabel(opts, path, content, isNew)
+}
+
 func applyAutoLabel(opts shareOpts, path string, isNew bool) shareOpts {
 	if opts.Labels != nil || !isNew {
 		return opts
@@ -79,6 +94,41 @@ func applyAutoLabel(opts shareOpts, path string, isNew bool) shareOpts {
 		opts.Labels = &v
 	}
 	return opts
+}
+
+func applyReviewLabel(opts shareOpts, content string, isNew, agent bool) shareOpts {
+	if !isNew {
+		return opts
+	}
+	if opts.Labels != nil && len(*opts.Labels) == 0 {
+		return opts
+	}
+	if containsLabel(opts, reviewLabel) {
+		return opts
+	}
+	if !shouldStampReview(content, agent) {
+		return opts
+	}
+	return appendLabel(opts, reviewLabel)
+}
+
+func shouldStampReview(content string, agent bool) bool {
+	if agent {
+		return true
+	}
+	fm, _ := splitFrontmatter(content)
+	st := strings.ToLower(strings.TrimSpace(fm["status"]))
+	return st == "review"
+}
+
+func runningUnderAgent() bool {
+	for _, k := range agentEnvKeys {
+		v := strings.TrimSpace(os.Getenv(k))
+		if v != "" && v != "0" {
+			return true
+		}
+	}
+	return false
 }
 
 func applyTypeLabel(opts shareOpts, path, content string, isNew bool) shareOpts {
@@ -92,17 +142,47 @@ func applyTypeLabel(opts shareOpts, path, content string, isNew bool) shareOpts 
 	if typ == "" {
 		return opts
 	}
-	if opts.Labels != nil {
-		for _, l := range *opts.Labels {
-			if isReservedTypeLabel(l) {
-				return opts
-			}
+	if containsLabel(opts, typ) || reservedTypeIn(opts) {
+		return opts
+	}
+	return appendLabel(opts, typ)
+}
+
+func reservedTypeIn(opts shareOpts) bool {
+	if opts.Labels == nil {
+		return false
+	}
+	for _, l := range *opts.Labels {
+		if isReservedTypeLabel(l) {
+			return true
 		}
-		v := append(append([]string{}, *opts.Labels...), typ)
+	}
+	return false
+}
+
+func containsLabel(opts shareOpts, name string) bool {
+	if opts.Labels == nil {
+		return false
+	}
+	want := strings.ToLower(strings.TrimSpace(name))
+	if want == "" {
+		return false
+	}
+	for _, l := range *opts.Labels {
+		if strings.ToLower(strings.TrimSpace(l)) == want {
+			return true
+		}
+	}
+	return false
+}
+
+func appendLabel(opts shareOpts, name string) shareOpts {
+	if opts.Labels != nil {
+		v := append(append([]string{}, *opts.Labels...), name)
 		opts.Labels = &v
 		return opts
 	}
-	v := []string{typ}
+	v := []string{name}
 	opts.Labels = &v
 	return opts
 }
