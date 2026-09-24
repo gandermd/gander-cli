@@ -6,8 +6,6 @@ comment in the browser like Docs. Comments that start with `@agent` come
 back into the agent session over MCP — no paste, no IDE for the reviewer,
 no git commit for the author.
 
-Site: [gander.md](https://gander.md)
-
 ## How it works
 
 1. **Watch.** `gander watch plan.md` (or the agent does). Every save updates the hosted page.
@@ -22,6 +20,10 @@ gander mcp install   # once — the agent hears @agent comments
 ```
 
 Or: `gander skill` and let the agent save the plan, watch the file, and poll for review.
+
+`gander watch` keeps the local file as the source of truth, updates a short URL on every save, lets reviewers comment in the browser, and routes `@agent` comments to the coding agent.
+
+[gander.md](https://gander.md) · [Let the agent write the plan](https://gander.md/blog/let-the-agent-write-the-plan)
 
 ## For authors
 
@@ -452,3 +454,5 @@ MIT License — see [LICENSE](LICENSE) for details.
 - **File watching**: uses [fsnotify](https://github.com/fsnotify/fsnotify) when running with `--watch`
 
 Without `--watch`, the CLI is fire-and-forget: it renders once, opens the result in your browser, and exits. With `--watch`, the CLI hands off to a long-lived runner (`gander _serve`, hidden subcommand) that owns the HTTP server on `127.0.0.1:7821` and pushes hot-swaps over Server-Sent Events on every save; the CLI exits cleanly while the daemon keeps the watch alive through reboots (a LaunchAgent on macOS / `systemctl --user` unit on Linux re-launches it on login). All state lives in `~/.gander/watches.json` (mode 0600): the daemon URL under `/w/<id>` carries an unguessable per-watch token, and the daemon's Unix-domain control socket is gated by file mode (and on Linux additionally by `SO_PEERCRED`).
+
+If this helps your agent workflow, a GitHub star helps others find it.
