@@ -145,6 +145,13 @@ after a manual fix), it still works standalone:
 scripts/bump-homebrew.sh 0.12.0
 ```
 
+It clones `gandermd/homebrew-gander`, rewrites `Formula/gander.rb` (every
+per-asset `sha256` and the four `on_macos` / `on_linux` URL pairs, using
+SHA256s from the GitHub release), and opens a PR. Requires `gh`
+(authenticated with repo scope) and `ruby`. Homebrew installs from GitHub
+Release assets; `gander --upgrade` uses the Spaces mirror with a GitHub
+API fallback.
+
 ### Cutting a release (manual)
 
 If `scripts/release.sh` is unavailable (e.g., from a different checkout):

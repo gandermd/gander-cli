@@ -398,51 +398,6 @@ gander completion {bash|zsh}      Print a shell completion script
 
 The gandermd-bound subcommands appear in help only after a successful `gander signup` (except `completion`, which is always available). The runner-managed subcommands (`status`, `stop`, `logs`, `runner`), `gander skill`, and `gander uninstall` are always listed.
 
-## Releasing
-
-Cut a release with `scripts/release.sh`. From a clean `main`:
-
-```bash
-scripts/release.sh
-```
-
-That auto-detects the next version from conventional commits since the last tag (`feat:` → minor, `fix:` → patch, `BREAKING CHANGE` / `feat!:` → major), asks for a `y/N` confirm, then runs end-to-end:
-
-1. Validates a clean working tree, that `gh` is authenticated, and that the target tag doesn't already exist.
-2. Creates an annotated `v<version>` tag at HEAD and pushes it to `origin`.
-3. `gh run watch --workflow release --exit-status` blocks until the build workflow finishes.
-4. Runs `scripts/bump-homebrew.sh` to open a Homebrew formula bump PR against `gandermd/homebrew-gander`.
-5. Prints the GitHub Release URL, per-asset download URLs, and the Homebrew PR URL.
-
-Useful flags:
-
-- `--bump {major|minor|patch}` — force the bump component off the latest tag.
-- `<version>` — set the version explicitly, skipping auto-detection.
-- `--no-homebrew` — release only; skip the Homebrew PR step.
-- `--dry-run` — print what would happen without tagging or pushing.
-
-The release workflow (`.github/workflows/release.yml`) builds matrix binaries (`gander-{darwin,linux}-{amd64,arm64}`), generates a SHA256 sidecar for each, attaches them to a GitHub Release with auto-generated notes, and mirrors the binaries plus `install.sh` and `latest.json` to `https://release.gander.md`. Existing users pick up the new version with `gander --upgrade`. Homebrew still installs from GitHub Release assets.
-
-`scripts/bump-homebrew.sh` also runs standalone for re-bumps after a manual fix:
-
-```bash
-scripts/bump-homebrew.sh 0.12.0
-```
-
-It clones `gandermd/homebrew-gander`, rewrites `Formula/gander.rb` (updating every per-asset `sha256` and the four `on_macos` / `on_linux` URL pairs with SHA256s read from the GitHub release), and opens a PR. Requires `gh` (authenticated with repo scope) and `ruby`.
-
-### Manual fallback
-
-If `scripts/release.sh` isn't available (e.g. on a fresh checkout without the script), the equivalent manual sequence is:
-
-```bash
-git checkout main && git pull --ff-only
-git tag -a v0.2.0 -m "Release v0.2.0"
-git push origin v0.2.0
-```
-
-You can then watch the run at https://github.com/gandermd/gander-cli/actions/workflows/release.yml.
-
 ## License
 
 MIT License — see [LICENSE](LICENSE) for details.
