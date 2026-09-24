@@ -23,7 +23,7 @@ Or: `gander skill` and let the agent save the plan, watch the file, and poll for
 
 `gander watch` keeps the local file as the source of truth, updates a short URL on every save, lets reviewers comment in the browser, and routes `@agent` comments to the coding agent.
 
-[gander.md](https://gander.md) · [Let the agent write the plan](https://gander.md/blog/let-the-agent-write-the-plan)
+[gander.md](https://gander.md) · [gander.md/blog/let-the-agent-write-the-plan](https://gander.md/blog/let-the-agent-write-the-plan)
 
 ## For authors
 
