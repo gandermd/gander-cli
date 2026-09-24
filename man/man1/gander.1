@@ -218,6 +218,16 @@ Each policy flag is omitted from the request unless set, so a content
 refresh does not reset visibility, commenting, or labels. The same flags are
 accepted by
 .BR watch .
+.B visibility=anyone
+with
+.B comments=anyone
+(including that pair filled from config on a new share) prints a warning
+and requires
+.B \-\-yes
+or a confirmation prompt on a terminal. A non-interactive run without
+.B \-\-yes
+fails. Omitting a flag leaves that field unset (config on a new share,
+otherwise the server insert default). See https://gander.md/docs/visibility .
 .sp
 .RS
 .TP
@@ -243,6 +253,11 @@ With a directory, filename glob (default
 .TP
 .B \-\-yes
 Confirm onboarding more than 50 existing files.
+Also confirms
+.B visibility=anyone
+with
+.B comments=anyone
+(required for that pair; a terminal prompt is the alternative).
 .TP
 .B \-\-silent
 Create or refresh the share without opening a browser.
@@ -611,6 +626,7 @@ Share privately, or turn commenting off:
 gander share README.md \-\-private
 gander share README.md \-\-no\-comments
 gander share README.md \-\-comments anyone
+gander share README.md \-\-visibility=anyone \-\-comments=anyone \-\-yes
 .fi
 .RE
 .PP

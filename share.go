@@ -1,15 +1,18 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -38,9 +41,9 @@ func runShareWithCtx(ctx context.Context, args []string) error {
 	existing := fs.Bool("existing", false, "with a directory, also onboard unmatched .md files already in the folder")
 	noRecursive := fs.Bool("no-recursive", false, "with a directory, do not watch subdirectories")
 	glob := fs.String("glob", "", "with a directory, filename glob (default **/*.md)")
-	yes := fs.Bool("yes", false, "confirm onboarding more than 50 existing files")
-	comments := fs.String("comments", "", "who may comment: anyone, private, or disabled")
-	visibility := fs.String("visibility", "", "who may see the document: anyone, private, or hidden")
+	yes := fs.Bool("yes", false, "confirm visibility=anyone with comments=anyone, or onboarding more than 50 existing files")
+	comments := fs.String("comments", "", "who may comment: anyone, private, or disabled (anyone with visibility anyone requires --yes or a TTY confirm; see https://gander.md/docs/visibility)")
+	visibility := fs.String("visibility", "", "who may see the document: anyone, private, or hidden (anyone with comments anyone requires --yes or a TTY confirm; see https://gander.md/docs/visibility)")
 	private := fs.Bool("private", false, "make the document private (alias for --visibility private)")
 	noComments := fs.Bool("no-comments", false, "turn off commenting (alias for --comments disabled)")
 	var labels stringList
@@ -68,12 +71,12 @@ func runShareWithCtx(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("stat %s: %w", canonical, err)
 	}
-	dirFlags := *existing || *noRecursive || *glob != "" || *yes
+	dirOnly := *existing || *noRecursive || *glob != ""
 	if fi.IsDir() {
 		return runWatchDir(canonical, *watch, *foreground, *existing, *noRecursive, *glob, *yes, opts)
 	}
-	if dirFlags {
-		return fmt.Errorf("--existing, --no-recursive, --glob, and --yes only apply to directories")
+	if dirOnly {
+		return fmt.Errorf("--existing, --no-recursive, and --glob only apply to directories")
 	}
 
 	cfg, err := requireAuth()
@@ -90,6 +93,9 @@ func runShareWithCtx(ctx context.Context, args []string) error {
 	_, hadLocal := cfg.Shares[canonical]
 	opts, err = applyShareConfigDefaults(opts, cfg, !hadLocal)
 	if err != nil {
+		return err
+	}
+	if err := confirmPublicComments(opts, *yes); err != nil {
 		return err
 	}
 	opts = applyShareLabels(opts, canonical, string(content), !hadLocal, *silent || runningUnderAgent())
@@ -163,8 +169,21 @@ func runWatchDir(canonical string, watch, foreground, existing, noRecursive bool
 			return fmt.Errorf("invalid --glob: %w", err)
 		}
 	}
-	if _, err := requireAuth(); err != nil {
+	cfg, err := requireAuth()
+	if err != nil {
 		return err
+	}
+	predicted, predErr := applyShareConfigDefaults(opts, cfg, true)
+	if predErr != nil {
+		predicted = opts
+	}
+	if err := confirmPublicComments(opts, yes); err != nil {
+		return err
+	}
+	if !publicComments(opts) {
+		if err := confirmPublicComments(predicted, yes); err != nil {
+			return err
+		}
 	}
 	return handOffWatchDir(canonical, string(modeDirShare), dirWatchOpts{
 		Recursive: !noRecursive,
@@ -331,6 +350,55 @@ func flagSetVisited(fs *flag.FlagSet, name string) bool {
 		}
 	})
 	return found
+}
+
+// publicComments is the anyone×anyone pair after flags and, for a new share,
+// config defaults. Omitted fields stay empty here; server insert defaults are
+// not inferred (doc_visibility anyone, comment_access private on gandermd).
+func publicComments(opts shareOpts) bool {
+	return opts.DocVisibility == "anyone" && opts.CommentAccess == "anyone"
+}
+
+const publicCommentsWarning = "warning: visibility=anyone with comments=anyone makes this document and its review threads public. See https://gander.md/docs/visibility"
+
+// confirmPublicCommentsIn and confirmPublicCommentsTTY override stdin for tests.
+var (
+	confirmPublicCommentsIn  io.Reader
+	confirmPublicCommentsTTY func() bool
+)
+
+func confirmPublicComments(opts shareOpts, yes bool) error {
+	if !publicComments(opts) {
+		return nil
+	}
+	fmt.Fprintln(os.Stderr, publicCommentsWarning)
+	if yes {
+		return nil
+	}
+	tty := stdinIsTTY()
+	if confirmPublicCommentsTTY != nil {
+		tty = confirmPublicCommentsTTY()
+	}
+	if !tty {
+		return fmt.Errorf("visibility=anyone with comments=anyone requires confirmation; pass --yes (stdin is not a TTY)")
+	}
+	in := io.Reader(os.Stdin)
+	if confirmPublicCommentsIn != nil {
+		in = confirmPublicCommentsIn
+	}
+	fmt.Fprint(os.Stderr, "Continue with public visibility and public comments? [y/N] ")
+	line, err := readLine(bufio.NewReader(in))
+	if err != nil && line == "" {
+		if err == io.EOF {
+			return fmt.Errorf("aborted")
+		}
+		return err
+	}
+	ans := strings.TrimSpace(strings.ToLower(line))
+	if ans == "y" || ans == "yes" {
+		return nil
+	}
+	return fmt.Errorf("aborted")
 }
 
 func shareOptsFromFlags(fs *flag.FlagSet, comments, visibility string, private, noComments bool, labels stringList, noLabels bool) (shareOpts, error) {

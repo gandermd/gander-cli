@@ -326,6 +326,9 @@ func printUsage(w io.Writer) {
 		fmt.Fprintln(w, "             [--visibility=anyone|private|hidden] [--private]")
 		fmt.Fprintln(w, "             [--comments=anyone|private|disabled] [--no-comments] [--label name] [--no-labels] <file|dir>")
 		fmt.Fprintln(w, "                                                              Live-share to gander.md and push every save (alias for `share --watch`)")
+		fmt.Fprintln(w, "  visibility=anyone with comments=anyone warns and requires --yes or a TTY confirm;")
+		fmt.Fprintln(w, "  non-interactive without --yes fails. Omitting a flag leaves that field unset.")
+		fmt.Fprintln(w, "  See https://gander.md/docs/visibility")
 		fmt.Fprintln(w, "  gander remove [--all|--pick <short_id>|--yes|--non-interactive] <file|short_id|url>")
 		fmt.Fprintln(w, "                                                              Delete a share from gander.md")
 		fmt.Fprintln(w, "  gander list                                                List shares currently on gander.md")
@@ -353,7 +356,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  -existing         With -watch on a directory, also onboard unmatched .md already in the folder")
 	fmt.Fprintln(w, "  -no-recursive     With -watch on a directory, do not watch subdirectories")
 	fmt.Fprintln(w, "  -glob string      With -watch on a directory, filename glob (default **/*.md)")
-	fmt.Fprintln(w, "  -yes              With -watch -existing, confirm more than 50 files")
+	fmt.Fprintln(w, "  -yes              Confirm share visibility=anyone with comments=anyone; with -watch -existing, confirm more than 50 files")
 	if !authed {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "Run `gander signup --email you@example.com` to enable share / watch / remove / list / invite / manage / auth.")

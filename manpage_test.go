@@ -38,6 +38,7 @@ func TestManPageExistsAndRenders(t *testing.T) {
 		"gander uninstall",
 		"--upgrade",
 		"--visibility", "--comments", "--private", "--no-comments",
+		"visibility=anyone", "comments=anyone", "https://gander.md/docs/visibility",
 		"--label", "--no-labels",
 		"--silent", "--existing", "--no-recursive", "--glob",
 	} {
