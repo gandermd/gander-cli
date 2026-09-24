@@ -15,7 +15,7 @@ Site: [gander.md](https://gander.md)
 3. **Act.** Comments that start with `@agent` land in the agent session. The agent edits the file. The same link updates.
 
 ```bash
-brew tap gandermd/gander && brew install gander
+curl -fsSL https://release.gander.md/install.sh | bash
 gander signup --email you@example.com
 gander watch plan.md
 gander mcp install   # once — the agent hears @agent comments
@@ -49,18 +49,7 @@ Open the link in a browser. No install, no repo clone, no IDE. Select text and s
 
 ## Installation
 
-### Homebrew (recommended)
-
-```bash
-brew tap gandermd/gander
-brew install gander
-```
-
-This installs `gander` on your `$PATH` for macOS and Linux (via Linuxbrew), registers `gander(1)` under `$(brew --prefix)/share/man/man1`, and ships bash + zsh completions under `$(brew --prefix)/share`. Upgrade alongside everything else with `brew upgrade`. `gander --upgrade` keeps working for in-place binary upgrades.
-
-### One-liner (fallback / non-Homebrew systems)
-
-Use this on systems without Homebrew or in CI environments that can't tap a formula:
+### One-liner (recommended)
 
 ```bash
 curl -fsSL https://release.gander.md/install.sh | bash
@@ -89,6 +78,17 @@ curl -fsSL https://release.gander.md/install.sh | bash -s -- --no-skill --no-mcp
 ```
 
 The installer requires `curl` and `git` (only for the source fallback). Override the download origin with `GANDER_DOWNLOAD_BASE` if you need to.
+
+### Homebrew (alternative)
+
+If you prefer Homebrew:
+
+```bash
+brew tap gandermd/gander
+brew install gander
+```
+
+This installs `gander` on your `$PATH` for macOS and Linux (via Linuxbrew), registers `gander(1)` under `$(brew --prefix)/share/man/man1`, and ships bash + zsh completions under `$(brew --prefix)/share`. Upgrade alongside everything else with `brew upgrade`. `gander --upgrade` keeps working for in-place binary upgrades.
 
 ### Clone + run
 
