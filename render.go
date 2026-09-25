@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	_ "embed"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -14,6 +16,9 @@ import (
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/text"
 )
+
+//go:embed favicon.png
+var faviconPNG []byte
 
 type Heading struct {
 	Level int    `json:"level"`
@@ -256,11 +261,17 @@ func themeToggleButton(extraClass string) string {
 }
 
 func themeHead(pageCSS string) string {
-	return `<meta name="color-scheme" content="light dark">
+	return faviconLink() + `
+<meta name="color-scheme" content="light dark">
 <script>` + themeBootScript + `</script>
 <style>
 ` + themeTokensCSS() + pageCSS + `
 </style>`
+}
+
+// Data URI so file://, -outfile, and watch HTTP all show the tab icon without a /favicon.ico route.
+func faviconLink() string {
+	return `<link rel="icon" type="image/png" href="data:image/png;base64,` + base64.StdEncoding.EncodeToString(faviconPNG) + `">`
 }
 
 const cssStyle = `

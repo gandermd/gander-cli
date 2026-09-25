@@ -1,10 +1,33 @@
 package main
 
 import (
+	"encoding/base64"
 	"regexp"
 	"strings"
 	"testing"
 )
+
+func TestBuildHTMLFavicon(t *testing.T) {
+	page := buildHTML("<p>x</p>", nil, false)
+	if !strings.Contains(page, `rel="icon"`) {
+		t.Error("buildHTML should include a favicon link")
+	}
+	if !strings.Contains(page, `type="image/png"`) {
+		t.Error("favicon should be a PNG")
+	}
+	if !strings.Contains(page, `href="data:image/png;base64,`) {
+		t.Error("favicon must be inlined as a data URI so file:// and -outfile work")
+	}
+	if strings.Contains(page, `href="/favicon.ico"`) {
+		t.Error("must not fetch /favicon.ico")
+	}
+	if len(faviconPNG) == 0 {
+		t.Fatal("embedded faviconPNG must not be empty")
+	}
+	if !strings.Contains(page, base64.StdEncoding.EncodeToString(faviconPNG)) {
+		t.Error("favicon data URI must contain the embedded PNG")
+	}
+}
 
 func TestBuildHTMLWithoutLiveReload(t *testing.T) {
 	html, headings := renderMarkdownWithIDs("# Hello\n\nWorld")
