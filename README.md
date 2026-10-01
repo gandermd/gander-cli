@@ -224,7 +224,7 @@ A local HTTP server is started on `127.0.0.1:7821` so the browser can receive ch
 
 ### Share on gander.md
 
-If you're running an agent that streams markdown to a file, `gander watch` is the shortest path from the agent's writes to your browser — open the URL once and every connected viewer sees the latest version in real time. `gander.md` is the public hosting service for gander. Once you sign up, you can `share`, `watch`, `list`, and `remove` markdown from your terminal, mint team invites with `gander invite`, and viewers see the same live-reload preview and document chrome you'd see locally.
+If you're running an agent that streams markdown to a file, `gander watch` is the shortest path from the agent's writes to your browser — open the URL once and every connected viewer sees the latest version in real time. `gander.md` is the public hosting service for gander. Once you sign up, you can `share`, `watch`, `list`, `archive`, and `remove` markdown from your terminal, mint team invites with `gander invite`, and viewers see the same live-reload preview and document chrome you'd see locally.
 
 ```bash
 gander signup --email you@example.com   # opens browser form, polls for API token
@@ -247,7 +247,9 @@ gander share README.md --visibility=hidden  # unpublish the viewer URL (404); st
 gander share README.md --label review --label agent  # replace labels (omit on later share/watch to leave them)
                                         # --silent, dir-adopt, and agent CLIs also stamp review; type labels stay additive
 gander share README.md --no-labels      # clear labels
-gander list                             # table of active shares (includes COMMENTING, VISIBILITY, LABELS)
+gander list                             # table of active shares (includes ARCHIVED, COMMENTING, VISIBILITY, LABELS)
+gander archive README.md                # hide the link and turn commenting off; the file stays
+gander archive --yes README.md          # same, skip the confirm
 gander remove README.md                 # 404s the short link
 gander remove --all                     # remove every share in your account
 gander invite                           # print a team invite URL (shown once)
@@ -388,6 +390,8 @@ gander mcp                        Run the MCP server on stdio
 gander mcp install                Merge MCP config into local agent harnesses
 gander uninstall [--yes] [--keep-config]  Remove CLI, MCP, skill, runner (and optionally ~/.gander)
 gander remove [--all] [<file>]    Delete a share from gander.md
+gander archive [--all|--pick <short_id>|--yes|--non-interactive] <file|short_id|url>
+                                  Hide a share; sharing the file again restores it
 gander list                       List shares currently on gander.md
 gander invite [--email <addr>] [--share <short_id>]  Mint a team invite link
 gander manage | dashboard | dash | --d   Open the dashboard in your browser

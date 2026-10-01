@@ -28,11 +28,15 @@ func runList(_ []string) error {
 	}
 
 	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "SHORT ID\tFILE\tPATH\tWATCH\tCOMMENTING\tVISIBILITY\tLABELS\tUPDATED\tURL")
+	fmt.Fprintln(tw, "SHORT ID\tFILE\tPATH\tWATCH\tARCHIVED\tCOMMENTING\tVISIBILITY\tLABELS\tUPDATED\tURL")
 	for i := range all {
 		watch := "no"
 		if all[i].Watch {
 			watch = "yes"
+		}
+		archived := "no"
+		if all[i].Archived {
+			archived = "yes"
 		}
 		path := all[i].Path
 		if path == "" {
@@ -43,11 +47,12 @@ func runList(_ []string) error {
 			labels = strings.Join(all[i].Labels, ",")
 		}
 		updated, _ := time.Parse(time.RFC3339, all[i].UpdatedAt)
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			all[i].ShortID,
 			all[i].Filename,
 			path,
 			watch,
+			archived,
 			all[i].CommentAccess,
 			all[i].DocVisibility,
 			labels,

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -51,6 +52,30 @@ type shareResp struct {
 	UnresolvedCount      int      `json:"unresolved_count"`
 	AgentUnresolvedCount int      `json:"agent_unresolved_count"`
 	Labels               []string `json:"labels"`
+	Archived             bool     `json:"archived,omitempty"`
+}
+
+type apiError struct {
+	Status int
+	Body   string
+}
+
+func (e *apiError) Error() string {
+	return fmt.Sprintf("HTTP %d: %s", e.Status, strings.TrimSpace(e.Body))
+}
+
+func isArchivedConflict(err error) bool {
+	var ae *apiError
+	if !errors.As(err, &ae) || ae.Status != http.StatusConflict {
+		return false
+	}
+	var body struct {
+		Error string `json:"error"`
+	}
+	if json.Unmarshal([]byte(ae.Body), &body) != nil {
+		return false
+	}
+	return body.Error == "archived"
 }
 
 // shareOpts are POST /api/shares policy fields. Empty strings are omitted so
@@ -136,7 +161,7 @@ func (c *apiClient) doStatus(method, path string, body, dst any) (int, error) {
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return resp.StatusCode, fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
+		return resp.StatusCode, &apiError{Status: resp.StatusCode, Body: string(raw)}
 	}
 	if dst == nil {
 		_, _ = io.Copy(io.Discard, resp.Body)
@@ -232,6 +257,14 @@ func (c *apiClient) CreateShare(filename, path, content string, watch bool, opts
 func (c *apiClient) UpdateShare(uuid, content string) (*shareResp, error) {
 	var out shareResp
 	if err := c.do("PUT", fmt.Sprintf("/api/shares/%s", uuid), map[string]string{"content": content}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *apiClient) ArchiveShare(uuid string) (*shareResp, error) {
+	var out shareResp
+	if err := c.do("POST", fmt.Sprintf("/api/shares/%s/archive", uuid), nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

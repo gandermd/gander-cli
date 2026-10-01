@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+const ipcOpDropArchived = "drop-archived"
+
 type ipcRequest struct {
 	Op            string    `json:"op"`
 	ID            string    `json:"id,omitempty"`
@@ -165,6 +167,11 @@ func (s *ipcServer) route(req ipcRequest) ipcResponse {
 			return ipcResponse{Error: err.Error()}
 		}
 		return ipcResponse{OK: true, ID: info.ID}
+	case ipcOpDropArchived:
+		if req.Path == "" {
+			return ipcResponse{Error: "path required"}
+		}
+		return ipcResponse{OK: true, Removed: s.mgr.dropArchivedPath(req.Path)}
 	case "stop":
 		var removed []string
 		if req.All {

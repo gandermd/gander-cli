@@ -218,10 +218,11 @@ func runWatchAndPushCtx(ctx context.Context, absPath string, sh *shareResp, cfg 
 	}()
 
 	pusher := &watchPusher{
-		absPath:   absPath,
-		shareUUID: sh.UUID,
-		shortID:   sh.ShortID,
-		cli:       newAPIClient(cfg.APIURL, cfg.APIToken),
+		absPath:    absPath,
+		shareUUID:  sh.UUID,
+		shortID:    sh.ShortID,
+		cli:        newAPIClient(cfg.APIURL, cfg.APIToken),
+		onArchived: runCancel,
 	}
 	fmt.Printf("Watching %s — pushing changes to %s. Press Ctrl+C to stop.\n", absPath, sh.URL)
 	return serveShareWatcher(runCtx, pusher, absPath, cfg.DebounceMs)
@@ -280,10 +281,11 @@ func openBrowserURL(url string) {
 }
 
 type watchPusher struct {
-	absPath   string
-	shareUUID string
-	shortID   string
-	cli       *apiClient
+	absPath    string
+	shareUUID  string
+	shortID    string
+	cli        *apiClient
+	onArchived func()
 
 	lastHash string
 }
@@ -302,6 +304,13 @@ func (w *watchPusher) push() {
 	w.lastHash = h
 
 	if _, err := w.cli.UpdateShare(w.shareUUID, string(data)); err != nil {
+		if isArchivedConflict(err) {
+			log.Printf("share archived; stopping watch %s", w.absPath)
+			if w.onArchived != nil {
+				w.onArchived()
+			}
+			return
+		}
 		log.Printf("push to gandermd: %v", err)
 		return
 	}

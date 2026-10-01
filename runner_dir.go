@@ -40,6 +40,9 @@ type dirWatchState struct {
 	retry       *time.Timer
 	delayed     []string
 	staticPaths map[string]struct{}
+	// droppedPaths are children archived out of this directory watch.
+	// Leaving them out of byPath is not enough: the next save would POST and unarchive.
+	droppedPaths map[string]struct{}
 }
 
 type adoptLimiter struct {
@@ -86,13 +89,14 @@ func newDirWatchState(opts dirWatchOpts, debounce time.Duration) *dirWatchState 
 		debounce = 50 * time.Millisecond
 	}
 	return &dirWatchState{
-		recursive:   opts.Recursive,
-		glob:        opts.Glob,
-		policy:      opts.Policy,
-		limiter:     newAdoptLimiter(),
-		debounce:    debounce,
-		pending:     map[string]*time.Timer{},
-		staticPaths: map[string]struct{}{},
+		recursive:    opts.Recursive,
+		glob:         opts.Glob,
+		policy:       opts.Policy,
+		limiter:      newAdoptLimiter(),
+		debounce:     debounce,
+		pending:      map[string]*time.Timer{},
+		staticPaths:  map[string]struct{}{},
+		droppedPaths: map[string]struct{}{},
 	}
 }
 
@@ -109,6 +113,10 @@ func dirStateFromEntry(e *watchEntry) *dirWatchState {
 			Labels:        e.info.Labels,
 		},
 	}, 150*time.Millisecond)
+	for _, p := range e.dropped {
+		ds.droppedPaths[p] = struct{}{}
+	}
+	e.dropped = nil
 	e.dir = ds
 	return ds
 }
@@ -510,8 +518,9 @@ func (m *watchManager) tryAdopt(parent *watchEntry, path string) {
 	ds := dirStateFromEntry(parent)
 	ds.mu.Lock()
 	_, static := ds.staticPaths[canonical]
+	_, dropped := ds.droppedPaths[canonical]
 	ds.mu.Unlock()
-	if static {
+	if static || dropped {
 		return
 	}
 
@@ -575,8 +584,9 @@ func (m *watchManager) adoptFile(parent *watchEntry, path string) {
 	ds := dirStateFromEntry(parent)
 	ds.mu.Lock()
 	_, static := ds.staticPaths[path]
+	_, dropped := ds.droppedPaths[path]
 	ds.mu.Unlock()
-	if static {
+	if static || dropped {
 		return
 	}
 

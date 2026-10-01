@@ -60,6 +60,12 @@ func main() {
 				os.Exit(1)
 			}
 			return
+		case "archive":
+			if err := runArchive(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "archive: %v\n", err)
+				os.Exit(1)
+			}
+			return
 		case "list":
 			if err := runList(os.Args[2:]); err != nil {
 				fmt.Fprintf(os.Stderr, "list: %v\n", err)
@@ -328,6 +334,8 @@ func printUsage(w io.Writer) {
 		fmt.Fprintln(w, "                                                              Live-share to gander.md and push every save (alias for `share --watch`)")
 		fmt.Fprintln(w, "  gander remove [--all|--pick <short_id>|--yes|--non-interactive] <file|short_id|url>")
 		fmt.Fprintln(w, "                                                              Delete a share from gander.md")
+		fmt.Fprintln(w, "  gander archive [--all|--pick <short_id>|--yes|--non-interactive] <file|short_id|url>")
+		fmt.Fprintln(w, "                                                              Hide a share; sharing the file again restores it")
 		fmt.Fprintln(w, "  gander list                                                List shares currently on gander.md")
 		fmt.Fprintln(w, "  gander invite [--email <addr>] [--share <short_id>]        Mint a team invite link")
 		fmt.Fprintln(w, "  gander comments [file]                                     List unresolved review comments")
@@ -356,7 +364,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  -yes              With -watch -existing, confirm more than 50 files")
 	if !authed {
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, "Run `gander signup --email you@example.com` to enable share / watch / remove / list / invite / manage / auth.")
+		fmt.Fprintln(w, "Run `gander signup --email you@example.com` to enable share / watch / remove / archive / list / invite / manage / auth.")
 	}
 }
 
