@@ -56,6 +56,12 @@ gander \- render Markdown locally, optionally share it on gander.md
 .RB [ \-non\-interactive ]
 .IR target
 .sp
+.B gander archive
+.RB [ \-all | "\-pick "\fIshort_id\fR ]
+.RB [ \-yes ]
+.RB [ \-non\-interactive ]
+.IR target
+.sp
 .B gander list
 .sp
 .B gander invite
@@ -394,11 +400,46 @@ or
 .B \-pick
 when the argument is ambiguous.
 .RE
+.SS "Archive"
+.TP
+.B archive
+Hide an owned share. The public link 404s and commenting is turned off.
+The file on disk is not touched. A share watch registered on that file
+stops. A directory watch keeps running and drops that file on its next
+push. Sharing the file again puts the share back with the visibility and
+commenting it had before, unless that command sets them.
+The argument may be a local file path, an 8\-character
+.IR short_id ,
+or a
+.I https://gander.md/s/<short_id>
+URL.
+.sp
+.RS
+.TP
+.B \-all
+Archive every share matching the argument.
+.TP
+.BI "\-pick " short_id
+When the argument matches more than one share, archive the one with the
+given
+.IR short_id .
+.TP
+.B \-yes
+Skip the confirmation prompt.
+.TP
+.B \-non\-interactive
+Refuse to prompt; require
+.B \-all
+or
+.B \-pick
+when the argument is ambiguous.
+.RE
 .SS "List"
 .TP
 .B list
 Print a table of every share in the user's gander.md account (short id,
-file, path, watch flag, commenting, visibility, labels, last update, URL).
+file, path, watch flag, archived flag, commenting, visibility, labels,
+last update, URL).
 .SS "Invite"
 .TP
 .B invite
@@ -649,6 +690,16 @@ Remove a share by short id:
 .RS
 .nf
 gander remove aBcD1234
+.fi
+.RE
+.PP
+Archive a share (the file on disk stays; share it again to restore):
+.PP
+.RS
+.nf
+gander archive plan.md
+gander archive aBcD1234
+gander archive https://gander.md/s/aBcD1234
 .fi
 .RE
 .PP

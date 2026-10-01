@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -52,6 +53,7 @@ type persistedWatch struct {
 	Started       time.Time `json:"started_at"`
 	CommentAccess string    `json:"comment_access,omitempty"`
 	DocVisibility string    `json:"doc_visibility,omitempty"`
+	Dropped       []string  `json:"dropped,omitempty"`
 }
 
 type watchesFile struct {
@@ -65,6 +67,7 @@ type watchEntry struct {
 	info      watchOut
 	state     *watchState
 	dir       *dirWatchState
+	dropped   []string
 	cancel    context.CancelFunc
 	startedAt time.Time
 	shutdown  chan struct{}
@@ -167,6 +170,9 @@ func (m *watchManager) load() error {
 			info.UUID = w.Share.UUID
 		}
 		e := &watchEntry{info: info, startedAt: w.Started, shutdown: make(chan struct{}), done: make(chan struct{})}
+		if len(w.Dropped) > 0 {
+			e.dropped = append([]string(nil), w.Dropped...)
+		}
 		m.entries[w.ID] = e
 		m.byPath[w.Path] = w.ID
 	}
@@ -210,6 +216,9 @@ func (m *watchManager) persist() error {
 		}
 		if e.info.ShareURL != "" {
 			w.Share = &shareRef{UUID: e.info.UUID, ShortID: e.info.ShortID, URL: e.info.ShareURL}
+		}
+		if paths := e.persistedDropped(); len(paths) > 0 {
+			w.Dropped = paths
 		}
 		pw = append(pw, w)
 	}
@@ -391,10 +400,11 @@ func (m *watchManager) runShare(e *watchEntry) {
 		return
 	}
 	pusher := &watchPusher{
-		absPath:   e.info.Path,
-		shareUUID: e.info.UUID,
-		shortID:   e.info.ShortID,
-		cli:       newAPIClient(cfg.APIURL, cfg.APIToken),
+		absPath:    e.info.Path,
+		shareUUID:  e.info.UUID,
+		shortID:    e.info.ShortID,
+		cli:        newAPIClient(cfg.APIURL, cfg.APIToken),
+		onArchived: func() { m.dropArchivedWatch(e.info.ID) },
 	}
 	log.Printf("runner[%s]: pushing changes to %s (uuid=%s)", e.info.ID, e.info.ShareURL, e.info.UUID)
 
@@ -482,6 +492,78 @@ func (m *watchManager) stopByID(id string) bool {
 	close(e.shutdown)
 	m.persistQuiet()
 	return true
+}
+
+func (e *watchEntry) persistedDropped() []string {
+	if e.dir != nil {
+		e.dir.mu.Lock()
+		defer e.dir.mu.Unlock()
+		if len(e.dir.droppedPaths) == 0 {
+			return nil
+		}
+		out := make([]string, 0, len(e.dir.droppedPaths))
+		for p := range e.dir.droppedPaths {
+			out = append(out, p)
+		}
+		sort.Strings(out)
+		return out
+	}
+	if len(e.dropped) == 0 {
+		return nil
+	}
+	out := append([]string(nil), e.dropped...)
+	sort.Strings(out)
+	return out
+}
+
+func (m *watchManager) markDropped(parentID, path string) {
+	m.mu.Lock()
+	parent := m.entries[parentID]
+	m.mu.Unlock()
+	if parent == nil || watchKind(parent.info.Kind) != kindDir {
+		return
+	}
+	ds := dirStateFromEntry(parent)
+	ds.mu.Lock()
+	ds.droppedPaths[path] = struct{}{}
+	ds.mu.Unlock()
+}
+
+func (m *watchManager) dropArchivedWatch(id string) bool {
+	m.mu.Lock()
+	e, ok := m.entries[id]
+	if !ok {
+		m.mu.Unlock()
+		return false
+	}
+	if watchKind(e.info.Kind) == kindDir || e.info.Mode != string(modeShare) {
+		m.mu.Unlock()
+		return false
+	}
+	parentID := e.info.ParentID
+	path := e.info.Path
+	m.mu.Unlock()
+	if parentID != "" {
+		m.markDropped(parentID, path)
+	}
+	return m.stopByID(id)
+}
+
+func (m *watchManager) dropArchivedPath(path string) []string {
+	canonical, err := canonicalPath(path)
+	if err != nil {
+		return nil
+	}
+	m.mu.Lock()
+	id, ok := m.byPath[canonical]
+	m.mu.Unlock()
+	if !ok {
+		return nil
+	}
+	if m.dropArchivedWatch(id) {
+		return []string{id}
+	}
+	return nil
 }
 
 func (m *watchManager) stopByPath(path string) []string {

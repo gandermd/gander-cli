@@ -10,6 +10,7 @@ _gander() {
         'share:Upload Markdown to gander.md and open the share link'
         'watch:Live-share a file or adopt new markdown in a directory'
         'remove:Delete a share from gander.md'
+        'archive:Hide a share; sharing the file again restores it'
         'list:List shares currently on gander.md'
         'invite:Mint a team invite link'
         'comments:List unresolved review comments'
@@ -77,6 +78,14 @@ _gander() {
         remove)
             _arguments \
                 '--all[Remove every share matching the argument]' \
+                '--pick[Pick a specific short_id when ambiguous]:short_id:' \
+                '--yes[Skip the confirmation prompt]' \
+                '--non-interactive[Disallow prompts; require --all or --pick]' \
+                '*:file or short_id:_files'
+            ;;
+        archive)
+            _arguments \
+                '--all[Archive every share matching the argument]' \
                 '--pick[Pick a specific short_id when ambiguous]:short_id:' \
                 '--yes[Skip the confirmation prompt]' \
                 '--non-interactive[Disallow prompts; require --all or --pick]' \

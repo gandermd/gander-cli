@@ -132,7 +132,7 @@ func doRemove(arg string, opts removeOptions, rio *removeIO) error {
 		if opts.nonInteractive || !rio.isTTY {
 			return ambiguousError(arg, matches)
 		}
-		chosen, err := promptPick(matches, rio)
+		chosen, err := promptPick(matches, rio, "remove")
 		if err != nil {
 			return err
 		}
@@ -232,9 +232,9 @@ func humanSize(n int) string {
 	return fmt.Sprintf("%.1f %cB", float64(n)/div, "KMGTPE"[exp])
 }
 
-func promptPick(matches []shareResp, rio *removeIO) (shareResp, error) {
+func promptPick(matches []shareResp, rio *removeIO, verb string) (shareResp, error) {
 	fmt.Fprintln(rio.out(), formatMatchesTable(matches))
-	fmt.Fprintf(rio.out(), "Pick a share to remove (enter SHORT ID, or 'q' to quit): ")
+	fmt.Fprintf(rio.out(), "Pick a share to %s (enter SHORT ID, or 'q' to quit): ", verb)
 	ans, err := readLine(rio.lineReader())
 	if err != nil {
 		if err == io.EOF {
