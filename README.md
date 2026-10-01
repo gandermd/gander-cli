@@ -1,14 +1,13 @@
 # gander
 
 Gander is the live review loop for markdown an agent is still writing.
-`gander watch` gives you a short link that updates on every save. Reviewers
-comment in the browser like Docs. Comments that start with `@agent` come
-back into the agent session over MCP — no paste, no IDE for the reviewer,
+Gander Agent Connect (`gander watch`) gives you a short link that updates on every save, and brings comments that start with `@agent` back into the agent session over MCP. Reviewers
+comment in the browser like Docs. No paste, no IDE for the reviewer,
 no git commit for the author.
 
 ## How it works
 
-1. **Watch.** `gander watch plan.md` (or the agent does). Every save updates the hosted page.
+1. **Watch.** Start Gander Agent Connect with `gander watch plan.md` (or the agent does). Every save updates the hosted page.
 2. **Comment.** Reviewer opens the URL. No install. Inline threads on the live doc.
 3. **Act.** Comments that start with `@agent` land in the agent session. The agent edits the file. The same link updates.
 
@@ -21,17 +20,17 @@ gander mcp install   # once — the agent hears @agent comments
 
 Or: `gander skill` and let the agent save the plan, watch the file, and poll for review.
 
-`gander watch` keeps the local file as the source of truth, updates a short URL on every save, lets reviewers comment in the browser, and routes `@agent` comments to the coding agent.
+Gander Agent Connect keeps the local file as the source of truth, updates a short URL on every save, lets reviewers comment in the browser, and routes `@agent` comments to the coding agent.
 
 [gander.md](https://gander.md) · [gander.md/blog/let-the-agent-write-the-plan](https://gander.md/blog/let-the-agent-write-the-plan)
 
 ## For authors
 
-Reviewing a plan while the agent is still writing it usually means a screenshare, an early git commit, or sitting alone in the IDE. `gander watch` is a link instead: the reviewer reads in the browser, the author does not have to commit, and every save updates the same page.
+Reviewing a plan while the agent is still writing it usually means a screenshare, an early git commit, or sitting alone in the IDE. Gander Agent Connect is a link instead: the reviewer reads in the browser, the author does not have to commit, and every save updates the same page.
 
 Two workflows cover most of what you'll do:
 
-1. **`gander watch plan.md`** — upload to `gander.md` and get a short URL. Every save hot-swaps the rendered page in every connected viewer's browser. (This is shorthand for `gander share plan.md --watch`.)
+1. **Gander Agent Connect** (`gander watch plan.md`) — upload to `gander.md` and get a short URL. Every save hot-swaps the rendered page in every connected viewer's browser. `@agent` comments come back into the session over MCP. (The command is shorthand for `gander share plan.md --watch`.)
 
 2. **[`gandermd/gander-skill`](https://github.com/gandermd/gander-skill)** — a `SKILL.md` that wires all of this into your agent runner (OpenCode, Claude Code, Codex CLI, Cursor, Grok Build, Windsurf, and any other agent that loads `SKILL.md` files), plus two helper scripts:
    - `scripts/save-plan.sh` — pipe the agent's plan into `./plans/YYYY-MM-DD-<slug>.md`, then gander or share it.
@@ -224,7 +223,7 @@ A local HTTP server is started on `127.0.0.1:7821` so the browser can receive ch
 
 ### Share on gander.md
 
-If you're running an agent that streams markdown to a file, `gander watch` is the shortest path from the agent's writes to your browser — open the URL once and every connected viewer sees the latest version in real time. `gander.md` is the public hosting service for gander. Once you sign up, you can `share`, `watch`, `list`, and `remove` markdown from your terminal, mint team invites with `gander invite`, and viewers see the same live-reload preview and document chrome you'd see locally.
+If you're running an agent that streams markdown to a file, Gander Agent Connect (`gander watch`) is the shortest path from the agent's writes to a browser: open the URL once and every connected viewer sees the latest version in real time. `gander.md` is the public hosting service for gander. Once you sign up, you can `share`, `watch`, `list`, and `remove` markdown from your terminal, mint team invites with `gander invite`, and viewers see the same live-reload preview and document chrome you'd see locally.
 
 ```bash
 gander signup --email you@example.com   # opens browser form, polls for API token
