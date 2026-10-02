@@ -90,7 +90,7 @@ brew tap gandermd/gander
 brew install gander
 ```
 
-This installs `gander` on your `$PATH` for macOS and Linux (via Linuxbrew), registers `gander(1)` under `$(brew --prefix)/share/man/man1`, and ships bash + zsh completions under `$(brew --prefix)/share`. Upgrade alongside everything else with `brew upgrade`. `gander --upgrade` keeps working for in-place binary upgrades.
+This installs `gander` on your `$PATH` for macOS and Linux (via Linuxbrew), registers `gander(1)` under `$(brew --prefix)/share/man/man1`, and ships bash + zsh completions under `$(brew --prefix)/share`. Upgrade alongside everything else with `brew upgrade gander`. The automatic updater and `gander --upgrade` leave a Homebrew install in place and print that hint when a newer release exists.
 
 ### Clone + run
 
@@ -114,15 +114,21 @@ CGO_ENABLED=0 go build -trimpath -ldflags "-X main.Version=v0.2.1" -o gander .
 mv gander ~/go/bin/gander  # or any directory in your PATH
 ```
 
-`-ldflags "-X main.Version=..."` stamps the version so `gander --upgrade` knows what it's running. Drop it and the build reports `dev`, which still works but `gander --upgrade` will go through a redundant update on first run.
+`-ldflags "-X main.Version=..."` stamps the version so gander knows what it's running. Drop it and the build reports `dev`. Commands still run. Automatic updates are skipped, and `gander --upgrade` installs the latest release.
 
 ### Upgrading an existing install
+
+A release build checks for an update on every command and installs it before the command runs. A failed check does not block the command. `GANDER_SKIP_AUTO_UPDATE=1` skips the check for that run. `gander _serve` does not self-update.
+
+Set `pinned_version` in `~/.gander/config.json` to stay on a `vX.Y.Z` release, including a downgrade. Leave it unset to follow the latest release and only move forward.
 
 ```bash
 gander --upgrade
 ```
 
-Downloads the latest release binary that matches your OS/arch from `https://release.gander.md`, verifies its SHA256 checksum, and atomically replaces the running binary. Falls back to the GitHub Releases API if the mirror is unreachable. If `~/.gander/skill` is already installed, the same command also pulls the latest [`gandermd/gander-skill`](https://github.com/gandermd/gander-skill) and re-links agent dests.
+Installs that same target (latest, or `pinned_version` when set) from `https://release.gander.md`, verifies its SHA256 checksum, and atomically replaces the running binary. It does not clear the pin. Falls back to the GitHub Releases API if the mirror is unreachable. If `~/.gander/skill` is already installed, the same command also pulls the latest [`gandermd/gander-skill`](https://github.com/gandermd/gander-skill) and re-links agent dests.
+
+Homebrew installs are not replaced. When a newer release exists, gander prints `brew upgrade gander`.
 
 If you built from source the old-fashioned way, re-run `install.sh` (or `git pull && ./install.sh --source`).
 
@@ -313,6 +319,7 @@ omit falls back to its default.
   "api_token": "gmd_…",
   "doc_visibility": "private",
   "comment_access": "disabled",
+  "pinned_version": "v0.35.0",
   "shares": {
     "/abs/path/to/README.md": "xK7m2pQa"
   }
@@ -329,6 +336,7 @@ omit falls back to its default.
 | `api_token`       | _(empty)_          | Bearer token. Set by `gander signup`. Treat as a password.                 |
 | `doc_visibility`  | _(omitted)_        | Default visibility for a **new** share: `anyone`, `private`, or `hidden`. Flags (`--visibility`, `--private`) override. Re-share / watch of an existing file omits this unless a flag is passed. Server insert default is `anyone`. |
 | `comment_access`  | _(omitted)_        | Default commenting for a **new** share: `anyone`, `private`, or `disabled`. Flags (`--comments`, `--no-comments`) override. Re-share / watch of an existing file omits this unless a flag is passed. `anyone` requires visibility `anyone`. Server insert default is `private`. |
+| `pinned_version`  | _(omitted)_        | Lock the CLI to `vMAJOR.MINOR.PATCH`, including a downgrade. Omit to track the latest release (forward only). `gander --upgrade` uses the same pin and does not clear it. |
 | `shares`          | `{}`               | Map of local file paths to short IDs, maintained by `gander share`.        |
 
 CLI flags always override the config. Pass `--watch=false` (or any explicit value) to override `~/.gander/config.json` for a single run.
@@ -368,10 +376,12 @@ The legacy `~/.mdp` fallback only applies when `GANDER_CONFIG` is unset; named p
 -yes
     With `--watch --existing` on a directory, confirm onboarding more than 50 files.
 -upgrade
-    Download and install the latest release, then exit. The runner is shut
-    down over UDS first, the binary is replaced, then the supervisor (or a
-    fresh spawn) brings the upgraded daemon back up with the same watches.
-    If the agent skill is already installed, also refreshes ~/.gander/skill.
+    Install the latest release, or pinned_version when set, then exit.
+    Does not clear the pin. The runner is shut down over UDS before the
+    binary is replaced, then the supervisor (or a fresh spawn) brings the
+    daemon back up with the same watches. If the agent skill is already
+    installed, also refreshes ~/.gander/skill. Homebrew installs are not
+    replaced.
 ```
 
 Subcommands:

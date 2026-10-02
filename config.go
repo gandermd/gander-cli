@@ -21,6 +21,7 @@ type Config struct {
 	APIToken      string            `json:"api_token"`
 	DocVisibility string            `json:"doc_visibility,omitempty"`
 	CommentAccess string            `json:"comment_access,omitempty"`
+	PinnedVersion string            `json:"pinned_version,omitempty"`
 	Shares        map[string]string `json:"shares"`
 }
 

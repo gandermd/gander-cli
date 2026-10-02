@@ -12,6 +12,7 @@ import (
 
 func main() {
 	log.SetFlags(0)
+	maybeAutoUpdate()
 
 	if len(os.Args) == 1 {
 		runNoArg(os.Stdout)
@@ -163,7 +164,7 @@ func main() {
 	noRecursive := flag.Bool("no-recursive", false, "With --watch on a directory, do not watch subdirectories")
 	glob := flag.String("glob", "", "With --watch on a directory, filename glob (default **/*.md)")
 	yes := flag.Bool("yes", false, "With --watch --existing on a directory, confirm more than 50 files")
-	upgrade := flag.Bool("upgrade", false, "Download and install the latest release, then exit")
+	upgrade := flag.Bool("upgrade", false, "Install the latest release, or pinned_version when set, then exit")
 	flag.Parse()
 
 	if *upgrade {
@@ -299,11 +300,15 @@ func runNoArg(w io.Writer) {
 	case Version == "dev":
 		fmt.Fprintln(w, "Running a dev build — gander --upgrade may be a no-op")
 	default:
-		rel, err := fetchLatestRelease()
+		rel, pin, err := resolveUpdateTarget()
 		switch {
 		case err != nil:
 			fmt.Fprintf(w, "(could not check for updates: %v)\n", err)
-		case rel.TagName == Version:
+		case pin != "" && rel == nil:
+			fmt.Fprintf(w, "Pinned to %s.\n", pin)
+		case pin != "":
+			fmt.Fprintf(w, "Pinned to %s (installed: %s).\n", pin, Version)
+		case rel == nil:
 			fmt.Fprintln(w, "You're on the latest release.")
 		default:
 			fmt.Fprintf(w, "Update available: %s → run gander --upgrade\n", rel.TagName)
@@ -349,7 +354,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  gander runner install|uninstall  Auto-start the runner at login (LaunchAgent/systemd)")
 	fmt.Fprintln(w, "  gander skill [install]          Install the agent skill (OpenCode, Claude, Cursor, Grok)")
 	fmt.Fprintln(w, "  gander uninstall [--yes] [--keep-config]   Remove CLI, MCP, skill, runner (and optionally ~/.gander)")
-	fmt.Fprintln(w, "  gander --upgrade                Download and install the latest release")
+	fmt.Fprintln(w, "  gander --upgrade                Install latest, or pinned_version when set")
 	fmt.Fprintln(w, "  gander --version               Print the version and exit")
 	fmt.Fprintln(w, "  gander completion {bash|zsh}    Print a shell completion script to stdout")
 	fmt.Fprintln(w)

@@ -189,9 +189,13 @@ The preview URL is still printed to standard output.
 Does not change visibility or commenting.
 .TP
 .BR \-upgrade ", " \-\-upgrade
-Download and install the latest release, then exit.
+Install the latest release, or
+.B pinned_version
+when set, then exit.
 If the agent skill is already installed, also refresh
 .IR ~/.gander/skill .
+Does not clear
+.BR pinned_version .
 .TP
 .BR \-\-help ", " \-h
 Print help and exit.
@@ -562,10 +566,38 @@ run
 .B brew uninstall gander
 instead.
 .SS "Self\-update"
+A release build checks for an update on every invocation. When the
+running binary is not the desired release, gander downloads that
+release, verifies its checksum, replaces the binary, and re\-execs so
+the command runs on the new build. Progress is written to standard
+error. A failed check or install does not block the command.
+.B gander _serve
+does not self\-update. A source build
+.RB ( dev )
+or any version that is not
+.B vMAJOR.MINOR.PATCH
+does not self\-update.
+.B GANDER_SKIP_AUTO_UPDATE=1
+skips the check for that run.
+Homebrew Cellar installs are not replaced; when a newer release exists,
+gander prints
+.B brew upgrade gander
+on standard error.
+.PP
+.B pinned_version
+in
+.I config.json
+locks the CLI to that
+.B vMAJOR.MINOR.PATCH
+tag, including a downgrade. Leave it unset to follow the latest release
+and only move forward. A value that is not a release tag is ignored
+with a warning.
 .TP
 .BR \-\-upgrade
-Download the latest release binary for the current platform, verify its
-checksum, atomically replace the running binary, and exit.
+Install the same target the automatic check would (latest, or
+.B pinned_version
+when set) and exit. Does not clear
+.BR pinned_version .
 If
 .I ~/.gander/skill
 (or a dest symlink pointing at it) is already present, also pull the
@@ -585,7 +617,9 @@ the runner socket, and logs.
 .TP
 .I ~/.gander/config.json
 JSON configuration (mode 0600). Holds the API token, API endpoint,
-default flags, and the local map of file path \(-> short id.
+default flags, optional
+.BR pinned_version ,
+and the local map of file path \(-> short id.
 A legacy JSON file at
 .I ~/.gander
 is migrated here on first write or

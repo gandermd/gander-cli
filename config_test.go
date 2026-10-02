@@ -30,6 +30,9 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.CommentAccess != "" {
 		t.Errorf("default CommentAccess = %q, want empty (omitted)", cfg.CommentAccess)
 	}
+	if cfg.PinnedVersion != "" {
+		t.Errorf("default PinnedVersion = %q, want empty (omitted)", cfg.PinnedVersion)
+	}
 }
 
 func TestWriteConfigRoundTrip(t *testing.T) {
@@ -73,10 +76,37 @@ func TestWriteConfigOmitsUnsetSharePolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := string(onDisk)
-	for _, k := range []string{"doc_visibility", "comment_access"} {
+	for _, k := range []string{"doc_visibility", "comment_access", "pinned_version"} {
 		if strings.Contains(body, k) {
 			t.Errorf("unset %s should be omitted from config.json:\n%s", k, body)
 		}
+	}
+}
+
+func TestPinnedVersionRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+	t.Setenv("GANDER_CONFIG", "")
+
+	cfg := DefaultConfig()
+	cfg.PinnedVersion = "v1.2.3"
+	if err := WriteConfig(cfg); err != nil {
+		t.Fatalf("WriteConfig: %v", err)
+	}
+	onDisk, err := os.ReadFile(filepath.Join(dir, ".gander", configFileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(onDisk), `"pinned_version": "v1.2.3"`) {
+		t.Fatalf("config missing pin:\n%s", onDisk)
+	}
+	got, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if got.PinnedVersion != "v1.2.3" {
+		t.Errorf("PinnedVersion = %q, want v1.2.3", got.PinnedVersion)
 	}
 }
 

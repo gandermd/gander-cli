@@ -27,7 +27,7 @@ _gander() {
         '--d:Alias for manage'
         'auth:Install a new API token (validate against /api/shares first)'
         'completion:Print a shell completion script'
-        '--upgrade:Download and install the latest release'
+        '--upgrade:Install the latest release, or pinned_version'
         'upgrade:Alias for --upgrade'
     )
 
