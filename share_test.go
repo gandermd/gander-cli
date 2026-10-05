@@ -1431,6 +1431,354 @@ func TestShareRejectsInvalidConfigPolicyBeforeHTTP(t *testing.T) {
 	}
 }
 
+func stubPublicCommentsTTY(t *testing.T, tty bool, in string) {
+	t.Helper()
+	prevIn := confirmPublicCommentsIn
+	prevTTY := confirmPublicCommentsTTY
+	confirmPublicCommentsIn = strings.NewReader(in)
+	confirmPublicCommentsTTY = func() bool { return tty }
+	t.Cleanup(func() {
+		confirmPublicCommentsIn = prevIn
+		confirmPublicCommentsTTY = prevTTY
+	})
+}
+
+func TestConfirmPublicCommentsPrompt(t *testing.T) {
+	safe := shareOpts{DocVisibility: "private", CommentAccess: "private"}
+	if err := confirmPublicComments(safe, false); err != nil {
+		t.Fatalf("safe pair: %v", err)
+	}
+	danger := shareOpts{DocVisibility: "anyone", CommentAccess: "anyone"}
+	stubPublicCommentsTTY(t, false, "")
+	err := confirmPublicComments(danger, false)
+	if err == nil || !strings.Contains(err.Error(), "pass --yes") {
+		t.Fatalf("non-TTY err = %v", err)
+	}
+	if err := confirmPublicComments(danger, true); err != nil {
+		t.Fatalf("--yes: %v", err)
+	}
+}
+
+func TestConfirmPublicCommentsTTYAnswers(t *testing.T) {
+	danger := shareOpts{DocVisibility: "anyone", CommentAccess: "anyone"}
+	cases := []struct {
+		name    string
+		in      string
+		wantErr string
+	}{
+		{name: "y", in: "y\n"},
+		{name: "YES", in: "YES\n"},
+		{name: "n", in: "n\n", wantErr: "aborted"},
+		{name: "empty line", in: "\n", wantErr: "aborted"},
+		{name: "eof", in: "", wantErr: "aborted"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			stubPublicCommentsTTY(t, true, tc.in)
+			err := confirmPublicComments(danger, false)
+			if tc.wantErr == "" {
+				if err != nil {
+					t.Fatalf("confirm: %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("err = %v, want %q", err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestSharePublicCommentsRequiresOptIn(t *testing.T) {
+	stubPublicCommentsTTY(t, false, "")
+	posts := 0
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/shares", func(w http.ResponseWriter, r *http.Request) {
+		posts++
+		http.Error(w, "should not be called", http.StatusInternalServerError)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	md := setupShareHome(t, srv.URL)
+
+	var shareErr error
+	_, stderr := captureStdIO(t, func() error {
+		shareErr = runShareWithCtx(context.Background(), []string{"--visibility=anyone", "--comments=anyone", md})
+		return nil
+	})
+	if shareErr == nil || !strings.Contains(shareErr.Error(), "pass --yes") {
+		t.Fatalf("err = %v", shareErr)
+	}
+	if posts != 0 {
+		t.Errorf("POST count = %d, want 0", posts)
+	}
+	if !strings.Contains(stderr, publicCommentsWarning) {
+		t.Errorf("stderr missing warning:\n%s", stderr)
+	}
+}
+
+func TestSharePublicCommentsYesSucceeds(t *testing.T) {
+	var captured map[string]any
+	var posts int
+	srv := newSharePolicyServer(t, &captured, &posts, true)
+	md := setupShareHome(t, srv.URL)
+
+	var shareErr error
+	stdout, stderr := captureStdIO(t, func() error {
+		shareErr = runShareWithCtx(context.Background(), []string{"--visibility=anyone", "--comments=anyone", "--yes", md})
+		return nil
+	})
+	if shareErr != nil {
+		t.Fatalf("share: %v", shareErr)
+	}
+	if posts != 1 {
+		t.Errorf("POST count = %d, want 1", posts)
+	}
+	if got, _ := captured["doc_visibility"].(string); got != "anyone" {
+		t.Errorf("doc_visibility = %q (body=%v)", got, captured)
+	}
+	if got, _ := captured["comment_access"].(string); got != "anyone" {
+		t.Errorf("comment_access = %q (body=%v)", got, captured)
+	}
+	if !strings.Contains(stderr, publicCommentsWarning) {
+		t.Errorf("stderr missing warning:\n%s", stderr)
+	}
+	if !strings.Contains(stdout, "https://gander.md/s/abc12345") {
+		t.Errorf("stdout missing URL:\n%s", stdout)
+	}
+}
+
+func TestSharePublicCommentsTTYConfirm(t *testing.T) {
+	stubPublicCommentsTTY(t, true, "y\n")
+	var captured map[string]any
+	var posts int
+	srv := newSharePolicyServer(t, &captured, &posts, true)
+	md := setupShareHome(t, srv.URL)
+	if err := runShareWithCtx(context.Background(), []string{"--visibility=anyone", "--comments=anyone", md}); err != nil {
+		t.Fatalf("share: %v", err)
+	}
+	if posts != 1 {
+		t.Errorf("POST count = %d, want 1", posts)
+	}
+	if got, _ := captured["comment_access"].(string); got != "anyone" {
+		t.Errorf("comment_access = %q", got)
+	}
+}
+
+func TestSharePublicCommentsTTYDecline(t *testing.T) {
+	stubPublicCommentsTTY(t, true, "n\n")
+	posts := 0
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/shares", func(w http.ResponseWriter, r *http.Request) {
+		posts++
+		http.Error(w, "should not be called", http.StatusInternalServerError)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	md := setupShareHome(t, srv.URL)
+	err := runShareWithCtx(context.Background(), []string{"--visibility=anyone", "--comments=anyone", md})
+	if err == nil || !strings.Contains(err.Error(), "aborted") {
+		t.Fatalf("err = %v", err)
+	}
+	if posts != 0 {
+		t.Errorf("POST count = %d, want 0", posts)
+	}
+}
+
+func TestShareConfigPublicCommentsRequiresYes(t *testing.T) {
+	stubPublicCommentsTTY(t, false, "")
+	posts := 0
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/shares", func(w http.ResponseWriter, r *http.Request) {
+		posts++
+		http.Error(w, "should not be called", http.StatusInternalServerError)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	md := setupShareHome(t, srv.URL)
+	patchConfig(t, func(cfg *Config) {
+		cfg.DocVisibility = "anyone"
+		cfg.CommentAccess = "anyone"
+	})
+	err := runShareWithCtx(context.Background(), []string{md})
+	if err == nil || !strings.Contains(err.Error(), "pass --yes") {
+		t.Fatalf("err = %v", err)
+	}
+	if posts != 0 {
+		t.Errorf("POST count = %d, want 0", posts)
+	}
+}
+
+func TestShareConfigPublicCommentsYes(t *testing.T) {
+	var captured map[string]any
+	var posts int
+	srv := newSharePolicyServer(t, &captured, &posts, true)
+	md := setupShareHome(t, srv.URL)
+	patchConfig(t, func(cfg *Config) {
+		cfg.DocVisibility = "anyone"
+		cfg.CommentAccess = "anyone"
+	})
+	if err := runShareWithCtx(context.Background(), []string{"--yes", md}); err != nil {
+		t.Fatalf("share: %v", err)
+	}
+	if got, _ := captured["doc_visibility"].(string); got != "anyone" {
+		t.Errorf("doc_visibility = %q (body=%v)", got, captured)
+	}
+	if got, _ := captured["comment_access"].(string); got != "anyone" {
+		t.Errorf("comment_access = %q (body=%v)", got, captured)
+	}
+}
+
+func TestShareExistingConfigPublicCommentsStaysOmitted(t *testing.T) {
+	stubPublicCommentsTTY(t, false, "")
+	var captured map[string]any
+	var posts int
+	srv := newSharePolicyServer(t, &captured, &posts, true)
+	md := setupShareHome(t, srv.URL)
+	canon, err := canonicalPath(md)
+	if err != nil {
+		t.Fatal(err)
+	}
+	patchConfig(t, func(cfg *Config) {
+		cfg.DocVisibility = "anyone"
+		cfg.CommentAccess = "anyone"
+		cfg.Shares[canon] = "abc12345"
+	})
+	if err := runShareWithCtx(context.Background(), []string{md}); err != nil {
+		t.Fatalf("share: %v", err)
+	}
+	for _, k := range []string{"comment_access", "doc_visibility"} {
+		if _, ok := captured[k]; ok {
+			t.Errorf("existing share must omit %s; body=%v", k, captured)
+		}
+	}
+}
+
+func TestShareCommentsAnyoneAloneDoesNotRequireYes(t *testing.T) {
+	stubPublicCommentsTTY(t, false, "")
+	var captured map[string]any
+	var posts int
+	srv := newSharePolicyServer(t, &captured, &posts, true)
+	md := setupShareHome(t, srv.URL)
+	var shareErr error
+	_, stderr := captureStdIO(t, func() error {
+		shareErr = runShareWithCtx(context.Background(), []string{"--comments=anyone", md})
+		return nil
+	})
+	if shareErr != nil {
+		t.Fatalf("share: %v", shareErr)
+	}
+	if got, _ := captured["comment_access"].(string); got != "anyone" {
+		t.Errorf("comment_access = %q", got)
+	}
+	if _, ok := captured["doc_visibility"]; ok {
+		t.Errorf("omitted visibility must stay omitted; body=%v", captured)
+	}
+	if strings.Contains(stderr, "visibility=anyone with comments=anyone") {
+		t.Errorf("stderr warned on comments=anyone alone:\n%s", stderr)
+	}
+}
+
+func TestShareYesOnFileWithoutPublicComments(t *testing.T) {
+	var captured map[string]any
+	var posts int
+	srv := newSharePolicyServer(t, &captured, &posts, true)
+	md := setupShareHome(t, srv.URL)
+	if err := runShareWithCtx(context.Background(), []string{"--yes", md}); err != nil {
+		t.Fatalf("share: %v", err)
+	}
+	if posts != 1 {
+		t.Errorf("POST count = %d, want 1", posts)
+	}
+	for _, k := range []string{"comment_access", "doc_visibility"} {
+		if _, ok := captured[k]; ok {
+			t.Errorf("body unexpectedly has %s=%v", k, captured[k])
+		}
+	}
+}
+
+func TestWatchPublicCommentsRequiresYes(t *testing.T) {
+	stubPublicCommentsTTY(t, false, "")
+	posts := 0
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/shares", func(w http.ResponseWriter, r *http.Request) {
+		posts++
+		http.Error(w, "should not be called", http.StatusInternalServerError)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	md := setupShareHome(t, srv.URL)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err := runWatchCmdWithCtx(ctx, []string{"--foreground", "--visibility=anyone", "--comments=anyone", md})
+	if err == nil || !strings.Contains(err.Error(), "pass --yes") {
+		t.Fatalf("err = %v", err)
+	}
+	if posts != 0 {
+		t.Errorf("POST count = %d, want 0", posts)
+	}
+}
+
+func TestShareDirPublicCommentsRequiresYes(t *testing.T) {
+	stubPublicCommentsTTY(t, false, "")
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	cfg := DefaultConfig()
+	cfg.APIToken = "gmd_t"
+	cfg.APIURL = "http://127.0.0.1:1"
+	if err := WriteConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	err := runShare([]string{"--watch", "--visibility=anyone", "--comments=anyone", dir})
+	if err == nil || !strings.Contains(err.Error(), "pass --yes") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestShareDirConfigPublicCommentsRequiresYes(t *testing.T) {
+	stubPublicCommentsTTY(t, false, "")
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	cfg := DefaultConfig()
+	cfg.APIToken = "gmd_t"
+	cfg.APIURL = "http://127.0.0.1:1"
+	cfg.DocVisibility = "anyone"
+	cfg.CommentAccess = "anyone"
+	if err := WriteConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	err := runShare([]string{"--watch", dir})
+	if err == nil || !strings.Contains(err.Error(), "pass --yes") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestPrintUsageMentionsPublicCommentsOptIn(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	cfg := DefaultConfig()
+	cfg.APIToken = "gmd_t"
+	if err := WriteConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	var buf strings.Builder
+	printUsage(&buf)
+	out := buf.String()
+	for _, want := range []string{
+		"visibility=anyone with comments=anyone",
+		"--yes",
+		"TTY",
+		"Omitting a flag leaves that field unset",
+		"https://gander.md/docs/visibility",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("usage missing %q\n%s", want, out)
+		}
+	}
+}
+
 func patchConfig(t *testing.T, mutate func(*Config)) {
 	t.Helper()
 	cfg, err := LoadConfig()
