@@ -1133,6 +1133,7 @@ func TestRunNoArgDevBuild(t *testing.T) {
 }
 
 func TestRunNoArgUpToDate(t *testing.T) {
+	isolateConfigHome(t)
 	prevVersion := Version
 	prevFetch := fetchLatestRelease
 	defer func() {
@@ -1164,6 +1165,7 @@ func TestRunNoArgUpToDate(t *testing.T) {
 }
 
 func TestRunNoArgUpdateAvailable(t *testing.T) {
+	isolateConfigHome(t)
 	prevVersion := Version
 	prevFetch := fetchLatestRelease
 	defer func() {
@@ -1193,6 +1195,7 @@ func TestRunNoArgUpdateAvailable(t *testing.T) {
 }
 
 func TestRunNoArgUpdateCheckError(t *testing.T) {
+	isolateConfigHome(t)
 	prevVersion := Version
 	prevFetch := fetchLatestRelease
 	defer func() {
@@ -1218,6 +1221,52 @@ func TestRunNoArgUpdateCheckError(t *testing.T) {
 	if !strings.Contains(out, "Usage:") {
 		t.Error("Usage header missing — usage should still print when update check fails")
 	}
+}
+
+func TestRunNoArgPinned(t *testing.T) {
+	isolateConfigHome(t)
+	cfg := DefaultConfig()
+	cfg.PinnedVersion = "v1.2.3"
+	if err := WriteConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	prevVersion := Version
+	prevFetch := fetchLatestRelease
+	prevTag := fetchReleaseByTag
+	defer func() {
+		Version = prevVersion
+		fetchLatestRelease = prevFetch
+		fetchReleaseByTag = prevTag
+	}()
+
+	Version = "v1.2.3"
+	fetchLatestRelease = func() (*releaseInfo, error) {
+		t.Fatal("fetchLatestRelease should not be called when pinned to the running version")
+		return nil, nil
+	}
+	fetchReleaseByTag = func(string) (*releaseInfo, error) {
+		t.Fatal("fetchReleaseByTag should not be called when pinned to the running version")
+		return nil, nil
+	}
+
+	var buf bytes.Buffer
+	runNoArg(&buf)
+	out := buf.String()
+	if !strings.Contains(out, "Pinned to v1.2.3.") {
+		t.Errorf("missing pin message; got: %q", firstLines(out, 3))
+	}
+	if strings.Contains(out, "Update available") || strings.Contains(out, "latest release") {
+		t.Errorf("pinned build should not offer an update; got: %q", firstLines(out, 3))
+	}
+}
+
+func isolateConfigHome(t *testing.T) {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("GANDER_CONFIG", "")
 }
 
 func TestPrintVersion(t *testing.T) {
