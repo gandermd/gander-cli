@@ -102,7 +102,7 @@ func TestCreateShareSendsPathField(t *testing.T) {
 	if got != mdFile {
 		t.Errorf("path = %q, want %q", got, mdFile)
 	}
-	for _, k := range []string{"comment_access", "doc_visibility"} {
+	for _, k := range []string{"comment_access", "doc_visibility", "install_source"} {
 		if _, ok := capturedBody[k]; ok {
 			t.Errorf("unset flags must omit %s; body=%v", k, capturedBody)
 		}

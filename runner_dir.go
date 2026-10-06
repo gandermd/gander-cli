@@ -111,6 +111,7 @@ func dirStateFromEntry(e *watchEntry) *dirWatchState {
 			CommentAccess: e.info.CommentAccess,
 			DocVisibility: e.info.DocVisibility,
 			Labels:        e.info.Labels,
+			InstallSource: e.info.InstallSource,
 		},
 	}, 150*time.Millisecond)
 	for _, p := range e.dropped {
@@ -299,6 +300,7 @@ func (m *watchManager) registerDir(path, mode string, opts dirWatchOpts) (watchO
 		CommentAccess: opts.Policy.CommentAccess,
 		DocVisibility: opts.Policy.DocVisibility,
 		Labels:        opts.Policy.Labels,
+		InstallSource: opts.Policy.InstallSource,
 	}
 
 	cfg, _ := LoadConfig()

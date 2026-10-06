@@ -15,7 +15,7 @@ _gander_completions() {
 
     case "${COMP_WORDS[1]}" in
         signup)
-            COMPREPLY=( $(compgen -W "--email --force" -- "${cur}") )
+            COMPREPLY=( $(compgen -W "--email --force --source" -- "${cur}") )
             return 0
             ;;
         share)
@@ -29,7 +29,7 @@ _gander_completions() {
                     return 0
                     ;;
             esac
-            COMPREPLY=( $(compgen -W "--watch --foreground --silent --existing --no-recursive --glob --yes --visibility --comments --private --no-comments --label --no-labels" -- "${cur}") )
+            COMPREPLY=( $(compgen -W "--watch --foreground --silent --existing --no-recursive --glob --yes --visibility --comments --private --no-comments --label --no-labels --source" -- "${cur}") )
             return 0
             ;;
         watch)
@@ -43,7 +43,7 @@ _gander_completions() {
                     return 0
                     ;;
             esac
-            COMPREPLY=( $(compgen -W "--foreground --silent --existing --no-recursive --glob --yes --visibility --comments --private --no-comments --label --no-labels" -- "${cur}") )
+            COMPREPLY=( $(compgen -W "--foreground --silent --existing --no-recursive --glob --yes --visibility --comments --private --no-comments --label --no-labels --source" -- "${cur}") )
             COMPREPLY+=( $(compgen -f -- "${cur}") )
             return 0
             ;;

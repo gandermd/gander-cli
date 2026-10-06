@@ -53,6 +53,7 @@ type persistedWatch struct {
 	Started       time.Time `json:"started_at"`
 	CommentAccess string    `json:"comment_access,omitempty"`
 	DocVisibility string    `json:"doc_visibility,omitempty"`
+	InstallSource string    `json:"install_source,omitempty"`
 	Dropped       []string  `json:"dropped,omitempty"`
 }
 
@@ -157,6 +158,7 @@ func (m *watchManager) load() error {
 			StartedAt:     w.Started.UTC().Format(time.RFC3339),
 			CommentAccess: w.CommentAccess,
 			DocVisibility: w.DocVisibility,
+			InstallSource: w.InstallSource,
 		}
 		if kind == kindDir {
 			info.Recursive = true
@@ -209,6 +211,7 @@ func (m *watchManager) persist() error {
 			Started:       e.startedAt,
 			CommentAccess: e.info.CommentAccess,
 			DocVisibility: e.info.DocVisibility,
+			InstallSource: e.info.InstallSource,
 		}
 		if watchKind(e.info.Kind) == kindDir {
 			rec := e.info.Recursive

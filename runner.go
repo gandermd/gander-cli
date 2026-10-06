@@ -281,6 +281,7 @@ func handOffWatchDir(path, mode string, opts dirWatchOpts) error {
 		CommentAccess: opts.Policy.CommentAccess,
 		DocVisibility: opts.Policy.DocVisibility,
 		Labels:        opts.Policy.Labels,
+		InstallSource: opts.Policy.InstallSource,
 	})
 	if err != nil {
 		return err
