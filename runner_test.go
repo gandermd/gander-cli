@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestMain(m *testing.M) {
@@ -19,6 +20,14 @@ func TestMain(m *testing.M) {
 		}
 		os.Exit(0)
 	}
+	if len(os.Args) > 1 && os.Args[1] == "_preview" {
+		if err := runPreviewServer(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "_preview: %v\n", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+	signupPreviewIdle = 3 * time.Second
 	for _, k := range agentEnvKeys {
 		_ = os.Unsetenv(k)
 	}
@@ -258,7 +267,7 @@ func mustStateForTest(t *testing.T, path string) *watchState {
 		t.Fatal(err)
 	}
 	contentHTML, headings := renderMarkdownWithIDs(string(body))
-	html := []byte(buildHTML(contentHTML, headings, true))
+	html := []byte(buildHTML(contentHTML, headings, true, ""))
 	hash := hashBytes(body)
 	return newWatchState(path, html, contentHTML, headings, hash)
 }

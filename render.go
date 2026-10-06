@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"html"
 	"regexp"
 	"strings"
 
@@ -452,6 +453,68 @@ li + li { margin-top: 0.25em; }
 	flex-shrink: 0;
 	margin-left: auto;
 }
+.gander-share-signup {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: 0.4rem;
+}
+.gander-share-signup-btn,
+.gander-share-signup-form button {
+	font: inherit;
+	font-size: 0.8rem;
+	font-weight: 600;
+	line-height: 1.2;
+	color: var(--gander-on-primary);
+	background: var(--gander-primary);
+	border: 1px solid var(--gander-primary);
+	border-radius: 999px;
+	padding: 0.35rem 0.75rem;
+	cursor: pointer;
+	white-space: nowrap;
+}
+.gander-share-signup-btn:hover,
+.gander-share-signup-form button:hover {
+	background: var(--gander-primary-hover);
+	border-color: var(--gander-primary-hover);
+}
+.gander-share-signup-btn:focus-visible,
+.gander-share-signup-form button:focus-visible,
+.gander-share-signup-form input:focus-visible {
+	outline: 2px solid var(--gander-link);
+	outline-offset: 2px;
+}
+.gander-share-signup-form {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+}
+.gander-share-signup-form[hidden],
+.gander-share-signup-btn[hidden],
+.gander-share-signup-status[hidden] {
+	display: none;
+}
+.gander-share-signup-form input {
+	font: inherit;
+	font-size: 0.8rem;
+	color: var(--gander-fg);
+	background: var(--gander-bg);
+	border: 1px solid var(--gander-border-input);
+	border-radius: 999px;
+	padding: 0.3rem 0.65rem;
+	width: 12rem;
+	max-width: 50vw;
+}
+.gander-share-signup-status {
+	margin: 0;
+	color: var(--gander-muted);
+	font-size: 0.75rem;
+	max-width: 16rem;
+}
+.gander-share-signup-status--error {
+	color: var(--gander-danger);
+}
 .gander-theme-toggle {
 	position: relative;
 	width: 52px;
@@ -657,7 +720,73 @@ const reloadScript = `
 })();
 `
 
-func buildHTML(content string, headings []Heading, withLiveReload bool) string {
+func shareSignupControl(endpoint string) string {
+	if endpoint == "" {
+		return ""
+	}
+	return `<div class="gander-share-signup" id="gander-share-signup" data-endpoint="` + html.EscapeString(endpoint) + `">` +
+		`<button type="button" class="gander-share-signup-btn" id="gander-share-signup-btn">Share with your team</button>` +
+		`<form class="gander-share-signup-form" id="gander-share-signup-form" hidden>` +
+		`<input type="email" name="email" required autocomplete="email" placeholder="you@example.com" aria-label="Email">` +
+		`<button type="submit">Continue</button>` +
+		`</form>` +
+		`<p class="gander-share-signup-status" id="gander-share-signup-status" role="status" hidden></p>` +
+		`</div>`
+}
+
+const shareSignupScript = `
+(function() {
+	var root = document.getElementById('gander-share-signup');
+	if (!root) return;
+	var endpoint = root.getAttribute('data-endpoint');
+	var openBtn = document.getElementById('gander-share-signup-btn');
+	var form = document.getElementById('gander-share-signup-form');
+	var status = document.getElementById('gander-share-signup-status');
+	function showStatus(text, isError) {
+		status.hidden = false;
+		status.textContent = text;
+		status.classList.toggle('gander-share-signup-status--error', !!isError);
+	}
+	openBtn.addEventListener('click', function() {
+		openBtn.hidden = true;
+		form.hidden = false;
+		var input = form.querySelector('input');
+		if (input) input.focus();
+	});
+	form.addEventListener('submit', function(ev) {
+		ev.preventDefault();
+		var input = form.querySelector('input');
+		var submit = form.querySelector('button[type="submit"]');
+		var email = input ? input.value : '';
+		if (submit) submit.disabled = true;
+		showStatus('Finish your name and password in the signup tab.', false);
+		fetch(endpoint, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ email: email })
+		}).then(function(res) {
+			return res.json().then(function(body) {
+				return { body: body };
+			}, function() {
+				return { body: null };
+			});
+		}).then(function(out) {
+			if (out.body && out.body.ok) {
+				root.remove();
+				return;
+			}
+			var msg = (out.body && out.body.error) ? out.body.error : 'signup failed';
+			showStatus(msg, true);
+			if (submit) submit.disabled = false;
+		}).catch(function() {
+			showStatus('Could not reach signup.', true);
+			if (submit) submit.disabled = false;
+		});
+	});
+})();
+`
+
+func buildHTML(content string, headings []Heading, withLiveReload bool, signupEndpoint string) string {
 	headingsJSON := "[]"
 	if len(headings) > 0 {
 		b, _ := json.Marshal(headings)
@@ -680,8 +809,12 @@ func buildHTML(content string, headings []Heading, withLiveReload bool) string {
 		script = tocScript + reloadScript
 	}
 
-	toolbarHTML := `<div class="gander-md-meta gander-md-meta--chrome-only"><div class="gander-md-chrome">` + themeToggleButton("") + `</div></div>`
+	toolbarHTML := `<div class="gander-md-meta gander-md-meta--chrome-only"><div class="gander-md-chrome">` + shareSignupControl(signupEndpoint) + themeToggleButton("") + `</div></div>`
 	ctaHTML := fmt.Sprintf(`<div class="gander-md-cta"><div class="gander-md-viewer-logo">%s</div>Get your gander at <a href="https://gander.md/cli">gander.md/cli</a></div>`, viewerLogoSVG)
+	signupScriptTag := ""
+	if signupEndpoint != "" {
+		signupScriptTag = "<script>\n" + shareSignupScript + "\n</script>"
+	}
 
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en">
@@ -711,6 +844,7 @@ func buildHTML(content string, headings []Heading, withLiveReload bool) string {
 <script>
 %s
 </script>
+%s
 </body>
-</html>`, themeHead(cssStyle), headingsJSON, layoutClass, tocHTML, toolbarHTML, content, ctaHTML, mermaidInitScript, script, themeToggleScript)
+</html>`, themeHead(cssStyle), headingsJSON, layoutClass, tocHTML, toolbarHTML, content, ctaHTML, mermaidInitScript, script, themeToggleScript, signupScriptTag)
 }

@@ -254,6 +254,7 @@ func TestMaybeAutoUpdateSkips(t *testing.T) {
 		{"non-release", "0.5.0", []string{"gander", "list"}, ""},
 		{"prerelease", "v1.2.3-rc1", []string{"gander", "list"}, ""},
 		{"serve", "v1.2.3", []string{"gander", "_serve"}, ""},
+		{"preview", "v1.2.3", []string{"gander", "_preview"}, ""},
 		{"skip env", "v1.2.3", []string{"gander", "list"}, "1"},
 		{"upgrade flag", "v1.2.3", []string{"gander", "--upgrade"}, ""},
 		{"upgrade subcommand", "v1.2.3", []string{"gander", "upgrade"}, ""},

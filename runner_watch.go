@@ -354,9 +354,12 @@ func (m *watchManager) bindLocal(e *watchEntry) (*watchState, error) {
 		return nil, fmt.Errorf("read %s: %w", e.info.Path, err)
 	}
 	contentHTML, headings := renderMarkdownWithIDs(string(content))
-	html := []byte(buildHTML(contentHTML, headings, true))
+	ep := runnerSignupPath(e.info.ID, e.info.Token)
+	html := []byte(buildHTML(contentHTML, headings, true, localSignupEndpoint(ep)))
 	hash := hashBytes(content)
-	return newWatchState(e.info.Path, html, contentHTML, headings, hash), nil
+	state := newWatchState(e.info.Path, html, contentHTML, headings, hash)
+	state.signupEndpoint = ep
+	return state, nil
 }
 
 func (m *watchManager) serveLocal(e *watchEntry, state *watchState) {

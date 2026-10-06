@@ -181,11 +181,12 @@ gander path/to/file.md
 
 This will:
 1. Convert the Markdown to HTML
-2. Write the rendered preview to a temporary file (in your OS temp directory)
-3. Open it in your default browser via a `file://` URL
-4. Exit — the process does not keep running, no port is held open
+2. Open it in your default browser
+3. Exit
 
-Pass `--silent` to print the `file://` URL without opening a browser:
+If `~/.gander/config.json` has no API token, the preview is served on `127.0.0.1` and shows a **Share with your team** button. That helper exits after it has been idle for about ten minutes. If you are already signed up, the preview is a temporary `file://` file and no port is held open.
+
+Pass `--silent` to print the preview URL without opening a browser:
 
 ```bash
 gander --silent path/to/file.md

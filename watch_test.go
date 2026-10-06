@@ -16,7 +16,7 @@ func TestReloadFileUpdatesState(t *testing.T) {
 	}
 
 	html, headings := renderMarkdownWithIDs("# v1")
-	state := newWatchState(path, []byte(buildHTML(html, headings, true)), html, headings, hashBytes([]byte("# v1")))
+	state := newWatchState(path, []byte(buildHTML(html, headings, true, "")), html, headings, hashBytes([]byte("# v1")))
 
 	if err := os.WriteFile(path, []byte("# v2"), 0644); err != nil {
 		t.Fatal(err)
@@ -41,7 +41,7 @@ func TestReloadFileNoChangeIsNoop(t *testing.T) {
 	}
 
 	html, headings := renderMarkdownWithIDs(string(body))
-	state := newWatchState(path, []byte(buildHTML(html, headings, true)), html, headings, hashBytes(body))
+	state := newWatchState(path, []byte(buildHTML(html, headings, true, "")), html, headings, hashBytes(body))
 
 	state.mu.RLock()
 	before := string(state.htmlBytes)

@@ -199,7 +199,7 @@ func skipAutoUpdate() bool {
 	if os.Getenv(skipAutoUpdateEnv) == "1" {
 		return true
 	}
-	if len(os.Args) > 1 && os.Args[1] == "_serve" {
+	if len(os.Args) > 1 && (os.Args[1] == "_serve" || os.Args[1] == "_preview") {
 		return true
 	}
 	// Explicit upgrade installs and exits. Running it here would re-exec
