@@ -103,6 +103,16 @@ browser.
 If run with
 .BR \-\-watch ","
 the preview live\-reloadss in place on save.
+When no API token is saved, the preview shows a
+.B Share with your team
+button that asks for an email and runs the same signup as
+.BR "gander signup" .
+An unsigned one\-shot preview is served on
+.B 127.0.0.1
+and that helper exits after about ten minutes idle.
+Previews that already have an API token, and
+.BR \-outfile ,
+do not show the button.
 After registering with
 .B gander signup
 the

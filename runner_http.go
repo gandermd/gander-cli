@@ -115,6 +115,12 @@ func (h *runnerHTTP) handleWatch(w http.ResponseWriter, r *http.Request) {
 		serveWatchIndex(e.state, w, r)
 	case "events":
 		serveWatchEvents(e.state, w, r)
+	case "signup":
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		handleLocalSignup(w, r)
 	default:
 		http.NotFound(w, r)
 	}
@@ -124,10 +130,9 @@ func (h *runnerHTTP) handleWatch(w http.ResponseWriter, r *http.Request) {
 // without its path != "/" check (which made sense in foreground mode where
 // any non-root path was a 404, but the runner routes under /w/<id>).
 func serveWatchIndex(s *watchState, w http.ResponseWriter, r *http.Request) {
-	html, _ := s.snapshot()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
-	_, _ = w.Write(html)
+	_, _ = w.Write(s.previewHTML())
 }
 
 // serveWatchEvents streams SSE updates. Wraps watchState.handleEvents to

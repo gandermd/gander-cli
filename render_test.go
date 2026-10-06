@@ -8,7 +8,7 @@ import (
 )
 
 func TestBuildHTMLFavicon(t *testing.T) {
-	page := buildHTML("<p>x</p>", nil, false)
+	page := buildHTML("<p>x</p>", nil, false, "")
 	if !strings.Contains(page, `rel="icon"`) {
 		t.Error("buildHTML should include a favicon link")
 	}
@@ -31,7 +31,7 @@ func TestBuildHTMLFavicon(t *testing.T) {
 
 func TestBuildHTMLWithoutLiveReload(t *testing.T) {
 	html, headings := renderMarkdownWithIDs("# Hello\n\nWorld")
-	page := buildHTML(html, headings, false)
+	page := buildHTML(html, headings, false, "")
 
 	if strings.Contains(page, "EventSource") {
 		t.Error("buildHTML(..., false) should not include EventSource script")
@@ -49,7 +49,7 @@ func TestBuildHTMLWithoutLiveReload(t *testing.T) {
 
 func TestBuildHTMLWithLiveReload(t *testing.T) {
 	html, headings := renderMarkdownWithIDs("# Title\n\nbody")
-	page := buildHTML(html, headings, true)
+	page := buildHTML(html, headings, true, "")
 
 	if !strings.Contains(page, "EventSource('/events')") && !strings.Contains(page, `EventSource("/events")`) {
 		t.Error("buildHTML(..., true) should set up EventSource connection")
@@ -64,7 +64,7 @@ func TestBuildHTMLWithLiveReload(t *testing.T) {
 
 func TestBuildHTMLHeadingsJSON(t *testing.T) {
 	_, headings := renderMarkdownWithIDs("# A\n\n## B\n\nbody")
-	page := buildHTML("<p>x</p>", headings, false)
+	page := buildHTML("<p>x</p>", headings, false, "")
 
 	if !strings.Contains(page, `"level":1`) {
 		t.Error("buildHTML should embed headings JSON")
@@ -76,7 +76,7 @@ func TestBuildHTMLHeadingsJSON(t *testing.T) {
 
 func TestBuildHTMLNoTOCWhenFewHeadings(t *testing.T) {
 	_, headings := renderMarkdownWithIDs("# Only one")
-	page := buildHTML("<p>x</p>", headings, false)
+	page := buildHTML("<p>x</p>", headings, false, "")
 
 	if strings.Contains(page, `<ul id="toc-list"`) {
 		t.Error("buildHTML with <2 headings should not render TOC nav")
@@ -88,7 +88,7 @@ func TestBuildHTMLNoTOCWhenFewHeadings(t *testing.T) {
 
 func TestBuildHTMLLayoutClassWithTOC(t *testing.T) {
 	_, headings := renderMarkdownWithIDs("# A\n\n## B\n\nbody")
-	page := buildHTML("<p>x</p>", headings, false)
+	page := buildHTML("<p>x</p>", headings, false, "")
 
 	if strings.Contains(page, `id="gander-layout" class="gander-layout--no-toc"`) {
 		t.Error("buildHTML with >=2 headings should not mark the layout as no-toc")
@@ -176,7 +176,7 @@ func TestRenderMarkdownMermaidCodeBlock(t *testing.T) {
 
 func TestBuildHTMLIncludesMermaid(t *testing.T) {
 	_, _ = renderMarkdownWithIDs("hello")
-	page := buildHTML("<p>x</p>", nil, false)
+	page := buildHTML("<p>x</p>", nil, false, "")
 
 	if !strings.Contains(page, "mermaid.min.js") {
 		t.Error("buildHTML should load the Mermaid library from CDN")
@@ -197,7 +197,7 @@ func TestBuildHTMLIncludesMermaid(t *testing.T) {
 
 func TestBuildHTMLMermaidRunsAfterLiveReload(t *testing.T) {
 	_, _ = renderMarkdownWithIDs("hello")
-	page := buildHTML("<p>x</p>", nil, true)
+	page := buildHTML("<p>x</p>", nil, true, "")
 
 	idxReload := strings.Index(page, "EventSource")
 	if idxReload < 0 {
@@ -214,7 +214,7 @@ func TestBuildHTMLMermaidRunsAfterLiveReload(t *testing.T) {
 
 func TestBuildHTMLTOCLogoAndWordmark(t *testing.T) {
 	_, headings := renderMarkdownWithIDs("# A\n\n## B\n\nbody")
-	page := buildHTML("<p>x</p>", headings, false)
+	page := buildHTML("<p>x</p>", headings, false, "")
 
 	if !strings.Contains(page, `<a href="https://gander.md/" class="gander-toc-logo">`) {
 		t.Error("TOC should render a clickable logo link above 'On this page'")
@@ -229,7 +229,7 @@ func TestBuildHTMLTOCLogoAndWordmark(t *testing.T) {
 
 func TestBuildHTMLCTABelowMain(t *testing.T) {
 	_, headings := renderMarkdownWithIDs("# A\n\n## B\n\nbody")
-	page := buildHTML("<p>x</p>", headings, false)
+	page := buildHTML("<p>x</p>", headings, false, "")
 
 	if !strings.Contains(page, `class="gander-md-cta"`) {
 		t.Error("page should render the share-viewer footer CTA")
@@ -256,7 +256,7 @@ func TestBuildHTMLCTABelowMain(t *testing.T) {
 
 func TestBuildHTMLCTARendersWithoutTOC(t *testing.T) {
 	_, headings := renderMarkdownWithIDs("# Only one")
-	page := buildHTML("<p>x</p>", headings, false)
+	page := buildHTML("<p>x</p>", headings, false, "")
 
 	if !strings.Contains(page, `class="gander-md-cta"`) {
 		t.Error("CTA should render even when there is no TOC")
@@ -267,7 +267,7 @@ func TestBuildHTMLCTARendersWithoutTOC(t *testing.T) {
 }
 
 func TestBuildHTMLCSSIncludesNewClasses(t *testing.T) {
-	page := buildHTML("<p>x</p>", nil, false)
+	page := buildHTML("<p>x</p>", nil, false, "")
 	for _, cls := range []string{
 		".gander-md-cta",
 		".gander-md-viewer-logo",
@@ -284,7 +284,7 @@ func TestBuildHTMLCSSIncludesNewClasses(t *testing.T) {
 
 func TestBuildHTMLContentBodyInsideMain(t *testing.T) {
 	_, headings := renderMarkdownWithIDs("# A\n\n## B\n\nbody")
-	page := buildHTML("<p>x</p>", headings, true)
+	page := buildHTML("<p>x</p>", headings, true, "")
 
 	bodyOpen := strings.Index(page, `<div id="content-body">`)
 	if bodyOpen < 0 {
@@ -325,7 +325,7 @@ func TestBuildHTMLContentBodyInsideMain(t *testing.T) {
 }
 
 func TestBuildHTMLMermaidScopesToContentBody(t *testing.T) {
-	page := buildHTML("<p>x</p>", nil, false)
+	page := buildHTML("<p>x</p>", nil, false, "")
 
 	if !strings.Contains(page, `getElementById('content-body')`) {
 		t.Error("mermaid init script should scope to #content-body")
@@ -336,7 +336,7 @@ func TestBuildHTMLMermaidScopesToContentBody(t *testing.T) {
 }
 
 func TestThemeBootScriptInHeadBeforeStyle(t *testing.T) {
-	page := buildHTML("<p>x</p>", nil, false)
+	page := buildHTML("<p>x</p>", nil, false, "")
 	boot := strings.Index(page, "gander-theme")
 	style := strings.Index(page, "<style>")
 	if boot < 0 {
@@ -358,7 +358,7 @@ func TestThemeBootScriptInHeadBeforeStyle(t *testing.T) {
 }
 
 func TestThemeTokensPresent(t *testing.T) {
-	page := buildHTML("<p>x</p>", nil, false)
+	page := buildHTML("<p>x</p>", nil, false, "")
 	for _, want := range []string{
 		"--gander-bg",
 		"--gander-fg",
@@ -449,7 +449,7 @@ func TestNoRuntimePrefersColorScheme(t *testing.T) {
 
 func TestThemeToggleOutsideContentBody(t *testing.T) {
 	_, headings := renderMarkdownWithIDs("# A\n\n## B\n\nbody")
-	page := buildHTML("<p>x</p>", headings, true)
+	page := buildHTML("<p>x</p>", headings, true, "")
 
 	bodyOpen := strings.Index(page, `<div id="content-body">`)
 	if bodyOpen < 0 {
@@ -478,7 +478,7 @@ func TestThemeToggleOutsideContentBody(t *testing.T) {
 }
 
 func TestThemeToggleWithoutTOC(t *testing.T) {
-	page := buildHTML("<p>x</p>", nil, false)
+	page := buildHTML("<p>x</p>", nil, false, "")
 	if strings.Contains(page, "gander-theme-toggle--toc") {
 		t.Error("no-TOC pages should not render a TOC toggle")
 	}
@@ -494,7 +494,7 @@ func TestThemeToggleWithoutTOC(t *testing.T) {
 }
 
 func TestThemeToggleAccessible(t *testing.T) {
-	page := buildHTML("<p>x</p>", nil, false)
+	page := buildHTML("<p>x</p>", nil, false, "")
 	if !strings.Contains(page, `aria-label="Dark mode"`) {
 		t.Error("toggle must have aria-label=\"Dark mode\"")
 	}
@@ -527,8 +527,58 @@ func TestThemeChromeCluster(t *testing.T) {
 	}
 }
 
+func TestBuildHTMLShareSignupButton(t *testing.T) {
+	page := buildHTML("<p>x</p>", nil, false, "/signup")
+	if !strings.Contains(page, "Share with your team") {
+		t.Fatal("signup endpoint should render the share button")
+	}
+	if !strings.Contains(page, `type="email"`) {
+		t.Fatal("signup control should include an email field")
+	}
+	if !strings.Contains(page, `data-endpoint="/signup"`) {
+		t.Fatal("signup control should post to the given endpoint")
+	}
+	if !strings.Contains(page, "Finish your name and password in the signup tab.") {
+		t.Fatal("signup script should tell the reader to finish in the signup tab")
+	}
+	if strings.Contains(page, "window.prompt") {
+		t.Fatal("email must be collected in the page, not window.prompt")
+	}
+	if !strings.Contains(page, `gander.md/cli`) {
+		t.Fatal("footer CTA should stay")
+	}
+	chrome := page[strings.Index(page, `class="gander-md-chrome"`):]
+	btn := strings.Index(chrome, "Share with your team")
+	toggle := strings.Index(chrome, "gander-theme-toggle")
+	if btn < 0 || toggle < 0 || btn > toggle {
+		t.Fatal("share button should render in the chrome before the theme toggle")
+	}
+	bodyOpen := strings.Index(page, `<div id="content-body">`)
+	bodyClose := strings.Index(page[bodyOpen:], `</div>`)
+	inner := page[bodyOpen : bodyOpen+bodyClose]
+	if strings.Contains(inner, "Share with your team") || strings.Contains(inner, "gander-share-signup") {
+		t.Fatal("signup control must sit outside #content-body")
+	}
+
+	plain := buildHTML("<p>x</p>", nil, true, "")
+	if strings.Contains(plain, "Share with your team") || strings.Contains(plain, `type="email"`) || strings.Contains(plain, `id="gander-share-signup"`) {
+		t.Fatal("empty endpoint should omit the signup control")
+	}
+	if !strings.Contains(plain, "EventSource") {
+		t.Fatal("live reload should still render when signup is omitted")
+	}
+
+	escaped := buildHTML("<p>x</p>", nil, false, `/signup?t=ab&c<d"`)
+	if !strings.Contains(escaped, `data-endpoint="/signup?t=ab&amp;c&lt;d&#34;"`) {
+		t.Fatal("signup endpoint must be HTML-escaped")
+	}
+	if strings.Contains(escaped, "api_token") {
+		t.Fatal("preview HTML must not mention api_token")
+	}
+}
+
 func TestMermaidHonorsTheme(t *testing.T) {
-	page := buildHTML("<p>x</p>", nil, false)
+	page := buildHTML("<p>x</p>", nil, false, "")
 	for _, want := range []string{
 		"mermaid.initialize",
 		"'dark'",

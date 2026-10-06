@@ -283,6 +283,12 @@ func TestWatchCmdEqualsShareWatch(t *testing.T) {
 
 func TestOneShotSilentDoesNotOpenBrowser(t *testing.T) {
 	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	cfg := DefaultConfig()
+	cfg.APIToken = "gmd_test"
+	if err := WriteConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
 	md := filepath.Join(tmp, "doc.md")
 	if err := os.WriteFile(md, []byte("# hi"), 0644); err != nil {
 		t.Fatal(err)
@@ -301,13 +307,19 @@ func TestOneShotSilentDoesNotOpenBrowser(t *testing.T) {
 	if opened != 0 {
 		t.Errorf("opened browser %d times for silent one-shot", opened)
 	}
-	if !strings.Contains(stdout, "Preview at:") {
-		t.Errorf("silent one-shot should still print URL:\n%s", stdout)
+	if !strings.Contains(stdout, "file://") {
+		t.Errorf("signed-up one-shot should stay a file URL:\n%s", stdout)
 	}
 }
 
 func TestOneShotOpensBrowserOnce(t *testing.T) {
 	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	cfg := DefaultConfig()
+	cfg.APIToken = "gmd_test"
+	if err := WriteConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
 	md := filepath.Join(tmp, "doc.md")
 	if err := os.WriteFile(md, []byte("# hi"), 0644); err != nil {
 		t.Fatal(err)
@@ -326,8 +338,8 @@ func TestOneShotOpensBrowserOnce(t *testing.T) {
 	if opened != 1 {
 		t.Errorf("opened browser %d times, want 1", opened)
 	}
-	if !strings.Contains(stdout, "Preview at:") {
-		t.Errorf("one-shot should print URL:\n%s", stdout)
+	if !strings.Contains(stdout, "file://") {
+		t.Errorf("signed-up one-shot should stay a file URL:\n%s", stdout)
 	}
 }
 

@@ -22,15 +22,31 @@ func runSignup(args []string) error {
 		return fmt.Errorf("usage: gander signup --email you@example.com")
 	}
 
-	cfg, err := LoadConfig()
+	token, err := completeSignup(*email)
 	if err != nil {
 		return err
 	}
 
-	cli := newAPIClient(cfg.APIURL, "")
-	intent, err := cli.Signup(*email)
+	fmt.Printf("Signed up %s.\n", *email)
+	fmt.Printf("API token saved to ~/.gander/config.json (chmod 600).\n")
+	fmt.Printf("Your token (also stored on disk): %s\n", token)
+	return nil
+}
+
+// completeSignup creates a signup intent, opens the signup form, polls until
+// the token exists, and stores email plus api_token. It does not print the
+// token; runSignup does that, so an HTTP handler can call this without
+// putting the token in the response.
+func completeSignup(email string) (string, error) {
+	cfg, err := LoadConfig()
 	if err != nil {
-		return fmt.Errorf("signup: %w", err)
+		return "", err
+	}
+
+	cli := newAPIClient(cfg.APIURL, "")
+	intent, err := cli.Signup(email)
+	if err != nil {
+		return "", fmt.Errorf("signup: %w", err)
 	}
 
 	fmt.Printf("Opening %s in your browser...\n", intent.SignupURL)
@@ -43,19 +59,15 @@ func runSignup(args []string) error {
 
 	token, err := pollSignupIntent(cli, intent.IntentID)
 	if err != nil {
-		return fmt.Errorf("signup: %w", err)
+		return "", fmt.Errorf("signup: %w", err)
 	}
 
-	cfg.Email = *email
+	cfg.Email = email
 	cfg.APIToken = token
 	if err := WriteConfig(cfg); err != nil {
-		return fmt.Errorf("save config: %w", err)
+		return "", fmt.Errorf("save config: %w", err)
 	}
-
-	fmt.Printf("Signed up %s.\n", *email)
-	fmt.Printf("API token saved to ~/.gander/config.json (chmod 600).\n")
-	fmt.Printf("Your token (also stored on disk): %s\n", token)
-	return nil
+	return token, nil
 }
 
 func pollSignupIntent(cli *apiClient, intentID string) (string, error) {

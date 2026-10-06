@@ -34,6 +34,12 @@ func main() {
 				os.Exit(1)
 			}
 			return
+		case "_preview":
+			if err := runPreviewServer(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "_preview: %v\n", err)
+				os.Exit(1)
+			}
+			return
 		case "--version", "version":
 			printVersion(os.Stdout)
 			return
@@ -274,6 +280,20 @@ func runOneShotPreview(absPath string, silent bool) error {
 	if err != nil {
 		return fmt.Errorf("Failed to read file: %v", err)
 	}
+	if !signedUp() {
+		url, err := startSignupPreview(absPath, content)
+		if err != nil {
+			return fmt.Errorf("Failed to serve preview: %v", err)
+		}
+		fmt.Printf("Preview at: %s\n", url)
+		if silent {
+			return nil
+		}
+		if err := openBrowser(url); err != nil {
+			log.Printf("Warning: could not open browser: %v", err)
+		}
+		return nil
+	}
 	tmpPath, err := writeHTMLToTemp(content)
 	if err != nil {
 		return fmt.Errorf("Failed to write temp HTML: %v", err)
@@ -385,7 +405,7 @@ func flagWasSet(name string) bool {
 
 func writeHTMLTo(outPath string, content []byte) error {
 	html, headings := renderMarkdownWithIDs(string(content))
-	page := buildHTML(html, headings, false)
+	page := buildHTML(html, headings, false, "")
 	return os.WriteFile(outPath, []byte(page), 0644)
 }
 

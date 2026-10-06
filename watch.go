@@ -27,14 +27,15 @@ import (
 )
 
 type watchState struct {
-	absPath     string
-	htmlBytes   []byte
-	contentHTML string
-	headings    []Heading
-	mu          sync.RWMutex
-	subs        map[chan string]struct{}
-	subMu       sync.Mutex
-	lastHash    string
+	absPath        string
+	htmlBytes      []byte
+	contentHTML    string
+	headings       []Heading
+	mu             sync.RWMutex
+	subs           map[chan string]struct{}
+	subMu          sync.Mutex
+	lastHash       string
+	signupEndpoint string
 }
 
 func newWatchState(absPath string, initialHTML []byte, initialContent string, initialHeadings []Heading, lastHash string) *watchState {
@@ -54,6 +55,19 @@ func (s *watchState) snapshot() (html []byte, content string) {
 	out := make([]byte, len(s.htmlBytes))
 	copy(out, s.htmlBytes)
 	return out, s.contentHTML
+}
+
+// previewHTML rebuilds when this watch can offer signup, so a refresh after
+// the token lands drops the button without waiting for the next file save.
+func (s *watchState) previewHTML() []byte {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.signupEndpoint == "" {
+		out := make([]byte, len(s.htmlBytes))
+		copy(out, s.htmlBytes)
+		return out
+	}
+	return []byte(buildHTML(s.contentHTML, s.headings, true, localSignupEndpoint(s.signupEndpoint)))
 }
 
 func (s *watchState) update(contentHTML string, html []byte, headings []Heading, hash string) {
@@ -96,10 +110,9 @@ func (s *watchState) handleIndex(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	html, _ := s.snapshot()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
-	_, _ = w.Write(html)
+	_, _ = w.Write(s.previewHTML())
 }
 
 func (s *watchState) handleEvents(w http.ResponseWriter, r *http.Request) {
@@ -154,10 +167,11 @@ func runWatchCtx(parent context.Context, absPath string, cfg Config, silent bool
 	}
 
 	contentHTML, headings := renderMarkdownWithIDs(string(content))
-	html := []byte(buildHTML(contentHTML, headings, true))
+	html := []byte(buildHTML(contentHTML, headings, true, localSignupEndpoint("/signup")))
 	hash := hashBytes(content)
 
 	state := newWatchState(absPath, html, contentHTML, headings, hash)
+	state.signupEndpoint = "/signup"
 
 	ctx, stop := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -189,6 +203,7 @@ func serveWatchForever(ctx context.Context, s *watchState, port, debounceMs int,
 	}
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("POST /signup", handleLocalSignup)
 	mux.HandleFunc("/", s.handleIndex)
 	mux.HandleFunc("/events", s.handleEvents)
 
@@ -283,7 +298,7 @@ func reloadFile(s *watchState, absPath string) error {
 	s.mu.RUnlock()
 
 	contentHTML, headings := renderMarkdownWithIDs(string(data))
-	html := []byte(buildHTML(contentHTML, headings, true))
+	html := []byte(buildHTML(contentHTML, headings, true, localSignupEndpoint(s.signupEndpoint)))
 	s.update(contentHTML, html, headings, h)
 	fmt.Println("Reloaded.")
 	return nil
