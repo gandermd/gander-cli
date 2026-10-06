@@ -28,7 +28,7 @@ func runWatchCmdWithCtx(ctx context.Context, args []string) error {
 	return runShareWithCtx(ctx, append([]string{"--watch"}, args...))
 }
 
-const shareUsage = "usage: gander share [--watch] [--foreground] [--silent] [--existing] [--no-recursive] [--glob=pattern] [--yes] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] [--label name] [--no-labels] <file.md|dir>"
+const shareUsage = "usage: gander share [--watch] [--foreground] [--silent] [--existing] [--no-recursive] [--glob=pattern] [--yes] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] [--label name] [--no-labels] [--source cli|skill|plugin-claude|plugin-cursor|plugin-grok|unknown] <file.md|dir>"
 
 func runShareWithCtx(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("share", flag.ContinueOnError)
@@ -46,6 +46,7 @@ func runShareWithCtx(ctx context.Context, args []string) error {
 	var labels stringList
 	fs.Var(&labels, "label", "set a label (repeatable; replaces the set)")
 	noLabels := fs.Bool("no-labels", false, "clear labels")
+	sourceFlag := fs.String("source", "", "install source (cli, skill, plugin-claude, plugin-cursor, plugin-grok, unknown); default GANDER_SOURCE")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -55,6 +56,10 @@ func runShareWithCtx(ctx context.Context, args []string) error {
 	}
 
 	opts, err := shareOptsFromFlags(fs, *comments, *visibility, *private, *noComments, labels, *noLabels)
+	if err != nil {
+		return err
+	}
+	opts.InstallSource, err = resolveInstallSource(*sourceFlag)
 	if err != nil {
 		return err
 	}

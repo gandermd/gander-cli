@@ -27,6 +27,7 @@ type ipcRequest struct {
 	CommentAccess string    `json:"comment_access,omitempty"`
 	DocVisibility string    `json:"doc_visibility,omitempty"`
 	Labels        *[]string `json:"labels,omitempty"`
+	InstallSource string    `json:"install_source,omitempty"`
 }
 
 type ipcResponse struct {
@@ -60,6 +61,7 @@ type watchOut struct {
 	CommentAccess string    `json:"comment_access,omitempty"`
 	DocVisibility string    `json:"doc_visibility,omitempty"`
 	Labels        *[]string `json:"labels,omitempty"`
+	InstallSource string    `json:"install_source,omitempty"`
 }
 
 type ipcServer struct {
@@ -161,6 +163,7 @@ func (s *ipcServer) route(req ipcRequest) ipcResponse {
 				CommentAccess: req.CommentAccess,
 				DocVisibility: req.DocVisibility,
 				Labels:        req.Labels,
+				InstallSource: req.InstallSource,
 			},
 		})
 		if err != nil {

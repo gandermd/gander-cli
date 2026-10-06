@@ -8,6 +8,7 @@ gander \- render Markdown locally, optionally share it on gander.md
 .sp
 .B gander signup
 .RB [ \-email \ Iemail\fR]
+.RB [ \-\-source =\fIcli|skill|plugin\-claude|plugin\-cursor|plugin\-grok|unknown\fR]
 .sp
 .B gander share
 .RB [ \-watch ]
@@ -22,6 +23,7 @@ gander \- render Markdown locally, optionally share it on gander.md
 .RB [ \-\-no\-comments ]
 .RB [ \-\-label \ \fIname\fR]
 .RB [ \-\-no\-labels ]
+.RB [ \-\-source =\fIcli|skill|plugin\-claude|plugin\-cursor|plugin\-grok|unknown\fR]
 .IR file.md | dir
 .sp
 .B gander watch
@@ -36,6 +38,7 @@ gander \- render Markdown locally, optionally share it on gander.md
 .RB [ \-\-no\-comments ]
 .RB [ \-\-label \ \fIname\fR]
 .RB [ \-\-no\-labels ]
+.RB [ \-\-source =\fIcli|skill|plugin\-claude|plugin\-cursor|plugin\-grok|unknown\fR]
 .IR file.md | dir
 .sp
 .B gander status
@@ -263,6 +266,13 @@ With a directory, filename glob (default
 .TP
 .B \-\-yes
 Confirm onboarding more than 50 existing files.
+.TP
+.BI \-\-source =\fIcli|skill|plugin\-claude|plugin\-cursor|plugin\-grok|unknown\fR
+Install source sent on signup and on the first hosted share or watch.
+Overrides
+.BR GANDER_SOURCE .
+Omitted when neither is set, so an older server is not sent an unknown JSON key.
+The server keeps the first value it stores and does not change it later.
 .TP
 .B \-\-silent
 Create or refresh the share without opening a browser.
@@ -650,6 +660,25 @@ fallback only applies when
 .B GANDER_CONFIG
 is unset; named profiles never fall back to
 .IR .mdp .
+.TP
+.B GANDER_SOURCE
+Install source used by
+.B signup
+and hosted
+.B share
+/
+.B watch
+when
+.B \-\-source
+is not passed.
+Recognized values:
+.BR cli ,
+.BR skill ,
+.BR plugin\-claude ,
+.BR plugin\-cursor ,
+.BR plugin\-grok ,
+.BR unknown .
+Unset means the CLI omits the field.
 Names must be a single path component (no
 .RB \(lq / \(rq,
 .RB \(lq \e \(rq,

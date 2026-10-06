@@ -15,14 +15,15 @@ var (
 func runSignup(args []string) error {
 	fs := flag.NewFlagSet("signup", flag.ContinueOnError)
 	email := fs.String("email", "", "email address to register")
+	sourceFlag := fs.String("source", "", "install source (cli, skill, plugin-claude, plugin-cursor, plugin-grok, unknown); default GANDER_SOURCE")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if *email == "" {
-		return fmt.Errorf("usage: gander signup --email you@example.com")
+		return fmt.Errorf("usage: gander signup --email you@example.com [--source skill]")
 	}
 
-	token, err := completeSignup(*email)
+	token, err := completeSignupSource(*email, *sourceFlag)
 	if err != nil {
 		return err
 	}
@@ -38,13 +39,21 @@ func runSignup(args []string) error {
 // token; runSignup does that, so an HTTP handler can call this without
 // putting the token in the response.
 func completeSignup(email string) (string, error) {
+	return completeSignupSource(email, "")
+}
+
+func completeSignupSource(email, sourceFlag string) (string, error) {
+	source, err := resolveInstallSource(sourceFlag)
+	if err != nil {
+		return "", err
+	}
 	cfg, err := LoadConfig()
 	if err != nil {
 		return "", err
 	}
 
 	cli := newAPIClient(cfg.APIURL, "")
-	intent, err := cli.Signup(email)
+	intent, err := cli.Signup(email, source)
 	if err != nil {
 		return "", fmt.Errorf("signup: %w", err)
 	}

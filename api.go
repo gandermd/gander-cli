@@ -84,6 +84,7 @@ type shareOpts struct {
 	CommentAccess string
 	DocVisibility string
 	Labels        *[]string
+	InstallSource string
 }
 
 type commentView struct {
@@ -173,9 +174,13 @@ func (c *apiClient) doStatus(method, path string, body, dst any) (int, error) {
 	return resp.StatusCode, nil
 }
 
-func (c *apiClient) Signup(email string) (*signupIntentResp, error) {
+func (c *apiClient) Signup(email, installSource string) (*signupIntentResp, error) {
 	var out signupIntentResp
-	if err := c.do("POST", "/api/signup/intent", map[string]string{"email": email}, &out); err != nil {
+	body := map[string]string{"email": email}
+	if installSource != "" {
+		body["install_source"] = installSource
+	}
+	if err := c.do("POST", "/api/signup/intent", body, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -246,6 +251,9 @@ func (c *apiClient) CreateShare(filename, path, content string, watch bool, opts
 	}
 	if opts.Labels != nil {
 		body["labels"] = *opts.Labels
+	}
+	if opts.InstallSource != "" {
+		body["install_source"] = opts.InstallSource
 	}
 	status, err := c.doStatus("POST", "/api/shares", body, &out)
 	if err != nil {
