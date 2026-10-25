@@ -279,6 +279,138 @@ func TestPrintUsageListsNewAndEditWhenAuthed(t *testing.T) {
 	}
 }
 
+func TestEditorURL(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"https://gander.md/s/abcd1234", "https://gander.md/s/abcd1234/edit"},
+		{"https://gander.md/s/abcd1234/", "https://gander.md/s/abcd1234/edit"},
+		{"https://gander.md/s/abcd1234//", "https://gander.md/s/abcd1234/edit"},
+		{"https://gander.md/s/abcd1234/edit", "https://gander.md/s/abcd1234/edit"},
+		{"https://gander.md/s/abcd1234/edit/", "https://gander.md/s/abcd1234/edit"},
+		{"https://gander.md/s/abcd1234?x=1", "https://gander.md/s/abcd1234/edit?x=1"},
+		{"https://gander.md/s/abcd1234/edit?x=1", "https://gander.md/s/abcd1234/edit?x=1"},
+		{"https://gander.md/s/abcd1234/#frag", "https://gander.md/s/abcd1234/edit#frag"},
+	}
+	for _, tc := range cases {
+		if got := editorURL(tc.in); got != tc.want {
+			t.Errorf("editorURL(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestEditOpensWebEditor(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("GANDER_CONFIG", "")
+	path := filepath.Join(t.TempDir(), "SECURITY.md")
+	if err := os.WriteFile(path, []byte("# security\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	const shareURL = "https://gander.md/s/abcd1234/"
+	srv := shareURLServer(t, shareURL)
+	writeAuthedConfig(t, srv.URL)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	var opened []string
+	prev := openBrowser
+	openBrowser = func(url string) error {
+		opened = append(opened, url)
+		cancel()
+		return nil
+	}
+	t.Cleanup(func() { openBrowser = prev })
+
+	if err := runEditWithCtx(ctx, []string{"--foreground", path}); err != nil {
+		t.Fatal(err)
+	}
+	if len(opened) != 1 || opened[0] != "https://gander.md/s/abcd1234/edit" {
+		t.Fatalf("opened %v", opened)
+	}
+}
+
+func TestEditSilentDoesNotOpenBrowser(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("GANDER_CONFIG", "")
+	path := filepath.Join(t.TempDir(), "SECURITY.md")
+	if err := os.WriteFile(path, []byte("# security\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	srv := shareURLServer(t, "https://gander.md/s/abcd1234")
+	writeAuthedConfig(t, srv.URL)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	opened := 0
+	prev := openBrowser
+	openBrowser = func(url string) error {
+		opened++
+		return nil
+	}
+	t.Cleanup(func() { openBrowser = prev })
+
+	if err := runEditWithCtx(ctx, []string{"--silent", "--foreground", path}); err != nil {
+		t.Fatal(err)
+	}
+	if opened != 0 {
+		t.Fatalf("silent edit opened %d browser tabs", opened)
+	}
+}
+
+func TestNewOpensWebEditor(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("GANDER_CONFIG", "")
+	dir := t.TempDir()
+	path := filepath.Join(dir, "notes.md")
+	srv := shareURLServer(t, "https://gander.md/s/abcd1234/edit")
+	writeAuthedConfig(t, srv.URL)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	var opened []string
+	prev := openBrowser
+	openBrowser = func(url string) error {
+		opened = append(opened, url)
+		cancel()
+		return nil
+	}
+	t.Cleanup(func() { openBrowser = prev })
+
+	if err := runNewWithCtx(ctx, []string{"--foreground", path}, newIO{isTTY: false, stdout: io.Discard}); err != nil {
+		t.Fatal(err)
+	}
+	if len(opened) != 1 || opened[0] != "https://gander.md/s/abcd1234/edit" {
+		t.Fatalf("opened %v", opened)
+	}
+}
+
+func shareURLServer(t *testing.T, shareURL string) *httptest.Server {
+	t.Helper()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/shares", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte("[]"))
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"uuid": "11111111-1111-1111-1111-111111111111", "short_id": "abcd1234",
+			"filename": "doc.md", "watch": true, "url": shareURL,
+			"labels": []string{},
+		})
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv
+}
+
 func writeAuthedConfig(t *testing.T, apiURL string) {
 	t.Helper()
 	cfg := DefaultConfig()

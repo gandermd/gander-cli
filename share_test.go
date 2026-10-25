@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestCanonicalPathAbsoluteClean(t *testing.T) {
@@ -877,8 +878,10 @@ func TestShareOpensBrowserOnce(t *testing.T) {
 	srv := newSharePolicyServer(t, &captured, &posts, true)
 	md := setupShareHome(t, srv.URL)
 	opened := 0
+	var openedURL string
 	openBrowser = func(url string) error {
 		opened++
+		openedURL = url
 		return nil
 	}
 
@@ -887,6 +890,9 @@ func TestShareOpensBrowserOnce(t *testing.T) {
 	}
 	if opened != 1 {
 		t.Errorf("opened browser %d times, want 1", opened)
+	}
+	if openedURL != "https://gander.md/s/abc12345" {
+		t.Errorf("share opened %q, want the reader URL", openedURL)
 	}
 	if posts != 1 {
 		t.Errorf("POST count = %d, want 1", posts)
@@ -998,6 +1004,30 @@ func TestShareSilentVisibilityAnyoneDoesNotOpenBrowser(t *testing.T) {
 	}
 	if _, ok := captured["silent"]; ok {
 		t.Errorf("must not send silent key; body=%v", captured)
+	}
+}
+
+func TestWatchOpensShareReader(t *testing.T) {
+	var posts int
+	var captured map[string]any
+	srv := newSharePolicyServer(t, &captured, &posts, true)
+	md := setupShareHome(t, srv.URL)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	var openedURL string
+	prev := openBrowser
+	t.Cleanup(func() { openBrowser = prev })
+	openBrowser = func(url string) error {
+		openedURL = url
+		cancel()
+		return nil
+	}
+
+	if err := runWatchCmdWithCtx(ctx, []string{"--foreground", md}); err != nil {
+		t.Fatalf("watch: %v", err)
+	}
+	if openedURL != "https://gander.md/s/abc12345" {
+		t.Errorf("watch opened %q, want the reader URL", openedURL)
 	}
 }
 

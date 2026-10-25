@@ -383,9 +383,10 @@ saves on the share are written back to the local file.
 .B new
 Create
 .I filename.md
-(a heading taken from the file name), upload it, and watch it. With no
-file name, prompt on a terminal for the name and then do the same.
-Local saves and saves on the share both update the other side.
+(a heading taken from the file name), upload it, watch it, and open the
+web editor. With no file name, prompt on a terminal for the name and
+then do the same. Local saves and saves on the share both update the
+other side.
 .B \-\-silent
 skips the browser.
 .B \-\-foreground
@@ -395,9 +396,11 @@ Refuses to overwrite an existing file.
 .TP
 .B edit
 Open an existing markdown file as a shared doc: upload it if needed,
-watch it, and open the share URL. Saves on the share write back to the
-local file, and local saves update the share. The file must already
-exist and must not be a directory.
+watch it, and open the web editor at the share URL with
+.B /edit
+appended. Saves on the share write back to the local file, and local
+saves update the share. The file must already exist and must not be a
+directory.
 .B \-\-silent
 and
 .B \-\-foreground
@@ -787,8 +790,8 @@ gander watch README.md
 .RE
 .PP
 Create a new shared markdown file, or edit one that is already on disk.
-Both watch the file, so a save on disk updates the share and a save on
-the share writes back to the file:
+Both open the web editor, and both watch the file, so a save on disk
+updates the share and a save on the share writes back to the file:
 .PP
 .RS
 .nf

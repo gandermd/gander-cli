@@ -53,7 +53,7 @@ func runNewWithCtx(ctx context.Context, args []string, nio newIO) error {
 		return err
 	}
 	fmt.Fprintf(nio.out(), "Created %s\n", path)
-	return runShareWithCtx(ctx, shareWatchArgs(*silent, *foreground, path))
+	return runShareOpeningEditor(ctx, shareWatchArgs(*silent, *foreground, path))
 }
 
 func (n newIO) out() io.Writer {

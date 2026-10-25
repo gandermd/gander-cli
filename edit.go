@@ -36,5 +36,5 @@ func runEditWithCtx(ctx context.Context, args []string) error {
 	if fi.IsDir() {
 		return fmt.Errorf("%s is a directory; edit a markdown file", canonical)
 	}
-	return runShareWithCtx(ctx, shareWatchArgs(*silent, *foreground, canonical))
+	return runShareOpeningEditor(ctx, shareWatchArgs(*silent, *foreground, canonical))
 }

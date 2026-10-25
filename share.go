@@ -7,9 +7,11 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -32,6 +34,14 @@ func runWatchCmdWithCtx(ctx context.Context, args []string) error {
 const shareUsage = "usage: gander share [--watch] [--foreground] [--silent] [--existing] [--no-recursive] [--glob=pattern] [--yes] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] [--label name] [--no-labels] [--source cli|skill|plugin-claude|plugin-cursor|plugin-grok|unknown] <file.md|dir>"
 
 func runShareWithCtx(ctx context.Context, args []string) error {
+	return runShareWithCtxOpts(ctx, args, false)
+}
+
+func runShareOpeningEditor(ctx context.Context, args []string) error {
+	return runShareWithCtxOpts(ctx, args, true)
+}
+
+func runShareWithCtxOpts(ctx context.Context, args []string, openEditor bool) error {
 	fs := flag.NewFlagSet("share", flag.ContinueOnError)
 	watch := fs.Bool("watch", false, "live-update the shared page as the file changes")
 	foreground := fs.Bool("foreground", false, "keep share --watch in-process instead of handing off to the runner")
@@ -117,7 +127,11 @@ func runShareWithCtx(ctx context.Context, args []string) error {
 		fmt.Printf("Shared %s as %s\n", canonical, sh.URL)
 	}
 	if !*silent && opts.DocVisibility != "hidden" {
-		openBrowserURL(sh.URL)
+		page := sh.URL
+		if openEditor {
+			page = editorURL(page)
+		}
+		openBrowserURL(page)
 	}
 	if *watch {
 		if *foreground {
@@ -290,6 +304,28 @@ func openBrowserURL(url string) {
 	if err := openBrowser(url); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: could not open browser: %v\n", err)
 	}
+}
+
+// editorURL is the web editor for a share. The stored share URL stays the
+// reader path so status and /events keep using it.
+func editorURL(shareURL string) string {
+	u, err := url.Parse(shareURL)
+	if err != nil || u.Host == "" {
+		return appendEditPath(shareURL)
+	}
+	u.Path = appendEditPath(u.Path)
+	return u.String()
+}
+
+func appendEditPath(p string) string {
+	p = strings.TrimRight(p, "/")
+	if strings.HasSuffix(p, "/edit") {
+		return p
+	}
+	if p == "" {
+		return "/edit"
+	}
+	return p + "/edit"
 }
 
 type watchPusher struct {
