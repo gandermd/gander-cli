@@ -7,9 +7,12 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -31,6 +34,14 @@ func runWatchCmdWithCtx(ctx context.Context, args []string) error {
 const shareUsage = "usage: gander share [--watch] [--foreground] [--silent] [--existing] [--no-recursive] [--glob=pattern] [--yes] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] [--label name] [--no-labels] [--source cli|skill|plugin-claude|plugin-cursor|plugin-grok|unknown] <file.md|dir>"
 
 func runShareWithCtx(ctx context.Context, args []string) error {
+	return runShareWithCtxOpts(ctx, args, false)
+}
+
+func runShareOpeningEditor(ctx context.Context, args []string) error {
+	return runShareWithCtxOpts(ctx, args, true)
+}
+
+func runShareWithCtxOpts(ctx context.Context, args []string, openEditor bool) error {
 	fs := flag.NewFlagSet("share", flag.ContinueOnError)
 	watch := fs.Bool("watch", false, "live-update the shared page as the file changes")
 	foreground := fs.Bool("foreground", false, "keep share --watch in-process instead of handing off to the runner")
@@ -116,7 +127,11 @@ func runShareWithCtx(ctx context.Context, args []string) error {
 		fmt.Printf("Shared %s as %s\n", canonical, sh.URL)
 	}
 	if !*silent && opts.DocVisibility != "hidden" {
-		openBrowserURL(sh.URL)
+		page := sh.URL
+		if openEditor {
+			page = editorURL(page)
+		}
+		openBrowserURL(page)
 	}
 	if *watch {
 		if *foreground {
@@ -228,6 +243,7 @@ func runWatchAndPushCtx(ctx context.Context, absPath string, sh *shareResp, cfg 
 		shortID:    sh.ShortID,
 		cli:        newAPIClient(cfg.APIURL, cfg.APIToken),
 		onArchived: runCancel,
+		acked:      sh.Version,
 	}
 	fmt.Printf("Watching %s — pushing changes to %s. Press Ctrl+C to stop.\n", absPath, sh.URL)
 	return serveShareWatcher(runCtx, pusher, absPath, cfg.DebounceMs)
@@ -240,6 +256,11 @@ func serveShareWatcher(ctx context.Context, pusher *watchPusher, absPath string,
 	debounce := time.Duration(debounceMs) * time.Millisecond
 	if debounce < 50*time.Millisecond {
 		debounce = 50 * time.Millisecond
+	}
+	if pusher != nil {
+		syncCtx, syncCancel := context.WithCancel(ctx)
+		defer syncCancel()
+		go listenShareWriteBack(syncCtx, pusher)
 	}
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -285,6 +306,28 @@ func openBrowserURL(url string) {
 	}
 }
 
+// editorURL is the web editor for a share. The stored share URL stays the
+// reader path so status and /events keep using it.
+func editorURL(shareURL string) string {
+	u, err := url.Parse(shareURL)
+	if err != nil || u.Host == "" {
+		return appendEditPath(shareURL)
+	}
+	u.Path = appendEditPath(u.Path)
+	return u.String()
+}
+
+func appendEditPath(p string) string {
+	p = strings.TrimRight(p, "/")
+	if strings.HasSuffix(p, "/edit") {
+		return p
+	}
+	if p == "" {
+		return "/edit"
+	}
+	return p + "/edit"
+}
+
 type watchPusher struct {
 	absPath    string
 	shareUUID  string
@@ -292,23 +335,47 @@ type watchPusher struct {
 	cli        *apiClient
 	onArchived func()
 
+	mu       sync.Mutex
 	lastHash string
+	acked    int
+}
+
+func (w *watchPusher) version() int {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.acked
+}
+
+func (w *watchPusher) noteVersion(v int) {
+	if v <= 0 {
+		return
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if v > w.acked {
+		w.acked = v
+	}
 }
 
 func (w *watchPusher) push() {
+	w.mu.Lock()
 	data, err := os.ReadFile(w.absPath)
 	if err != nil {
+		w.mu.Unlock()
 		log.Printf("read: %v", err)
 		return
 	}
 	sum := sha256.Sum256(data)
 	h := hex.EncodeToString(sum[:])
 	if h == w.lastHash {
+		w.mu.Unlock()
 		return
 	}
 	w.lastHash = h
+	w.mu.Unlock()
 
-	if _, err := w.cli.UpdateShare(w.shareUUID, string(data)); err != nil {
+	resp, err := w.cli.UpdateShare(w.shareUUID, string(data))
+	if err != nil {
 		if isArchivedConflict(err) {
 			log.Printf("share archived; stopping watch %s", w.absPath)
 			if w.onArchived != nil {
@@ -318,6 +385,13 @@ func (w *watchPusher) push() {
 		}
 		log.Printf("push to gandermd: %v", err)
 		return
+	}
+	if resp != nil && resp.Version > 0 {
+		w.mu.Lock()
+		if w.lastHash == h && resp.Version > w.acked {
+			w.acked = resp.Version
+		}
+		w.mu.Unlock()
 	}
 	fmt.Println("Pushed update.")
 }

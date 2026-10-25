@@ -473,6 +473,10 @@ func TestPushArchivedConflictDropsChildWatch(t *testing.T) {
 	var posts int
 	var mu sync.Mutex
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/watch/") {
+			http.NotFound(w, r)
+			return
+		}
 		mu.Lock()
 		defer mu.Unlock()
 		if r.Method == http.MethodPost {

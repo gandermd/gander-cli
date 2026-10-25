@@ -8,7 +8,7 @@ _gander_completions() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     if [[ ${COMP_CWORD} -eq 1 ]]; then
-        cmds="signup share watch remove archive list invite comments mcp skill uninstall status stop logs runner manage dashboard dash --d auth completion --upgrade upgrade --help -h -help help"
+        cmds="signup share watch new edit remove archive list invite comments mcp skill uninstall status stop logs runner manage dashboard dash --d auth completion --upgrade upgrade --help -h -help help"
         COMPREPLY=( $(compgen -W "${cmds}" -- "${cur}") )
         return 0
     fi
@@ -44,6 +44,11 @@ _gander_completions() {
                     ;;
             esac
             COMPREPLY=( $(compgen -W "--foreground --silent --existing --no-recursive --glob --yes --visibility --comments --private --no-comments --label --no-labels --source" -- "${cur}") )
+            COMPREPLY+=( $(compgen -f -- "${cur}") )
+            return 0
+            ;;
+        new|edit)
+            COMPREPLY=( $(compgen -W "--silent --foreground" -- "${cur}") )
             COMPREPLY+=( $(compgen -f -- "${cur}") )
             return 0
             ;;

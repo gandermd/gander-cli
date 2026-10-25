@@ -41,6 +41,16 @@ gander \- render Markdown locally, optionally share it on gander.md
 .RB [ \-\-source =\fIcli|skill|plugin\-claude|plugin\-cursor|plugin\-grok|unknown\fR]
 .IR file.md | dir
 .sp
+.B gander new
+.RB [ \-\-silent ]
+.RB [ \-\-foreground ]
+.RI [ filename.md ]
+.sp
+.B gander edit
+.RB [ \-\-silent ]
+.RB [ \-\-foreground ]
+.I file.md
+.sp
 .B gander status
 .sp
 .B gander stop
@@ -121,6 +131,8 @@ After registering with
 the
 .BR share ","
 .BR watch ","
+.BR new ","
+.BR edit ","
 .BR remove ","
 .B list ,
 .B invite ,
@@ -249,6 +261,16 @@ Continuously push local changes to the remote share until interrupted.
 Watch
 .B PUT
 updates send content only.
+While the watch is running, a save on the share is written back to the
+local file. The client posts
+.B watch/sync
+with
+.B file_hash
+and
+.BR version ,
+and confirms with
+.B watch/ack
+using those same fields.
 Required when the path is a directory.
 .TP
 .B \-\-existing
@@ -354,6 +376,36 @@ and
 .B \-\-no\-labels
 flags as
 .BR share .
+A watched share is bidirectional: local saves update the hosted page, and
+saves on the share are written back to the local file.
+.SS "New"
+.TP
+.B new
+Create
+.I filename.md
+(a heading taken from the file name), upload it, watch it, and open the
+web editor. With no file name, prompt on a terminal for the name and
+then do the same. Local saves and saves on the share both update the
+other side.
+.B \-\-silent
+skips the browser.
+.B \-\-foreground
+keeps the watch in this process.
+Refuses to overwrite an existing file.
+.SS "Edit"
+.TP
+.B edit
+Open an existing markdown file as a shared doc: upload it if needed,
+watch it, and open the web editor at the share URL with
+.B /edit
+appended. Saves on the share write back to the local file, and local
+saves update the share. The file must already exist and must not be a
+directory.
+.B \-\-silent
+and
+.B \-\-foreground
+behave as they do for
+.BR new .
 .SS "Status"
 .TP
 .B status
@@ -734,6 +786,18 @@ Live\-push the file to gander.md on every save (shorthand for
 .RS
 .nf
 gander watch README.md
+.fi
+.RE
+.PP
+Create a new shared markdown file, or edit one that is already on disk.
+Both open the web editor, and both watch the file, so a save on disk
+updates the share and a save on the share writes back to the file:
+.PP
+.RS
+.nf
+gander new notes.md
+gander new
+gander edit notes.md
 .fi
 .RE
 .PP

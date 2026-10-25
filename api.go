@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -53,6 +54,7 @@ type shareResp struct {
 	AgentUnresolvedCount int      `json:"agent_unresolved_count"`
 	Labels               []string `json:"labels"`
 	Archived             bool     `json:"archived,omitempty"`
+	Version              int      `json:"version,omitempty"`
 }
 
 type apiError struct {
@@ -268,6 +270,78 @@ func (c *apiClient) UpdateShare(uuid, content string) (*shareResp, error) {
 		return nil, err
 	}
 	return &out, nil
+}
+
+// watchSyncResp is the long-poll JSON body from POST /watch/sync.
+// The server parks on op "ok" (about 18s) before returning.
+type watchSyncResp struct {
+	Op          string  `json:"op"`
+	Version     int     `json:"version"`
+	Content     *string `json:"content,omitempty"`
+	Force       bool    `json:"force,omitempty"`
+	NeedContent bool    `json:"need_content,omitempty"`
+}
+
+// postWatchSync exchanges the local file hash and version for a server op.
+// content is sent only when the previous response set need_content.
+func (c *apiClient) postWatchSync(ctx context.Context, uuid, fileHash string, version int, content string, includeContent bool) (*watchSyncResp, error) {
+	body := map[string]any{
+		"file_hash": fileHash,
+		"version":   version,
+	}
+	if includeContent {
+		body["content"] = content
+	}
+	resp, err := c.doStream(ctx, http.MethodPost, fmt.Sprintf("/api/shares/%s/watch/sync", uuid), body)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var out watchSyncResp
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("decode sync: %w", err)
+	}
+	return &out, nil
+}
+
+func (c *apiClient) WatchAck(uuid, fileHash string, version int) error {
+	return c.do("POST", fmt.Sprintf("/api/shares/%s/watch/ack", uuid), map[string]any{
+		"file_hash": fileHash,
+		"version":   version,
+	}, nil)
+}
+
+func (c *apiClient) doStream(ctx context.Context, method, path string, body any) (*http.Response, error) {
+	var rdr io.Reader
+	if body != nil {
+		buf, err := json.Marshal(body)
+		if err != nil {
+			return nil, fmt.Errorf("marshal: %w", err)
+		}
+		rdr = bytes.NewReader(buf)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, c.base+path, rdr)
+	if err != nil {
+		return nil, err
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	req.Header.Set("Accept", "application/json")
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+	// No client timeout: watch/sync long-polls until the share changes.
+	resp, err := (&http.Client{}).Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request: %w", err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		resp.Body.Close()
+		return nil, &apiError{Status: resp.StatusCode, Body: string(raw)}
+	}
+	return resp, nil
 }
 
 func (c *apiClient) ArchiveShare(uuid string) (*shareResp, error) {

@@ -9,6 +9,8 @@ _gander() {
         'signup:Open signup form in your browser, save the API token'
         'share:Upload Markdown to gander.md and open the share link'
         'watch:Live-share a file or adopt new markdown in a directory'
+        'new:Create a markdown file, share it, and watch both ways'
+        'edit:Edit a shared markdown file; share saves write back to disk'
         'remove:Delete a share from gander.md'
         'archive:Hide a share; sharing the file again restores it'
         'list:List shares currently on gander.md'
@@ -77,6 +79,18 @@ _gander() {
                 '--no-labels[Clear labels]' \
                 '--source[Install source]:source:(cli skill plugin-claude plugin-cursor plugin-grok unknown)' \
                 '*:markdown file or directory:_files'
+            ;;
+        new)
+            _arguments \
+                '--silent[Create and share without opening a browser]' \
+                '--foreground[Keep the watch in-process instead of handing off to the runner]' \
+                '1:markdown file:_files'
+            ;;
+        edit)
+            _arguments \
+                '--silent[Share and watch without opening a browser]' \
+                '--foreground[Keep the watch in-process instead of handing off to the runner]' \
+                '1:markdown file:_files'
             ;;
         remove)
             _arguments \

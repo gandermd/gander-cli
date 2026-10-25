@@ -231,7 +231,7 @@ A local HTTP server is started on `127.0.0.1:7821` so the browser can receive ch
 
 ### Share on gander.md
 
-If you're running an agent that streams markdown to a file, `gander watch` is the shortest path from the agent's writes to your browser — open the URL once and every connected viewer sees the latest version in real time. `gander.md` is the public hosting service for gander. Once you sign up, you can `share`, `watch`, `list`, `archive`, and `remove` markdown from your terminal, mint team invites with `gander invite`, and viewers see the same live-reload preview and document chrome you'd see locally.
+If you're running an agent that streams markdown to a file, `gander watch` is the shortest path from the agent's writes to your browser — open the URL once and every connected viewer sees the latest version in real time. `gander.md` is the public hosting service for gander. Once you sign up, you can `share`, `watch`, `new`, `edit`, `list`, `archive`, and `remove` markdown from your terminal, mint team invites with `gander invite`, and viewers see the same live-reload preview and document chrome you'd see locally. `gander new` creates a file, shares it, and opens the web editor. `gander edit` opens an existing file in the web editor. While that file is watched, local saves update the share and saves on the share are written back to the file.
 
 ```bash
 gander signup --email you@example.com   # opens browser form, polls for API token
@@ -239,7 +239,11 @@ gander share README.md                  # opens https://gander.md/s/xK7m2pQa
 gander share README.md --silent         # same share, print URL, skip the browser
 gander watch README.md                  # upload + live-update the remote viewer on save
                                         # (same short id if you already shared that file from the dashboard)
+                                        # share saves write back to the local file
 gander watch README.md --silent         # same watch, print URL, skip the browser
+gander new notes.md                     # create notes.md, share it, and open the web editor
+gander new                              # prompt for a file name, then create, share, and open the editor
+gander edit notes.md                    # open the web editor; share saves write back
 gander share README.md --watch          # same as `watch`, spelled out
 gander share --watch --silent README.md # same as `watch --silent`
 gander watch ~/reports                  # adopt new .md under the folder; no extra browser tabs
@@ -391,6 +395,10 @@ Subcommands:
 gander signup --email <addr>      Open the signup form in your browser, save the API token
 gander share [--watch] [--silent] [--existing] [--no-recursive] [--glob=pattern] [--yes] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] [--label name] [--no-labels] <file|dir>
 gander watch [--silent] [--existing] [--no-recursive] [--glob=pattern] [--yes] [--visibility=anyone|private|hidden] [--private] [--comments=anyone|private|disabled] [--no-comments] [--label name] [--no-labels] <file|dir>
+gander new [filename.md] [--silent] [--foreground]
+                                  Create a markdown file, share it, and open the web editor
+gander edit [--silent] [--foreground] <file.md>
+                                  Open the web editor; share saves write back to disk
 gander status                     Show runner + active watches + URLs
 gander stop [<file>|<id>] [--all] Stop a watch (by file, id, or --all)
 gander logs [<id>]                Tail the runner log (optionally filtered by watch id)
