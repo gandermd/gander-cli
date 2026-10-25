@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -53,6 +54,7 @@ type shareResp struct {
 	AgentUnresolvedCount int      `json:"agent_unresolved_count"`
 	Labels               []string `json:"labels"`
 	Archived             bool     `json:"archived,omitempty"`
+	Version              int      `json:"version,omitempty"`
 }
 
 type apiError struct {
@@ -268,6 +270,67 @@ func (c *apiClient) UpdateShare(uuid, content string) (*shareResp, error) {
 		return nil, err
 	}
 	return &out, nil
+}
+
+// openWatchSync subscribes to share edits newer than baseVersion.
+// GET .../watch/sync?base_version=N is the live stream. A 405 or 400 falls
+// back to POST {"base_version": N} for servers that only accept a JSON body.
+func (c *apiClient) openWatchSync(ctx context.Context, uuid string, baseVersion int) (*http.Response, error) {
+	path := fmt.Sprintf("/api/shares/%s/watch/sync?base_version=%d", uuid, baseVersion)
+	resp, err := c.doStream(ctx, http.MethodGet, path, nil)
+	if err == nil {
+		return resp, nil
+	}
+	var ae *apiError
+	if errors.As(err, &ae) && (ae.Status == http.StatusNotFound || ae.Status == http.StatusMethodNotAllowed || ae.Status == http.StatusBadRequest) {
+		post, postErr := c.doStream(ctx, http.MethodPost, fmt.Sprintf("/api/shares/%s/watch/sync", uuid), map[string]int{
+			"base_version": baseVersion,
+		})
+		if postErr == nil {
+			return post, nil
+		}
+		return nil, postErr
+	}
+	return nil, err
+}
+
+func (c *apiClient) WatchAck(uuid string, baseVersion int) error {
+	return c.do("POST", fmt.Sprintf("/api/shares/%s/watch/ack", uuid), map[string]int{
+		"base_version": baseVersion,
+	}, nil)
+}
+
+func (c *apiClient) doStream(ctx context.Context, method, path string, body any) (*http.Response, error) {
+	var rdr io.Reader
+	if body != nil {
+		buf, err := json.Marshal(body)
+		if err != nil {
+			return nil, fmt.Errorf("marshal: %w", err)
+		}
+		rdr = bytes.NewReader(buf)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, c.base+path, rdr)
+	if err != nil {
+		return nil, err
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	req.Header.Set("Accept", "text/event-stream, application/json")
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+	// No client timeout: the sync stream stays open until the share changes.
+	resp, err := (&http.Client{}).Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request: %w", err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		resp.Body.Close()
+		return nil, &apiError{Status: resp.StatusCode, Body: string(raw)}
+	}
+	return resp, nil
 }
 
 func (c *apiClient) ArchiveShare(uuid string) (*shareResp, error) {

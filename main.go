@@ -55,6 +55,18 @@ func main() {
 				os.Exit(1)
 			}
 			return
+		case "new":
+			if err := runNew(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "new: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		case "edit":
+			if err := runEdit(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "edit: %v\n", err)
+				os.Exit(1)
+			}
+			return
 		case "watch":
 			if err := runWatchCmd(os.Args[2:]); err != nil {
 				fmt.Fprintf(os.Stderr, "watch: %v\n", err)
@@ -357,6 +369,10 @@ func printUsage(w io.Writer) {
 		fmt.Fprintln(w, "             [--visibility=anyone|private|hidden] [--private]")
 		fmt.Fprintln(w, "             [--comments=anyone|private|disabled] [--no-comments] [--label name] [--no-labels] <file|dir>")
 		fmt.Fprintln(w, "                                                              Live-share to gander.md and push every save (alias for `share --watch`)")
+		fmt.Fprintln(w, "  gander new [filename.md] [--silent] [--foreground]")
+		fmt.Fprintln(w, "                                                              Create a markdown file, share it, and watch both ways")
+		fmt.Fprintln(w, "  gander edit [--silent] [--foreground] <file.md>")
+		fmt.Fprintln(w, "                                                              Edit a shared markdown file; share saves write back to disk")
 		fmt.Fprintln(w, "  gander remove [--all|--pick <short_id>|--yes|--non-interactive] <file|short_id|url>")
 		fmt.Fprintln(w, "                                                              Delete a share from gander.md")
 		fmt.Fprintln(w, "  gander archive [--all|--pick <short_id>|--yes|--non-interactive] <file|short_id|url>")
@@ -389,7 +405,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  -yes              With -watch -existing, confirm more than 50 files")
 	if !authed {
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, "Run `gander signup --email you@example.com` to enable share / watch / remove / archive / list / invite / manage / auth.")
+		fmt.Fprintln(w, "Run `gander signup --email you@example.com` to enable share / watch / new / edit / remove / archive / list / invite / manage / auth.")
 	}
 }
 
