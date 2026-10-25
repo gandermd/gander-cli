@@ -230,7 +230,6 @@ func runWatchAndPushCtx(ctx context.Context, absPath string, sh *shareResp, cfg 
 		cli:        newAPIClient(cfg.APIURL, cfg.APIToken),
 		onArchived: runCancel,
 		acked:      sh.Version,
-		synced:     sh.Version > 0,
 	}
 	fmt.Printf("Watching %s — pushing changes to %s. Press Ctrl+C to stop.\n", absPath, sh.URL)
 	return serveShareWatcher(runCtx, pusher, absPath, cfg.DebounceMs)
@@ -245,7 +244,6 @@ func serveShareWatcher(ctx context.Context, pusher *watchPusher, absPath string,
 		debounce = 50 * time.Millisecond
 	}
 	if pusher != nil {
-		pusher.seedClean()
 		syncCtx, syncCancel := context.WithCancel(ctx)
 		defer syncCancel()
 		go listenShareWriteBack(syncCtx, pusher)
@@ -301,42 +299,26 @@ type watchPusher struct {
 	cli        *apiClient
 	onArchived func()
 
-	mu             sync.Mutex
-	lastHash       string
-	cleanHash      string
-	acked          int
-	synced         bool
-	catchupSent    bool
-	divergedLogged bool
-	conflictLogged int
+	mu       sync.Mutex
+	lastHash string
+	acked    int
 }
 
-func (w *watchPusher) seedClean() {
-	if w == nil {
-		return
-	}
-	data, err := os.ReadFile(w.absPath)
-	if err != nil {
-		return
-	}
-	sum := sha256.Sum256(data)
-	h := hex.EncodeToString(sum[:])
-	w.mu.Lock()
-	w.cleanHash = h
-	w.mu.Unlock()
-}
-
-func (w *watchPusher) cursor() int {
+func (w *watchPusher) version() int {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	return w.acked
 }
 
-func (w *watchPusher) pushCatchup() {
+func (w *watchPusher) noteVersion(v int) {
+	if v <= 0 {
+		return
+	}
 	w.mu.Lock()
-	w.lastHash = ""
-	w.mu.Unlock()
-	w.push()
+	defer w.mu.Unlock()
+	if v > w.acked {
+		w.acked = v
+	}
 }
 
 func (w *watchPusher) push() {
@@ -356,7 +338,8 @@ func (w *watchPusher) push() {
 	w.lastHash = h
 	w.mu.Unlock()
 
-	if _, err := w.cli.UpdateShare(w.shareUUID, string(data)); err != nil {
+	resp, err := w.cli.UpdateShare(w.shareUUID, string(data))
+	if err != nil {
 		if isArchivedConflict(err) {
 			log.Printf("share archived; stopping watch %s", w.absPath)
 			if w.onArchived != nil {
@@ -367,11 +350,13 @@ func (w *watchPusher) push() {
 		log.Printf("push to gandermd: %v", err)
 		return
 	}
-	w.mu.Lock()
-	if w.lastHash == h {
-		w.cleanHash = h
+	if resp != nil && resp.Version > 0 {
+		w.mu.Lock()
+		if w.lastHash == h && resp.Version > w.acked {
+			w.acked = resp.Version
+		}
+		w.mu.Unlock()
 	}
-	w.mu.Unlock()
 	fmt.Println("Pushed update.")
 }
 

@@ -262,12 +262,15 @@ Watch
 .B PUT
 updates send content only.
 While the watch is running, a save on the share is written back to the
-local file. The client reads
+local file. The client posts
 .B watch/sync
-and confirms the applied revision with
+with
+.B file_hash
+and
+.BR version ,
+and confirms with
 .B watch/ack
-using
-.BR base_version .
+using those same fields.
 Required when the path is a directory.
 .TP
 .B \-\-existing

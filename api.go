@@ -272,31 +272,42 @@ func (c *apiClient) UpdateShare(uuid, content string) (*shareResp, error) {
 	return &out, nil
 }
 
-// openWatchSync subscribes to share edits newer than baseVersion.
-// GET .../watch/sync?base_version=N is the live stream. A 405 or 400 falls
-// back to POST {"base_version": N} for servers that only accept a JSON body.
-func (c *apiClient) openWatchSync(ctx context.Context, uuid string, baseVersion int) (*http.Response, error) {
-	path := fmt.Sprintf("/api/shares/%s/watch/sync?base_version=%d", uuid, baseVersion)
-	resp, err := c.doStream(ctx, http.MethodGet, path, nil)
-	if err == nil {
-		return resp, nil
-	}
-	var ae *apiError
-	if errors.As(err, &ae) && (ae.Status == http.StatusNotFound || ae.Status == http.StatusMethodNotAllowed || ae.Status == http.StatusBadRequest) {
-		post, postErr := c.doStream(ctx, http.MethodPost, fmt.Sprintf("/api/shares/%s/watch/sync", uuid), map[string]int{
-			"base_version": baseVersion,
-		})
-		if postErr == nil {
-			return post, nil
-		}
-		return nil, postErr
-	}
-	return nil, err
+// watchSyncResp is the long-poll JSON body from POST /watch/sync.
+// The server parks on op "ok" (about 18s) before returning.
+type watchSyncResp struct {
+	Op          string  `json:"op"`
+	Version     int     `json:"version"`
+	Content     *string `json:"content,omitempty"`
+	Force       bool    `json:"force,omitempty"`
+	NeedContent bool    `json:"need_content,omitempty"`
 }
 
-func (c *apiClient) WatchAck(uuid string, baseVersion int) error {
-	return c.do("POST", fmt.Sprintf("/api/shares/%s/watch/ack", uuid), map[string]int{
-		"base_version": baseVersion,
+// postWatchSync exchanges the local file hash and version for a server op.
+// content is sent only when the previous response set need_content.
+func (c *apiClient) postWatchSync(ctx context.Context, uuid, fileHash string, version int, content string, includeContent bool) (*watchSyncResp, error) {
+	body := map[string]any{
+		"file_hash": fileHash,
+		"version":   version,
+	}
+	if includeContent {
+		body["content"] = content
+	}
+	resp, err := c.doStream(ctx, http.MethodPost, fmt.Sprintf("/api/shares/%s/watch/sync", uuid), body)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var out watchSyncResp
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("decode sync: %w", err)
+	}
+	return &out, nil
+}
+
+func (c *apiClient) WatchAck(uuid, fileHash string, version int) error {
+	return c.do("POST", fmt.Sprintf("/api/shares/%s/watch/ack", uuid), map[string]any{
+		"file_hash": fileHash,
+		"version":   version,
 	}, nil)
 }
 
@@ -316,11 +327,11 @@ func (c *apiClient) doStream(ctx context.Context, method, path string, body any)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	req.Header.Set("Accept", "text/event-stream, application/json")
+	req.Header.Set("Accept", "application/json")
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
 	}
-	// No client timeout: the sync stream stays open until the share changes.
+	// No client timeout: watch/sync long-polls until the share changes.
 	resp, err := (&http.Client{}).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
